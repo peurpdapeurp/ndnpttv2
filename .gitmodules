@@ -1,0 +1,3 @@
+[submodule "jni/ndnrtc"]
+	path = jni/ndnrtc
+	url = https://github.com/peurpdapeurp/ndnrtc.git

@@ -7,6 +7,6 @@ jstring Java_com_example_nrtpttv2_MainActivity_helloWorld(JNIEnv* env, jobject o
 
     int x = RESULT_OK + RESULT_ERR;
 
-    return (*env)->NewStringUTF(env,"Hello world");
+    return (*env)->NewStringUTF(env,"Added RESULT_OK and RESULT_ERR from ndnrtc-defines.hpp.");
 
 }

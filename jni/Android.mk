@@ -1,13 +1,12 @@
 
 JNI_FOLDER_PATH := $(call my-dir)
-NDK_PACKAGES_ROOT := $(JNI_FOLDER_PATH)/../../../../../../AppData/Local/Android/Sdk/ndk-bundle/packages
 
 # Build my test file
 include $(CLEAR_VARS)
 LOCAL_PATH := $(JNI_FOLDER_PATH)
-LOCAL_C_INCLUDES := \
-    $(NDK_PACKAGES_ROOT)/ndnrtc/0.0.2/include \
-    $(NDK_PACKAGES_ROOT)/ndn_cpp/0.16-48-g4ace2ff4/include
+LOCAL_SHARED_LIBRARIES := \
+    boost_system_shared boost_thread_shared boost_log_shared boost_stacktrace_basic_shared \
+    ndn_cpp_shared ndnrtc_shared webrtc_shared
 LOCAL_MODULE := test
 LOCAL_SRC_FILES := test.c
 include $(BUILD_SHARED_LIBRARY)

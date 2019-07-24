@@ -49,3 +49,6 @@ gradle-app.setting
 
 # Sandbox stuff
 _sandbox
+
+# Temporary files caused by emacs editing
+*~

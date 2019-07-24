@@ -16,6 +16,78 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    sourceSets {
+        main {
+            java.srcDirs "src/main/java"
+	    res.srcDirs "src/main/res"
+	    jniLibs.srcDir 'src/main/libs'
+	    jni.srcDirs = [] //disable automatic ndk-build call
+	}
+	androidTest.setRoot('tests')
+	androidTest.java.srcDirs = ['tests/src']
+    }
+
+//    task copyNdnCxxHeaders(type: Copy) {
+//      from('src/main/jni/ndn-cxx/src') {
+//	    include '**/*.hpp'
+//	}
+//	into 'build/generated/source/include/ndn-cxx'
+//    }
+
+    // call regular ndk-build(.cmd) script from app directory
+    task ndkBuild(type: Exec) {
+        // dependsOn copyNdnCxxHeaders
+	def args = [getNdkBuildCmd(), '-C', file('src/main').absolutePath]
+
+        if (System.env.NDK_BUILD_PARALLEL != null) {
+           args.add("-j" + System.env.NDK_BUILD_PARALLEL)
+        }
+	else {
+	    args.add("-j" + Runtime.runtime.availableProcessors())
+	}
+
+        if (System.env.NDK_BUILD_ABI != null) {
+            args.add("APP_ABI=" + System.env.NDK_BUILD_ABI)
+	}
+
+        if (System.env.NDK_DEBUG != null) {
+            args.add("V=1")
+	}
+	println args
+	commandLine args
+    }
+
+    tasks.withType(JavaCompile) {
+        compileTask -> compileTask.dependsOn ndkBuild
+    }
+
+    task cleanNative(type: Exec) {
+        commandLine getNdkBuildCmd(), '-C', file('src/main').absolutePath, 'clean'
+    }
+
+    clean.dependsOn cleanNative
+}
+
+def getNdkBuildCmd() {
+    def ndk_build = getNdkDir() + "/ndk-build"
+//        if (Os.isFamily(Os.FAMILY_WINDOWS)) {
+//	      ndk_build += ".cmd"
+//	  }
+    return ndk_build
+}
+
+def getNdkDir() {
+    if (System.env.ANDROID_NDK_ROOT != null)
+        return System.env.ANDROID_NDK_ROOT
+	
+    Properties properties = new Properties()
+    properties.load(project.rootProject.file('local.properties').newDataInputStream())
+
+    def ndk_dir = properties.getProperty('ndk.dir', null)
+    if (ndk_dir == null) {
+        throw new GradleException("NDK location not found. Define location with ndk.dir in the local.properties file or with an ANDROID_NDK_ROOT environment variable.")
+    }
+    return ndk_dir
 }
 
 dependencies {

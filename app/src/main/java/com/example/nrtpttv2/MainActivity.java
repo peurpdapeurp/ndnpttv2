@@ -4,17 +4,22 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Bundle;
 import android.widget.TextView;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import android.util.Log;
 
 public class MainActivity extends AppCompatActivity {
-
+    
     public TextView display_text;
+    HashMap<String, String> params;
 
-    public native String helloWorld();
+    public native void startNdnRtc(Map<String, String> params);
 
     static {
-        System.loadLibrary("test");
+        System.loadLibrary("ndnrtc-wrapper");
     }
-
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -22,8 +27,11 @@ public class MainActivity extends AppCompatActivity {
 
         display_text = (TextView) findViewById(R.id.display_text);
 
-        display_text.setText(helloWorld());
+	params = new HashMap<>();
+	params.put("homePath", getFilesDir().getAbsolutePath());
+	Set<Map.Entry<String, String>> e = params.entrySet();
 
+	startNdnRtc(params);
     }
 
 }

@@ -15,11 +15,17 @@
 
 #include <ndnrtc/params.hpp>
 #include <ndnrtc/remote-stream.hpp>
+#include <ndnrtc/local-stream.hpp>
+#include <ndnrtc/simple-log.hpp>
 
 #include <string.h>
 #include <jni.h>
 
+#define CLIENT_PRODUCER
+// #define CLIENT_CONSUMER
+
 static std::map<std::string, std::string> g_params;
+static int g_run_time_sec = 5;
 
 // the function below was taken from here: https://github.com/named-data-mobile/NFD-android/blob/master/app/src/main/jni/nfd-wrapper.cpp
 std::map<std::string, std::string>
@@ -81,7 +87,16 @@ Java_com_example_nrtpttv2_MainActivity_startNdnRtc(JNIEnv* env, jclass, jobject 
   g_params = getParams(env, jParams);
   ::setenv("HOME", g_params["homePath"].c_str(), true);
 
-  __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Finished setting the HOME variable.");
+  __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Finished setting the HOME variable: %s.", g_params["homePath"].c_str());
+  __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Got the directory of the application cache: %s.", g_params["cachePath"].c_str());
+
+  auto logger = std::make_shared<ndnlog::new_api::Logger>(ndnlog::NdnLoggerDetailLevelAll, g_params["cachePath"] + "/log.txt");
+  ndnlog::new_api::Logger::initAsyncLogging();
+  ndnlog::new_api::Logger::getLogger(g_params["cachePath"] + "/log.txt").setLogLevel(ndnlog::NdnLoggerDetailLevelAll);
+  
+  LogInfo("") << "Starting trivial NDN-RTC client." << std::endl;
+
+  __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Finished creating the logger object and setting up logging.");
   
   boost::asio::io_service io;
   std::shared_ptr<boost::asio::io_service::work> work(std::make_shared<boost::asio::io_service::work>(io));
@@ -98,20 +113,29 @@ Java_com_example_nrtpttv2_MainActivity_startNdnRtc(JNIEnv* env, jclass, jobject 
     });
 
   __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Finished adding work to and running the io object.");
-  
-  std::shared_ptr<ndn::Face> face(std::make_shared<ndn::ThreadsafeFace>(io));
-
-  __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Finished creating the face object.");
-  
+    
   auto keyChain = std::make_shared<ndn::KeyChain>();
-
+  auto defaultIdentity = keyChain->createIdentityV2(ndn::Name("/default/identity"));
+  keyChain->setDefaultIdentity(*defaultIdentity);
+  
+  __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Default identity of keychain object: %s.",
+		      keyChain->getDefaultIdentity().toUri().c_str());
+  
   __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Finished creating the keychain object.");
+
+  std::shared_ptr<ndn::Face> face(std::make_shared<ndn::ThreadsafeFace>(io));
+  face->setCommandSigningInfo(*keyChain, keyChain->getDefaultCertificateName());
+  
+  __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Finished creating the face object.");
+
+#ifdef CLIENT_CONSUMER
   
   ndnrtc::RemoteAudioStream remoteStream(io,
   					 face,
   					 keyChain,
-  					 "/ndn/edu/ucla/remap/clientB",
-  					 "/randomStream");
+  					 "/ndnrtc",
+  					 "nrtpttv2");
+  remoteStream.setLogger(logger);
 
   __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Finished creating the remote audio stream object.");
   
@@ -119,11 +143,57 @@ Java_com_example_nrtpttv2_MainActivity_startNdnRtc(JNIEnv* env, jclass, jobject 
 
   __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Finished starting the remote audio stream object.");
 
-  runProcessLoop(io, 5);
+  runProcessLoop(io, g_run_time_sec);
 
   __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Process loop finished running.");
 
   remoteStream.stop();
+  
+#endif
+  
+#ifdef CLIENT_PRODUCER
+  
+  face->registerPrefix(ndn::Name("/ndnrtc"),
+		       [](const std::shared_ptr<const ndn::Name> &prefix,
+			  const std::shared_ptr<const ndn::Interest> &interest,
+			  ndn::Face &face, uint64_t, const std::shared_ptr<const ndn::InterestFilter> &) {
+			 __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Unexpected incoming interest %s.", interest->getName().toUri().c_str());
+		       },
+		       [](const std::shared_ptr<const ndn::Name> &p) {
+			 __android_log_print(ANDROID_LOG_ERROR, "NDNRTC-WRAPPER", "Failed to register prefix %s.", p->toUri().c_str());
+		       },
+		       [](const std::shared_ptr<const ndn::Name> &p, uint64_t) {
+			 __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Successfully registered prefix %s.", p->toUri().c_str());
+		       });
+  
+  ndnrtc::MediaStreamParams params;
+  params.streamName_ = "nrtpttv2";
+  params.synchronizedStreamName_ = "";
+  params.captureDevice_.deviceId_ = 0;
+  params.type_ = ndnrtc::MediaStreamParams::MediaStreamType::MediaStreamTypeAudio;
+  params.producerParams_.segmentSize_ = 1000;
+
+  ndnrtc::MediaStreamSettings settings(io, params);
+  settings.face_ = face.get();
+  settings.keyChain_ = keyChain.get();
+  //settings.params_.addMediaThread(ndnrtc::AudioThreadParams("sound"));
+
+  ndnrtc::LocalAudioStream localStream("/ndnrtc", settings);
+  localStream.setLogger(logger);
+
+  __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Finished creating the local audio stream object.");
+  
+  localStream.start();
+  
+  __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Finished starting the local audio stream object.");
+
+  runProcessLoop(io, g_run_time_sec);
+
+  __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Process loop finished running.");
+
+  localStream.stop();
+  
+#endif
   
   face->shutdown();
   face.reset();
@@ -134,5 +204,7 @@ Java_com_example_nrtpttv2_MainActivity_startNdnRtc(JNIEnv* env, jclass, jobject 
   __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Clean up finished.");  
   
   __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Got to the end of the startNdnRtc function.");
+
+  LogInfoC << "Got to the end of the startNdnRtc function." << std::endl;
   
 }

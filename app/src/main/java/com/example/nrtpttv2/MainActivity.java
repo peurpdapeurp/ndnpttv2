@@ -29,6 +29,7 @@ public class MainActivity extends AppCompatActivity {
 
 	params = new HashMap<>();
 	params.put("homePath", getFilesDir().getAbsolutePath());
+	params.put("cachePath", getExternalCacheDir().getAbsolutePath());
 	Set<Map.Entry<String, String>> e = params.entrySet();
 
 	startNdnRtc(params);

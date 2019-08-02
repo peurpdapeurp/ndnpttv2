@@ -17,7 +17,7 @@ export NDNPTTV2_ENV=`pwd`
 
 ### Prerequisites
 
-Below are instructions on how to populate the NDNPTTv2 build directory with the prerequisites of NDNPTTv2, which are Android NDK 19, android-crew-staging.
+Below are instructions on how install the prerequisites of NDNPTTv2, which are the Android SDK, Android NDK 19, and android-crew-staging.
 
 First, install the Android SDK:
 

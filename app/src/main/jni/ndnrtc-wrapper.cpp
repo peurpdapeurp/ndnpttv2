@@ -90,11 +90,8 @@ Java_com_example_nrtpttv2_MainActivity_startNdnRtc(JNIEnv* env, jclass, jobject 
   __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Finished setting the HOME variable: %s.", g_params["homePath"].c_str());
   __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Got the directory of the application cache: %s.", g_params["cachePath"].c_str());
 
-  auto logger = std::make_shared<ndnlog::new_api::Logger>(ndnlog::NdnLoggerDetailLevelAll, g_params["cachePath"] + "/log.txt");
   ndnlog::new_api::Logger::initAsyncLogging();
   ndnlog::new_api::Logger::getLogger(g_params["cachePath"] + "/log.txt").setLogLevel(ndnlog::NdnLoggerDetailLevelAll);
-  
-  LogInfo("") << "Starting trivial NDN-RTC client." << std::endl;
 
   __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Finished creating the logger object and setting up logging.");
   
@@ -135,7 +132,7 @@ Java_com_example_nrtpttv2_MainActivity_startNdnRtc(JNIEnv* env, jclass, jobject 
   					 keyChain,
   					 "/ndnrtc",
   					 "nrtpttv2");
-  remoteStream.setLogger(logger);
+  remoteStream.setLogger(ndnlog::new_api::Logger::getLoggerPtr(g_params["cachePath"] + "/log.txt"));
 
   __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Finished creating the remote audio stream object.");
   
@@ -176,10 +173,10 @@ Java_com_example_nrtpttv2_MainActivity_startNdnRtc(JNIEnv* env, jclass, jobject 
   ndnrtc::MediaStreamSettings settings(io, params);
   settings.face_ = face.get();
   settings.keyChain_ = keyChain.get();
-  //settings.params_.addMediaThread(ndnrtc::AudioThreadParams("sound"));
+  settings.params_.addMediaThread(ndnrtc::AudioThreadParams("sound"));
 
   ndnrtc::LocalAudioStream localStream("/ndnrtc", settings);
-  localStream.setLogger(logger);
+  localStream.setLogger(ndnlog::new_api::Logger::getLoggerPtr(g_params["cachePath"] + "/log.txt"));
 
   __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Finished creating the local audio stream object.");
   
@@ -204,7 +201,5 @@ Java_com_example_nrtpttv2_MainActivity_startNdnRtc(JNIEnv* env, jclass, jobject 
   __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Clean up finished.");  
   
   __android_log_print(ANDROID_LOG_DEBUG, "NDNRTC-WRAPPER", "Got to the end of the startNdnRtc function.");
-
-  LogInfoC << "Got to the end of the startNdnRtc function." << std::endl;
   
 }

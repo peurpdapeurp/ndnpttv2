@@ -19,7 +19,13 @@ export NDNPTTV2_ENV=`pwd`
 
 Below are instructions on how to populate the NDNPTTv2 build directory with the prerequisites of NDNPTTv2, which are Android NDK 19, android-crew-staging.
 
-First, install Android NDK 19 (the latest NDK should not be used due to issues related to the android-crew-staging prerequisite):
+First, install the Android SDK:
+
+```Shell
+sudo apt-get install android-sdk
+```
+
+Next, install Android NDK 19 (the latest NDK should not be used due to issues related to the android-crew-staging prerequisite):
 
 ```Shell
 cd $NDNPTTV2_ENV
@@ -50,4 +56,37 @@ cd $NDNPTTV2_ENV/android-crew-staging
 ./crew install ndnrtc
 ```
 
+### Build NDNPTTv2
 
+Now, clone NDNPTTv2 into the build directory.
+
+```Shell
+cd $NDNPTTV2_ENV
+git clone https://github.com/peurpdapeurp/ndnpttv2
+```
+
+Before building with the gradle tool, proper security configuration must be set up (source for keytool commands: https://coderwall.com/p/r09hoq/android-generate-release-debug-keystores):
+
+```Shell
+cd $NDNPTTV2_ENV/ndnpttv2
+keytool -genkey -v -keystore my-key.keystore -alias alias_name -keyalg RSA -keysize 2048 -validity 10000
+keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000
+echo "ndk.dir=$NDNPTTV2_ENV/android-ndk-r19
+sdk.dir=/usr/lib/android-sdk
+keystore=debug.keystore
+keystore.password=android
+keystore.key.alias=androiddebugkey
+keystore.key.password=android
+" >> local.properties
+```
+
+After security is properly configured, NDNPTTv2 can be built with the gradle tool:
+
+```Shell
+cd $NDNPTTV2_ENV/ndnpttv2
+./gradlew assembleDebug
+```
+
+The resulting app-debug.apk file can be found in $NDNPTTV2_ENV/ndnpttv2/app/build/outputs/apk/debug.
+
+The app-debug.apk file can be installed to your Android device through adb or a file sharing service like DropBox / Google Drive.

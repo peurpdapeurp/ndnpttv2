@@ -17,9 +17,23 @@ export NDNPTTV2_ENV=`pwd`
 
 ### Prerequisites
 
-Below are instructions on how install the prerequisites of NDNPTTv2, which are the latest JDK, Android SDK, Android NDK 19, and android-crew-staging.
+Below are instructions on how install the prerequisites of NDNPTTv2, which are the Java SE Development Kit, Android SDK, Android NDK 19, and android-crew-staging.
 
-First, follow the instructions here to install the latest JDK: https://docs.oracle.com/en/java/javase/11/install/installation-jdk-linux-platforms.html#GUID-737A84E4-2EFF-4D38-8E60-3E29D1B884B8. Make sure to set your JAVA_HOME environment variable correctly after installation; if you do not, the "./gradlew assembleDebug" command will fail in the last ndnpttv2 installation step.
+First, if some version of the JDK is not already installed on your machine, download the Java SE Development Kit 8 for Linux x64 from here: https://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html
+
+Next, if some version of the JDK is not already installed on your machine, install Java SE Development Kit 8, and set the JAVA_HOME environment variable to the directory of your installation (the shell instructions below assume they are run in the same directory which you downloaded the "jdk-8u221-linux-x64.tar.gz" file to):
+
+```Shell
+sudo mkdir /usr/java
+sudo mv jdk-8u221-linux-x64.tar.gz /usr/java/
+cd /usr/java/
+sudo tar -xvf jdk-8u221-linux-x64.tar.gz
+sudo rm jdk-8u221-linux-x64.tar.gz
+cd jdk1.8.0_221/
+export JAVA_HOME=`pwd`
+```
+
+If some version of the JDK is already installed on your machine, then simply make sure that your JAVA_HOME environment variable is set to the directory of your JDK installation.
 
 Next, install the Android SDK:
 

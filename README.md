@@ -4,7 +4,7 @@ This repository contains the source code of NDNPTTv2, an audio chat application 
 
 ## Build Instructions
 
-The build instructions below are for a Linux Ubuntu 16.04.6 LTS (Xenial) environment.
+The build instructions below are for a Linux Ubuntu 16.04.6 LTS (Xenial) environment, to build a debug .apk file of the application that can be run on an Android phone.
 
 ### Create a build directory
 
@@ -19,7 +19,13 @@ export NDNPTTV2_ENV=`pwd`
 
 Below are instructions on how install the prerequisites of NDNPTTv2, which are the Java SE Development Kit, Android SDK, Android NDK 19, and android-crew-staging.
 
-First, if some version of the JDK is not already installed on your machine, download the Java SE Development Kit 8 for Linux x64 from here: https://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html
+First, make sure to run the following command:
+
+```Shell
+sudo apt-get update
+```
+
+Next, if some version of the JDK is not already installed on your machine, download the Java SE Development Kit 8 for Linux x64 from here: https://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html
 
 Next, if some version of the JDK is not already installed on your machine, install Java SE Development Kit 8, and set the JAVA_HOME environment variable to the directory of your installation (the shell instructions below assume they are run in the same directory which you downloaded the "jdk-8u221-linux-x64.tar.gz" file to):
 
@@ -81,25 +87,11 @@ cd $NDNPTTV2_ENV
 git clone https://github.com/peurpdapeurp/ndnpttv2
 ```
 
-Before building with the gradle tool, proper security configuration must be set up (source for keytool commands: https://coderwall.com/p/r09hoq/android-generate-release-debug-keystores):
+Create a local.properties file that contains the Android SDK and Android NDK installation directories. After that, NDNPTTv2 can be built with the gradle tool:
 
 ```Shell
 cd $NDNPTTV2_ENV/ndnpttv2
-keytool -genkey -v -keystore my-key.keystore -alias alias_name -keyalg RSA -keysize 2048 -validity 10000
-keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000
-echo "ndk.dir=$NDNPTTV2_ENV/android-ndk-r19
-sdk.dir=/usr/lib/android-sdk
-keystore=debug.keystore
-keystore.password=android
-keystore.key.alias=androiddebugkey
-keystore.key.password=android
-" >> local.properties
-```
 
-After security is properly configured, NDNPTTv2 can be built with the gradle tool:
-
-```Shell
-cd $NDNPTTV2_ENV/ndnpttv2
 ./gradlew assembleDebug
 ```
 

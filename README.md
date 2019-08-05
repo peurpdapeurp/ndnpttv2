@@ -19,8 +19,7 @@ export NDNPTTV2_ENV=`pwd`
 
 Below are instructions on how install the prerequisites of NDNPTTv2, which are the latest JDK, Android SDK, Android NDK 19, and android-crew-staging.
 
-Follow the instructions here to install the latest JDK: https://docs.oracle.com/en/java/javase/11/install/installation-jdk-linux-platforms.html#GUID-737A84E4-2EFF-4D38-8E60-3E29D1B884B8
-(Make sure to set your JAVA_HOME environment variable correctly after installation; if you do not, the "./gradlew assembleDebug" command will fail in the last ndnpttv2 installation step).
+First, follow the instructions here to install the latest JDK: https://docs.oracle.com/en/java/javase/11/install/installation-jdk-linux-platforms.html#GUID-737A84E4-2EFF-4D38-8E60-3E29D1B884B8. Make sure to set your JAVA_HOME environment variable correctly after installation; if you do not, the "./gradlew assembleDebug" command will fail in the last ndnpttv2 installation step.
 
 Next, install the Android SDK:
 

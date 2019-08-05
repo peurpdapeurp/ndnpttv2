@@ -87,11 +87,18 @@ cd $NDNPTTV2_ENV
 git clone https://github.com/peurpdapeurp/ndnpttv2
 ```
 
-Create a local.properties file that contains the Android SDK and Android NDK installation directories. After that, NDNPTTv2 can be built with the gradle tool:
+Create a local.properties file that contains the Android SDK and Android NDK installation directories. Note that the commands below assume your Android SDK was installed with "sudo apt-get install android-sdk" to the default location; if you installed Android SDK by other means, your Android SDK installation directory may be different. The same goes for your Android NDK directory.
 
 ```Shell
 cd $NDNPTTV2_ENV/ndnpttv2
+echo "sdk.dir=/usr/lib/android-sdk
+ndk.dir=$NDNPTTV2_ENV/android-ndk-r19" >> local.properties
+```
 
+Finally, NDNPTTv2 can be built with the gradle tool:
+
+```Shell
+cd $NDNPTTV2_ENV/ndnpttv2
 ./gradlew assembleDebug
 ```
 

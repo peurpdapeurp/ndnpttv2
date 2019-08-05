@@ -47,6 +47,27 @@ Next, install the Android SDK:
 sudo apt-get install android-sdk
 ```
 
+Next, download the Android SDK tools for Linux from here: https://developer.android.com/studio
+
+Next, use the Android SDK tools to accept the licenses for the Android SDK. The shell instructions below assume they are run in the same directory which you downloaded the Android SDK tools for Linux to. The name of the file may change in the future; if it does, simply replace the "sdk-tools-linux-4333796.zip" in the commands below which the name of the zip file containing the Android SDK tools for Linux which you downloaded:
+
+```Shell
+sudo mv sdk-tools-linux-4333796.zip /usr/java/
+cd /usr/java/
+sudo unzip sdk-tools-linux-4333796.zip
+./tools/bin/sdkmanager --update
+./tools/bin/sdkmanager --licenses
+```
+
+Note: If you run into an error related to your repositories.cfg file while trying to run the sdkmanager, follow the instructions here (https://askubuntu.com/questions/885658/android-sdk-repositories-cfg-could-not-be-loaded) to resolve it.
+
+When prompted by the sdkmanager to accept licenses, press "y" until you have accepted all licenses, then move the licenses folder generated in /usr/lib/ to your android-sdk installation directory:
+
+```Shell
+cd /usr/java/
+sudo mv licenses /usr/lib/android-sdk/
+```
+
 Next, install Android NDK 19 (the latest NDK should not be used due to issues related to the android-crew-staging prerequisite):
 
 ```Shell

@@ -46,7 +46,7 @@ Next, use the crew tool in the android-crew-staging repository to install the li
 
 ```Shell
 cd $NDNPTTV2_ENV/android-ndk-r19
-export CREW_NDK_DIR=\`pwd\`
+export CREW_NDK_DIR=`pwd`
 cd $NDNPTTV2_ENV/android-crew-staging
 ./crew install target/openssl
 ./crew install boost

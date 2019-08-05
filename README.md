@@ -93,6 +93,8 @@ export CREW_NDK_DIR=`pwd`
 cd $NDNPTTV2_ENV/android-crew-staging
 ./crew install target/openssl
 ./crew install boost
+./crew install protobuf
+./crew install sqlite
 ./crew install ndn-cpp
 ./crew install webrtc
 ./crew install openfec

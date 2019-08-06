@@ -12,13 +12,6 @@ import android.util.Log;
 public class MainActivity extends AppCompatActivity {
     
     public TextView display_text;
-    HashMap<String, String> params;
-
-    public native void startNdnRtc(Map<String, String> params);
-
-    static {
-        System.loadLibrary("ndnrtc-wrapper");
-    }
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -26,13 +19,6 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         display_text = (TextView) findViewById(R.id.display_text);
-
-	params = new HashMap<>();
-	params.put("homePath", getFilesDir().getAbsolutePath());
-	params.put("cachePath", getExternalCacheDir().getAbsolutePath());
-	Set<Map.Entry<String, String>> e = params.entrySet();
-
-	startNdnRtc(params);
     }
 
 }

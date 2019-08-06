@@ -68,39 +68,6 @@ cd /usr/java/
 sudo mv licenses /usr/lib/android-sdk/
 ```
 
-Next, install Android NDK 19 (the latest NDK should not be used due to issues related to the android-crew-staging prerequisite):
-
-```Shell
-cd $NDNPTTV2_ENV
-wget https://dl.google.com/android/repository/android-ndk-r19-linux-x86_64.zip
-unzip android-ndk-r19-linux-x86_64.zip
-rm android-ndk-r19-linux-x86_64.zip
-```
-
-Next, clone the android-crew-staging repository:
-
-```Shell
-cd $NDNPTTV2_ENV
-git clone https://github.com/named-data-mobile/android-crew-staging
-sudo apt-get install curl tar ruby ruby-rugged
-```
-
-Next, use the crew tool in the android-crew-staging repository to install the library dependencies of NDNPTTv2 (ndnrtc, webrtc, ndn-cpp, openssl, boost, openfec).
-
-```Shell
-cd $NDNPTTV2_ENV/android-ndk-r19
-export CREW_NDK_DIR=`pwd`
-cd $NDNPTTV2_ENV/android-crew-staging
-./crew install target/openssl
-./crew install boost
-./crew install protobuf
-./crew install sqlite
-./crew install ndn-cpp
-./crew install webrtc
-./crew install openfec
-./crew install ndnrtc
-```
-
 ### Build NDNPTTv2
 
 Now, clone NDNPTTv2 into the build directory.
@@ -110,12 +77,11 @@ cd $NDNPTTV2_ENV
 git clone https://github.com/peurpdapeurp/ndnpttv2
 ```
 
-Create a local.properties file that contains the Android SDK and Android NDK installation directories. Note that the commands below assume your Android SDK was installed with "sudo apt-get install android-sdk" to the default location; if you installed Android SDK by other means, your Android SDK installation directory may be different. The same goes for your Android NDK directory.
+Create a local.properties file that contains the Android SDK installation directories. Note that the commands below assume your Android SDK was installed with "sudo apt-get install android-sdk" to the default location; if you installed Android SDK by other means, your Android SDK installation directory may be different.
 
 ```Shell
 cd $NDNPTTV2_ENV/ndnpttv2
-echo "sdk.dir=/usr/lib/android-sdk
-ndk.dir=$NDNPTTV2_ENV/android-ndk-r19" >> local.properties
+echo "sdk.dir=/usr/lib/android-sdk" >> local.properties
 ```
 
 Finally, NDNPTTv2 can be built with the gradle tool:

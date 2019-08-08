@@ -1,3 +1,13 @@
 <resources>
     <string name="app_name">NDNPTTv2</string>
+    <string name="AP_IP_ADDRESS_PREFIX">udp4://</string>
+    <string name="AP_IP_ADDRESS_SUFFIX">:6363</string>
+    <string name="face_uri">localhost</string>
+    <string name="data_prefix">/pscr/NRT-PTT</string>
+    <string name="broadcast_prefix">/pscr/NRT-PTT/sync</string>
+    <string name="play_button_text_play">Play Last Recorded Audio</string>
+    <string name="play_button_text_stop">Stop Playing</string>
+    <string name="send_button">Send Last Recorded Audio</string>
+    <string name="ptt_button_down_text">Recording...</string>
+    <string name="ptt_button_up_text">Press and Hold to Talk</string>
 </resources>

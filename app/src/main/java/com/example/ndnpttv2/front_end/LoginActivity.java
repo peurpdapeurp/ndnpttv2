@@ -56,8 +56,10 @@ public class LoginActivity extends AppCompatActivity {
 
         m_channel_input.setText(mPreferences.getString(CHANNEL_NAME, "/defaultChannel"));
         m_name_input.setText(mPreferences.getString(USER_NAME, "DefaultUsername"));
-        m_segment_interest_lifetime_input.setText(mPreferences.getString(SEGMENT_INTEREST_LIFETIME, "15000"));
-        m_segment_interest_max_reattempts_input.setText(mPreferences.getString(SEGMENT_INTEREST_MAX_REATTEMPTS, "5"));
+        m_segment_interest_lifetime_input.setText(mPreferences.getString(SEGMENT_INTEREST_LIFETIME,
+                "15000"));
+        m_segment_interest_max_reattempts_input.setText(mPreferences.getString(SEGMENT_INTEREST_MAX_REATTEMPTS,
+                "5"));
         m_ap_ip_address_input.setText(mPreferences.getString(AP_IP_ADDRESS, "192.168.4.1"));
 
         m_ok_button.setOnClickListener(new View.OnClickListener() {
@@ -65,24 +67,29 @@ public class LoginActivity extends AppCompatActivity {
             public void onClick(View view) {
                 String channel = m_channel_input.getText().toString().trim();
                 String name = m_name_input.getText().toString().trim();
-                String segmentInterestLifetime = m_segment_interest_lifetime_input.getText().toString().trim();
-                String segmentInterestMaxReattempts = m_segment_interest_max_reattempts_input.getText().toString().trim();
+                String segmentInterestLifetime =
+                        m_segment_interest_lifetime_input.getText().toString().trim();
+                String segmentInterestMaxReattempts =
+                        m_segment_interest_max_reattempts_input.getText().toString().trim();
                 String apIpAddress = m_ap_ip_address_input.getText().toString().trim();
 
                 if (channel.equals("")) {
-                    Toast toast = Toast.makeText(LoginActivity.this, "Please enter a channel", Toast.LENGTH_SHORT);
+                    Toast toast = Toast.makeText(LoginActivity.this,
+                            "Please enter a channel", Toast.LENGTH_SHORT);
                     toast.show();
 
                     return;
                 }
                 else if (name.equals("")) {
-                    Toast toast = Toast.makeText(LoginActivity.this, "Please enter a name", Toast.LENGTH_SHORT);
+                    Toast toast = Toast.makeText(LoginActivity.this,
+                            "Please enter a name", Toast.LENGTH_SHORT);
                     toast.show();
 
                     return;
                 }
                 else if (apIpAddress.equals("")) {
-                    Toast toast = Toast.makeText(LoginActivity.this, "Please enter an AP IP ADDRESS", Toast.LENGTH_SHORT);
+                    Toast toast = Toast.makeText(LoginActivity.this,
+                            "Please enter an AP IP ADDRESS", Toast.LENGTH_SHORT);
                     toast.show();
 
                     return;
@@ -94,7 +101,8 @@ public class LoginActivity extends AppCompatActivity {
                     segmentInterestLifetimeInt = Integer.parseInt(segmentInterestLifetime);
                 }
                 catch (Exception e) {
-                    Toast toast = Toast.makeText(LoginActivity.this, "Enter a valid number for segment interest lifetime.", Toast.LENGTH_SHORT);
+                    Toast toast = Toast.makeText(LoginActivity.this,
+                            "Enter a valid number for segment interest lifetime.", Toast.LENGTH_SHORT);
                     toast.show();
                     e.printStackTrace();
                     return;
@@ -104,20 +112,23 @@ public class LoginActivity extends AppCompatActivity {
                     segmentInterestMaxReattemptsInt = Integer.parseInt(segmentInterestMaxReattempts);
                 }
                 catch (Exception e) {
-                    Toast toast = Toast.makeText(LoginActivity.this, "Enter a valid number for segment interest max reattempts.", Toast.LENGTH_SHORT);
+                    Toast toast = Toast.makeText(LoginActivity.this,
+                            "Enter a valid number for segment interest max reattempts.", Toast.LENGTH_SHORT);
                     toast.show();
                     e.printStackTrace();
                     return;
                 }
 
                 if (segmentInterestLifetimeInt < 0) {
-                    Toast toast = Toast.makeText(LoginActivity.this, "Enter a non negative number for segment interest lifetime.", Toast.LENGTH_SHORT);
+                    Toast toast = Toast.makeText(LoginActivity.this,
+                            "Enter a non negative number for segment interest lifetime.", Toast.LENGTH_SHORT);
                     toast.show();
                     return;
                 }
 
                 if (segmentInterestMaxReattemptsInt < 0) {
-                    Toast toast = Toast.makeText(LoginActivity.this, "Etner a non negative number for segment interest max reattempts.", Toast.LENGTH_SHORT);
+                    Toast toast = Toast.makeText(LoginActivity.this,
+                            "Enter a non negative number for segment interest max reattempts.", Toast.LENGTH_SHORT);
                     toast.show();
                     return;
                 }
@@ -138,7 +149,7 @@ public class LoginActivity extends AppCompatActivity {
                 radioInfo[InterModuleInfo.SEGMENT_INTEREST_MAX_REATTEMPTS] = segmentInterestMaxReattempts;
                 radioInfo[InterModuleInfo.SEGMENT_INTEREST_LIFETIME] = segmentInterestLifetime;
                 radioInfo[InterModuleInfo.AP_IP_ADDRESS] = apIpAddress;
-                intent.putExtra(InterModuleInfo.RADIO_CONFIG, radioInfo);
+                intent.putExtra(InterModuleInfo.LoginActivity_CONFIG, radioInfo);
 
                 setResult(RESULT_OK, intent);
                 finish();
@@ -149,9 +160,7 @@ public class LoginActivity extends AppCompatActivity {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-
         hideKeyboard(this);
-
         return super.onTouchEvent(event);
     }
 

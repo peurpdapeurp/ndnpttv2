@@ -53,7 +53,7 @@ public class MainActivity extends AppCompatActivity {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
         appLogicModule_ = new AppLogicModule();
-        streamConsumerModule_ = new SCModule();
+        streamConsumerModule_ = new SCModule(handler_);
 
         pttButtonPressReceiverListener_ = new BroadcastReceiver() {
             @Override

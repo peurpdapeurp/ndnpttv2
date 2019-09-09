@@ -1,56 +1,50 @@
 package com.example.ndnpttv2.front_end;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
+import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.ActivityInfo;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+import android.util.Log;
 
 import com.example.ndnpttv2.R;
-import com.example.ndnpttv2.back_end.back_end_impl.Recorder;
-import com.example.ndnpttv2.back_end.back_end_impl.Streamer;
-import com.example.ndnpttv2.helpers.InterModuleInfo;
-import com.example.ndnpttv2.helpers.Logger;
+import com.example.ndnpttv2.back_end.AppLogicModule;
+import com.example.ndnpttv2.back_end.SCModule;
+import com.example.ndnpttv2.back_end.SPModule;
+import com.example.ndnpttv2.back_end.SyncModule;
 
 public class MainActivity extends AppCompatActivity {
 
-    public static MainActivity mainActivityInstance_;
+    private static final String TAG = "MainActivity";
 
-    public Recorder recorder_;
-    public Streamer streamer_;
+    // Messages
+    public static final int MSG_LOGIN_ACTIVITY_FINISHED = 0;
+    public static final int MSG_SYNC_NEW_STREAM = 1;
+    public static final int MSG_BUTTON_RECORDING_STARTED = 2;
+    public static final int MSG_BUTTON_RECORDING_ENDED = 3;
+    public static final int MSG_APPLOGIC_RECORDING_STARTED = 4;
+    public static final int MSG_APPLOGIC_RECORDING_ENDED = 5;
+    public static final int MSG_STREAMPRODUCER_RECORDING_ENDED = 6;
+    public static final int MSG_APPLOGIC_STREAM_AVAILABLE = 7;
+    public static final int MSG_STREAMCONSUMER_STREAM_PLAYING_FINISHED = 8;
 
-    BroadcastReceiver pttButtonPressReceiverListener_ = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent.getAction().equals(InterModuleInfo.PTTButtonPressReceiver_PTT_BUTTON_DOWN)) {
-                PTT_BUTTON_DOWN_LOGIC();
-            } else if (intent.getAction().equals(InterModuleInfo.PTTButtonPressReceiver_PTT_BUTTON_UP)) {
-                PTT_BUTTON_UP_LOGIC();
-            } else {
-                Logger.logMessage(System.currentTimeMillis(), Logger.LOG_MODULE_MAIN_ACTIVITY,
-                        "pttButtonPressReceiverListener_ got unexpected intent: " + intent.getAction());
-            }
-        }
-    };
+    // Modules
+    private AppLogicModule appLogicModule_;
+    private SCModule streamConsumerModule_;
+    private SPModule streamProducerModule_;
+    private SyncModule syncModule_;
 
-    void PTT_BUTTON_DOWN_LOGIC() {
-        Logger.logMessage(System.currentTimeMillis(), Logger.LOG_MODULE_MAIN_ACTIVITY,
-                "PTT_BUTTON_DOWN_LOGIC was called.");
-        LocalBroadcastManager.getInstance(this).sendBroadcast(
-                new Intent(InterModuleInfo.MainActivity_RECORD_REQUEST_START));
-    }
+    private BroadcastReceiver pttButtonPressReceiverListener_;
+    private Handler handler_;
 
-    void PTT_BUTTON_UP_LOGIC() {
-        Logger.logMessage(System.currentTimeMillis(), Logger.LOG_MODULE_MAIN_ACTIVITY,
-                "PTT_BUTTON_UP_LOGIC was called.");
-        LocalBroadcastManager.getInstance(this).sendBroadcast(
-                new Intent(InterModuleInfo.MainActivity_RECORD_REQUEST_STOP));
-    }
-    
+    @SuppressLint("HandlerLeak")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -58,35 +52,76 @@ public class MainActivity extends AppCompatActivity {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
-        mainActivityInstance_ = this;
+        appLogicModule_ = new AppLogicModule();
+        streamConsumerModule_ = new SCModule();
 
-        recorder_ = new Recorder(this.getApplicationContext());
-        streamer_ = new Streamer(MainActivity.getInstance().getApplicationContext(),
-                getExternalCacheDir().getAbsolutePath());
-
+        pttButtonPressReceiverListener_ = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_DOWN)) {
+                    handler_.obtainMessage(MSG_BUTTON_RECORDING_STARTED).sendToTarget();
+                } else if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_UP)) {
+                    handler_.obtainMessage(MSG_BUTTON_RECORDING_ENDED).sendToTarget();
+                } else {
+                    Log.e(TAG, "pttButtonPressReceiverListener_ unexpected intent: " + intent.getAction());
+                }
+            }
+        };
         LocalBroadcastManager.getInstance(this).registerReceiver(pttButtonPressReceiverListener_,
                 PTTButtonPressReceiver.getIntentFilter());
+
+        handler_ = new Handler() {
+            @Override
+            public void handleMessage(@NonNull Message msg) {
+                switch (msg.what) {
+                    case MSG_LOGIN_ACTIVITY_FINISHED: {
+
+                        break;
+                    }
+                    case MSG_SYNC_NEW_STREAM: {
+
+                        break;
+                    }
+                    case MSG_BUTTON_RECORDING_STARTED: {
+
+                        break;
+                    }
+                    case MSG_BUTTON_RECORDING_ENDED: {
+
+                        break;
+                    }
+                    case MSG_APPLOGIC_RECORDING_STARTED: {
+
+                        break;
+                    }
+                    case MSG_APPLOGIC_RECORDING_ENDED: {
+
+                        break;
+                    }
+                    case MSG_STREAMPRODUCER_RECORDING_ENDED: {
+
+                        break;
+                    }
+                    case MSG_APPLOGIC_STREAM_AVAILABLE: {
+
+                        break;
+                    }
+                    case MSG_STREAMCONSUMER_STREAM_PLAYING_FINISHED: {
+
+                        break;
+                    }
+                    default:
+                        throw new IllegalStateException("unexpected msg.what: " + msg.what);
+                }
+            }
+        };
 
     }
 
     @Override
     protected void onDestroy() {
-
         LocalBroadcastManager.getInstance(this).unregisterReceiver(pttButtonPressReceiverListener_);
-
         super.onDestroy();
-    }
-
-    public static IntentFilter getIntentFilter() {
-        IntentFilter ret = new IntentFilter();
-        ret.addAction(InterModuleInfo.MainActivity_RECORD_REQUEST_START);
-        ret.addAction(InterModuleInfo.MainActivity_RECORD_REQUEST_STOP);
-
-        return ret;
-    }
-
-    public static MainActivity getInstance() {
-        return mainActivityInstance_;
     }
 
 }

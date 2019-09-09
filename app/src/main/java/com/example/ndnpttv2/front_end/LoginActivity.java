@@ -4,7 +4,6 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.os.Bundle;
 
-import com.example.ndnpttv2.helpers.InterModuleInfo;
 import com.example.ndnpttv2.R;
 
 import android.app.Activity;
@@ -144,12 +143,12 @@ public class LoginActivity extends AppCompatActivity {
                 Intent intent = new Intent(LoginActivity.this, MainActivity.class);
 
                 String[] radioInfo = new String[5];
-                radioInfo[InterModuleInfo.CHANNEL] = channel;
-                radioInfo[InterModuleInfo.USER_NAME] = name;
-                radioInfo[InterModuleInfo.SEGMENT_INTEREST_MAX_REATTEMPTS] = segmentInterestMaxReattempts;
-                radioInfo[InterModuleInfo.SEGMENT_INTEREST_LIFETIME] = segmentInterestLifetime;
-                radioInfo[InterModuleInfo.AP_IP_ADDRESS] = apIpAddress;
-                intent.putExtra(InterModuleInfo.LoginActivity_CONFIG, radioInfo);
+                radioInfo[IntentInfo.CHANNEL] = channel;
+                radioInfo[IntentInfo.USER_NAME] = name;
+                radioInfo[IntentInfo.SEGMENT_INTEREST_MAX_REATTEMPTS] = segmentInterestMaxReattempts;
+                radioInfo[IntentInfo.SEGMENT_INTEREST_LIFETIME] = segmentInterestLifetime;
+                radioInfo[IntentInfo.AP_IP_ADDRESS] = apIpAddress;
+                intent.putExtra(IntentInfo.LoginActivity_CONFIG, radioInfo);
 
                 setResult(RESULT_OK, intent);
                 finish();

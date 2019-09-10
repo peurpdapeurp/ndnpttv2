@@ -114,7 +114,7 @@ public class StreamConsumer extends HandlerThread {
     private void streamFetchStart() {
         if (streamFetchStartCalled_) return;
         streamFetcher_.setStreamFetchStartTime(System.currentTimeMillis());
-        Log.d(TAG, streamFetcher_.getStreamFetchStartTime() + ": " +
+        Log.d(TAG, streamFetcher_.getState().streamFetchStartTime_ + ": " +
                 "stream fetch started");
         streamFetchStartCalled_ = true;
         doSomeWork();
@@ -287,44 +287,49 @@ public class StreamConsumer extends HandlerThread {
         private static final int N_EXPECTED_SAMPLES = 1;
 
         private PriorityQueue<Long> retransmissionQueue_;
-        private long streamFinalBlockId_ = FINAL_BLOCK_ID_UNKNOWN;
-        private long highestSegSent_ = NO_SEGS_SENT;
-        private long msPerSegNum_;
         private HashMap<Long, Long> segSendTimes_;
         private HashMap<Long, Object> rtoTokens_;
         private CwndCalculator cwndCalculator_;
         private RttEstimator rttEstimator_;
-        private int numInterestsTransmitted_ = 0;
-        private int numInterestTimeouts_ = 0;
-        private int numDataReceives_ = 0;
-        private int numPrematureRtos_ = 0;
-        private int numInterestSkips_ = 0;
-        private int numNacks_ = 0;
         private boolean closed_ = false;
-        private long streamFetchStartTime_;
         private Handler streamConsumerHandler_;
+        private StreamFetcherState state_;
 
-        private void printState() {
-            Log.d(TAG, "State of StreamFetcher:" + "\n" +
-                    "streamFetchStartTime_ " + streamFetchStartTime_ + ", " +
-                    "streamFinalBlockId_ " +
-                    ((streamFinalBlockId_ == FINAL_BLOCK_ID_UNKNOWN) ? "unknown" : streamFinalBlockId_) +
-                    ", " +
-                    "highestSegSent_ " +
-                    ((highestSegSent_ == NO_SEGS_SENT) ? "none " : highestSegSent_) +
-                    "\n" +
-                    "numInterestsTransmitted_ " + numInterestsTransmitted_ + ", " +
-                    "numInterestTimeouts_ " + numInterestTimeouts_ + ", " +
-                    "numDataReceives_ " + numDataReceives_ + "\n" +
-                    "numInterestSkips_ " + numInterestSkips_ + ", " +
-                    "numPrematureRtos_ " + numPrematureRtos_ + ", " +
-                    "numNacks_ " + numNacks_ + "\n" +
-                    "retransmissionQueue_ " + retransmissionQueue_ + "\n" +
-                    "segSendTimes_ " + segSendTimes_);
+        public class StreamFetcherState {
+            public long msPerSegNum_;
+            public long streamFetchStartTime_;
+            public long streamFinalBlockId_ = FINAL_BLOCK_ID_UNKNOWN;
+            public long highestSegSent_ = NO_SEGS_SENT;
+            public int numInterestsTransmitted_ = 0;
+            public int numInterestTimeouts_ = 0;
+            public int numDataReceives_ = 0;
+            public int numPrematureRtos_ = 0;
+            public int numInterestSkips_ = 0;
+            public int numNacks_ = 0;
+
+            public String toString() {
+                return "State of StreamFetcher:" + "\n" +
+                        "streamFetchStartTime_ " + streamFetchStartTime_ + ", " +
+                        "msPerSegNum_ " + msPerSegNum_ + ", " +
+                        "streamFinalBlockId_ " +
+                        ((streamFinalBlockId_ == FINAL_BLOCK_ID_UNKNOWN) ? "unknown" : streamFinalBlockId_) +
+                        ", " +
+                        "highestSegSent_ " +
+                        ((highestSegSent_ == NO_SEGS_SENT) ? "none " : highestSegSent_) +
+                        "\n" +
+                        "numInterestsTransmitted_ " + numInterestsTransmitted_ + ", " +
+                        "numInterestTimeouts_ " + numInterestTimeouts_ + ", " +
+                        "numDataReceives_ " + numDataReceives_ + "\n" +
+                        "numInterestSkips_ " + numInterestSkips_ + ", " +
+                        "numPrematureRtos_ " + numPrematureRtos_ + ", " +
+                        "numNacks_ " + numNacks_ + "\n" +
+                        "retransmissionQueue_ " + retransmissionQueue_ + "\n" +
+                        "segSendTimes_ " + segSendTimes_;
+            }
         }
 
         private long getTimeSinceStreamFetchStart() {
-            return System.currentTimeMillis() - streamFetchStartTime_;
+            return System.currentTimeMillis() - state_.streamFetchStartTime_;
         }
 
         private StreamFetcher(Looper streamConsumerLooper) {
@@ -334,26 +339,23 @@ public class StreamConsumer extends HandlerThread {
             rtoTokens_ = new HashMap<>();
             long streamPlayerBufferJitterDelay = options_.jitterBufferSize * calculateMsPerFrame(options_.producerSamplingRate);
             rttEstimator_ = new RttEstimator(new RttEstimator.Options(streamPlayerBufferJitterDelay, streamPlayerBufferJitterDelay));
-            msPerSegNum_ = calculateMsPerSeg(options_.producerSamplingRate, options_.framesPerSegment);
+            state_ = new StreamFetcherState();
+            state_.msPerSegNum_ = calculateMsPerSeg(options_.producerSamplingRate, options_.framesPerSegment);
             streamConsumerHandler_ = new Handler(streamConsumerLooper);
             Log.d(TAG, "Initialized (" +
                     "maxRto / initialRto " + streamPlayerBufferJitterDelay + ", " +
-                    "ms per seg num " + msPerSegNum_ +
+                    "ms per seg num " + state_.msPerSegNum_ +
                     ")");
         }
 
         private void setStreamFetchStartTime(long streamFetchStartTime) {
-            streamFetchStartTime_ = streamFetchStartTime;
-        }
-
-        private long getStreamFetchStartTime() {
-            return streamFetchStartTime_;
+            state_.streamFetchStartTime_ = streamFetchStartTime;
         }
 
         private void close() {
             if (closed_) return;
             Log.d(TAG, "close called");
-            printState();
+            Log.d(TAG, state_.toString());
             notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_FETCHING_COMPLETE, 0);
             closed_ = true;
         }
@@ -371,18 +373,18 @@ public class StreamConsumer extends HandlerThread {
 
             if (closed_) return;
 
-            if (streamFinalBlockId_ == FINAL_BLOCK_ID_UNKNOWN ||
-                    highestSegSent_ < streamFinalBlockId_) {
+            if (state_.streamFinalBlockId_ == FINAL_BLOCK_ID_UNKNOWN ||
+                    state_.highestSegSent_ < state_.streamFinalBlockId_) {
                 while (nextSegShouldBeSent() && withinCwnd()) {
                     if (closed_) return;
-                    highestSegSent_++;
-                    notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_PRODUCTION_WINDOW_GROW, highestSegSent_);
-                    transmitInterest(highestSegSent_, false);
+                    state_.highestSegSent_++;
+                    notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_PRODUCTION_WINDOW_GROW, state_.highestSegSent_);
+                    transmitInterest(state_.highestSegSent_, false);
                 }
             }
 
             if (retransmissionQueue_.size() == 0 && rtoTokens_.size() == 0 &&
-                    streamFinalBlockId_ != FINAL_BLOCK_ID_UNKNOWN) {
+                    state_.streamFinalBlockId_ != FINAL_BLOCK_ID_UNKNOWN) {
                 close();
                 return;
             }
@@ -392,7 +394,7 @@ public class StreamConsumer extends HandlerThread {
         private boolean nextSegShouldBeSent() {
             long timeSinceFetchStart = getTimeSinceStreamFetchStart();
             boolean nextSegShouldBeSent = false;
-            if (timeSinceFetchStart / msPerSegNum_ > highestSegSent_) {
+            if (timeSinceFetchStart / state_.msPerSegNum_ > state_.highestSegSent_) {
                 nextSegShouldBeSent = true;
             }
             return nextSegShouldBeSent;
@@ -454,7 +456,7 @@ public class StreamConsumer extends HandlerThread {
                     "rto " + rto + ", " +
                     "lifetime " + lifetime + ", " +
                     "retx: " + isRetransmission + ", " +
-                    "numPrematureRtos_ " + numPrematureRtos_ +
+                    "numPrematureRtos_ " + state_.numPrematureRtos_ +
                     ")");
         }
 
@@ -488,7 +490,7 @@ public class StreamConsumer extends HandlerThread {
             if (audioPacketWasAppNack) {
                 finalBlockId = Helpers.bytesToLong(audioPacket.getContent().getImmutableArray());
                 Log.d(TAG, "audioPacketWasAppNack, final block id " + finalBlockId);
-                streamFinalBlockId_ = finalBlockId;
+                state_.streamFinalBlockId_ = finalBlockId;
                 streamPlayerBuffer_.receiveFinalSegNum(finalBlockId);
             }
             else {
@@ -497,13 +499,13 @@ public class StreamConsumer extends HandlerThread {
                 if (finalBlockIdComponent != null) {
                     try {
                         finalBlockId = finalBlockIdComponent.toSegment();
-                        streamFinalBlockId_ = finalBlockId;
+                        state_.streamFinalBlockId_ = finalBlockId;
                     }
                     catch (EncodingException ignored) { }
                 }
             }
-            if (streamFinalBlockId_ != FINAL_BLOCK_ID_UNKNOWN) {
-                notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED, streamFinalBlockId_);
+            if (state_.streamFinalBlockId_ != FINAL_BLOCK_ID_UNKNOWN) {
+                notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED, state_.streamFinalBlockId_);
             }
 
             Log.d(TAG, "receive data (" +
@@ -552,27 +554,27 @@ public class StreamConsumer extends HandlerThread {
             String eventString = "";
             switch (event_code) {
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_AUDIO_RETRIEVED:
-                    numDataReceives_++;
+                    state_.numDataReceives_++;
                     eventString = "data_receive";
                     break;
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_INTEREST_TIMEOUT:
-                    numInterestTimeouts_++;
+                    state_.numInterestTimeouts_++;
                     eventString = "interest_timeout";
                     break;
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_INTEREST_TRANSMIT:
-                    numInterestsTransmitted_++;
+                    state_.numInterestsTransmitted_++;
                     eventString = "interest_transmit";
                     break;
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_PREMATURE_RTO:
-                    numPrematureRtos_++;
+                    state_.numPrematureRtos_++;
                     eventString = "premature_rto";
                     break;
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_INTEREST_SKIP:
-                    numInterestSkips_++;
+                    state_.numInterestSkips_++;
                     eventString = "interest_skip";
                     break;
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_NACK_RETRIEVED:
-                    numNacks_++;
+                    state_.numNacks_++;
                     eventString = "nack_receive";
                     break;
             }
@@ -582,6 +584,10 @@ public class StreamConsumer extends HandlerThread {
                     "event " + eventString + ", " +
                     "num outstanding interests " + rtoTokens_.size() +
                     ")");
+        }
+
+        public StreamFetcherState getState() {
+            return state_;
         }
     }
 
@@ -844,5 +850,13 @@ public class StreamConsumer extends HandlerThread {
         uiHandler_
                 .obtainMessage(MessageTypes.MSG_PROGRESS_EVENT, eventCode, 0, new ProgressEventInfo(streamName_, arg1))
                 .sendToTarget();
+    }
+
+    public Name getStreamName() {
+        return streamName_;
+    }
+
+    public StreamFetcher.StreamFetcherState getStreamFetcherState() {
+        return streamFetcher_.getState();
     }
 }

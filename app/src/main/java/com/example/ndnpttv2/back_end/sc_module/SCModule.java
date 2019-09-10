@@ -61,9 +61,13 @@ public class SCModule {
                             new StreamConsumer.Options(streamInfo.framesPerSegment,
                                     DEFAULT_JITTER_BUFFER_SIZE,
                                     streamInfo.producerSamplingRate));
-                    streamStates_.put(streamInfo.streamName, new StreamState(streamConsumer, streamPlayer,
-                            streamInfo.framesPerSegment, streamInfo.producerSamplingRate));
+                    StreamState streamState = new StreamState(streamConsumer, streamPlayer);
+                    streamStates_.put(streamInfo.streamName, streamState);
                     streamConsumer.start();
+                    mainThreadHandler_
+                            .obtainMessage(MessageTypes.MSG_PROGRESS_EVENT, MessageTypes.MSG_PROGRESS_EVENT_STREAM_STATE_CREATED, 0,
+                                    streamState)
+                            .sendToTarget();
                     break;
                 }
                 default: {
@@ -73,6 +77,11 @@ public class SCModule {
 
         }
         else if (msg.what  == MessageTypes.MSG_PROGRESS_EVENT) {
+
+            if (msg.arg1 == MessageTypes.MSG_PROGRESS_EVENT_STREAM_STATE_CREATED) {
+                // ignore
+                return;
+            }
 
             ProgressEventInfo progressEventInfo = (ProgressEventInfo) msg.obj;
             Name streamName = progressEventInfo.streamName;
@@ -88,13 +97,13 @@ public class SCModule {
 
             switch (msg.arg1) {
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_CONSUMER_INITIALIZED: {
-                    Log.d(TAG, "fetching of stream " + streamName.toString() + " started");
                     streamState.streamConsumer.getHandler()
                             .obtainMessage(StreamConsumer.MSG_FETCH_START)
                             .sendToTarget();
                     streamState.streamConsumer.getHandler()
                             .obtainMessage(StreamConsumer.MSG_PLAY_START)
                             .sendToTarget();
+                    Log.d(TAG, "fetching of stream " + streamName.toString() + " started");
                     break;
                 }
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_FETCHING_COMPLETE: {
@@ -103,54 +112,47 @@ public class SCModule {
                 }
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_PLAYER_PLAYING_COMPLETE: {
                     Log.d(TAG, "playing of stream " + streamName.toString() +
-                            " finished");
+                            " finished, stream statistics: " + "\n" +
+                            streamState.streamConsumer.getStreamFetcherState().toString());
                     streamState.streamConsumer.close();
                     streamState.streamPlayer.close();
                     streamStates_.remove(streamName);
-                    // TODO: playback queue related logic for end of a stream play
                     break;
                 }
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_PRODUCTION_WINDOW_GROW: {
-                    long highestSegProduced = progressEventInfo.arg1;
-                    streamState.highestSegAnticipated = highestSegProduced;
+                    // ignore
                     break;
                 }
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_INTEREST_SKIP: {
-                    long segNum = progressEventInfo.arg1;
-                    streamState.interestsSkipped++;
+                    // ignore
                     break;
                 }
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_AUDIO_RETRIEVED: {
-                    long segNum = progressEventInfo.arg1;
-                    streamState.segmentsFetched++;
+                    // ignore
                     break;
                 }
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_NACK_RETRIEVED: {
-                    long segNum = progressEventInfo.arg1;
-                    streamState.nacksFetched++;
+                    // ignore
                     break;
                 }
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED: {
-                    streamState.finalBlockId = progressEventInfo.arg1;
+                    // ignore
                     break;
                 }
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_BUFFER_FRAME_PLAYED: {
-                    long frameNum = progressEventInfo.arg1;
-                    streamState.framesPlayed++;
+                    // ignore
                     break;
                 }
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_BUFFER_FRAME_SKIP: {
-                    long frameNum = progressEventInfo.arg1;
-                    streamState.framesSkipped++;
+                    // ignore
                     break;
                 }
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_BUFFER_BUFFERING_COMPLETE: {
-                    Log.d(TAG, "buffering of stream " + streamName.toString() +
-                            " finished");
+                    // ignore
                     break;
                 }
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED: {
-                    streamState.finalFrameNum = progressEventInfo.arg1;
+                    // ignore
                     break;
                 }
                 default: {

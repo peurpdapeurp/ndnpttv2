@@ -4,10 +4,11 @@ public class MessageTypes {
 
     // General message types
     private static final int GENERAL_MSG_BASE = 0;
-    public static final int MSG_PROGRESS_EVENT = GENERAL_MSG_BASE;
-    public static final int MSG_SC_MODULE = GENERAL_MSG_BASE + 1;
-    public static final int MSG_SP_MODULE = GENERAL_MSG_BASE + 2;
-    public static final int MSG_SYNC_MODULE = GENERAL_MSG_BASE + 3;
+    public static final int MSG_DO_SOME_WORK = GENERAL_MSG_BASE;
+    public static final int MSG_PROGRESS_EVENT = GENERAL_MSG_BASE + 1;
+    public static final int MSG_SC_MODULE = GENERAL_MSG_BASE + 2;
+    public static final int MSG_SP_MODULE = GENERAL_MSG_BASE + 3;
+    public static final int MSG_SYNC_MODULE = GENERAL_MSG_BASE + 4;
 
     // Progress event msg subtypes
     private static final int PROGRESS_EVENT_MSG_BASE = GENERAL_MSG_BASE + 500;

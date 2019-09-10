@@ -856,7 +856,4 @@ public class StreamConsumer extends HandlerThread {
         return streamName_;
     }
 
-    public StreamFetcher.StreamFetcherState getStreamFetcherState() {
-        return streamFetcher_.getState();
-    }
 }

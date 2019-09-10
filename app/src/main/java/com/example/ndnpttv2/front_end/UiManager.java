@@ -11,8 +11,6 @@ import com.example.ndnpttv2.R;
 import com.example.ndnpttv2.back_end.MessageTypes;
 import com.example.ndnpttv2.back_end.ProgressEventInfo;
 import com.example.ndnpttv2.back_end.StreamInfo;
-import com.example.ndnpttv2.back_end.StreamState;
-import com.example.ndnpttv2.back_end.sc_module.stream_consumer.StreamConsumer;
 
 import net.named_data.jndn.Name;
 
@@ -68,9 +66,9 @@ public class UiManager {
     public void handleMessage(Message msg) {
 
         if (msg.arg1 == MessageTypes.MSG_PROGRESS_EVENT_STREAM_STATE_CREATED) {
-            StreamState streamState = (StreamState) msg.obj;
-            streamStates_.put(streamState.streamConsumer.getStreamName(), streamState);
-            Log.d(TAG, "state for stream " + streamState.streamConsumer.getStreamName() + " received");
+            StreamInfo streamInfo = (StreamInfo) msg.obj;
+            streamStates_.put(streamInfo.streamName, new StreamState(streamInfo));
+            Log.d(TAG, "state for stream " + streamInfo.streamName + " received");
             return;
         }
 
@@ -98,35 +96,40 @@ public class UiManager {
             case MessageTypes.MSG_PROGRESS_EVENT_STREAM_PLAYER_PLAYING_COMPLETE: {
                 Log.d(TAG, "playing of stream " + streamName.toString() +
                         " finished");
-                streamState.streamConsumer.close();
-                streamState.streamPlayer.close();
                 streamStates_.remove(streamName);
                 break;
             }
             case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_PRODUCTION_WINDOW_GROW: {
+                streamState.highestSegAnticipated = progressEventInfo.arg1;
                 break;
             }
             case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_INTEREST_SKIP: {
                 long segNum = progressEventInfo.arg1;
+                streamState.interestsSkipped++;
                 break;
             }
             case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_AUDIO_RETRIEVED: {
                 long segNum = progressEventInfo.arg1;
+                streamState.segmentsFetched++;
                 break;
             }
             case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_NACK_RETRIEVED: {
                 long segNum = progressEventInfo.arg1;
+                streamState.nacksFetched++;
                 break;
             }
             case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED: {
+                streamState.finalBlockId = progressEventInfo.arg1;
                 break;
             }
             case MessageTypes.MSG_PROGRESS_EVENT_STREAM_BUFFER_FRAME_PLAYED: {
                 long frameNum = progressEventInfo.arg1;
+                streamState.framesPlayed++;
                 break;
             }
             case MessageTypes.MSG_PROGRESS_EVENT_STREAM_BUFFER_FRAME_SKIP: {
                 long frameNum = progressEventInfo.arg1;
+                streamState.framesSkipped++;
                 break;
             }
             case MessageTypes.MSG_PROGRESS_EVENT_STREAM_BUFFER_BUFFERING_COMPLETE: {
@@ -135,6 +138,7 @@ public class UiManager {
                 break;
             }
             case MessageTypes.MSG_PROGRESS_EVENT_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED: {
+                streamState.finalFrameNum = progressEventInfo.arg1;
                 break;
             }
             default: {

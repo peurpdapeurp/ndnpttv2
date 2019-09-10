@@ -12,6 +12,7 @@ import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.SystemClock;
 import android.util.Log;
 
 import com.example.ndnpttv2.R;
@@ -23,6 +24,9 @@ import com.example.ndnpttv2.back_end.sync_module.SyncModule;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
+
+    // Private constants
+    private static final int PROCESSING_INTERVAL_MS = 50;
 
     // Back-end modules
     private SCModule streamConsumerModule_;
@@ -59,9 +63,12 @@ public class MainActivity extends AppCompatActivity {
         handler_ = new Handler() {
             @Override
             public void handleMessage(@NonNull Message msg) {
-                Log.d(TAG, "Got message " + msg.what);
 
                 switch (msg.what) {
+                    case MessageTypes.MSG_DO_SOME_WORK: {
+                        doSomeWork();
+                        break;
+                    }
                     case MessageTypes.MSG_PROGRESS_EVENT: {
                         streamConsumerModule_.handleMessage(msg);
                         uiManager_.handleMessage(msg);
@@ -87,10 +94,23 @@ public class MainActivity extends AppCompatActivity {
 
         uiManager_ = new UiManager(this);
 
-        streamConsumerModule_ = new SCModule(this, handler_, uiManager_);
+        streamConsumerModule_ = new SCModule(this, handler_);
         streamProducerModule_ = new SPModule();
         syncModule_ = new SyncModule();
 
+        // start the main thread's doSomeWork cycle
+        doSomeWork();
+
+    }
+
+    private void doSomeWork() {
+        streamConsumerModule_.doSomeWork();
+        scheduleNextWork(SystemClock.uptimeMillis());
+    }
+
+    private void scheduleNextWork(long thisOperationStartTimeMs) {
+        handler_.removeMessages(MessageTypes.MSG_DO_SOME_WORK);
+        handler_.sendEmptyMessageAtTime(MessageTypes.MSG_DO_SOME_WORK, thisOperationStartTimeMs + PROCESSING_INTERVAL_MS);
     }
 
     @Override

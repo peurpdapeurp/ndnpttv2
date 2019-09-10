@@ -8,16 +8,17 @@ import android.util.Log;
 import com.example.ndnpttv2.Util.Helpers;
 import com.example.ndnpttv2.back_end.MessageTypes;
 import com.example.ndnpttv2.back_end.StreamInfo;
-import com.example.ndnpttv2.back_end.StreamState;
+import com.example.ndnpttv2.back_end.InternalStreamState;
 import com.example.ndnpttv2.back_end.sc_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.sc_module.stream_player.StreamPlayer;
 import com.example.ndnpttv2.back_end.sc_module.stream_player.exoplayer_customization.InputStreamDataSource;
 import com.example.ndnpttv2.back_end.ProgressEventInfo;
-import com.example.ndnpttv2.front_end.UiManager;
+import com.example.ndnpttv2.front_end.StreamState;
 
 import net.named_data.jndn.Name;
 
 import java.util.HashMap;
+import java.util.concurrent.LinkedTransferQueue;
 
 public class SCModule {
 
@@ -28,15 +29,14 @@ public class SCModule {
 
     private Context ctx_;
     private Handler mainThreadHandler_;
-    private UiManager uiManager_;
-    private Name lastStreamName_;
+    private LinkedTransferQueue<StreamInfo> playbackQueue_;
+    private HashMap<Name, InternalStreamState> streamStates_;
+    private boolean currentlyPlaying_ = false;
 
-    private HashMap<Name, StreamState> streamStates_;
-
-    public SCModule(Context ctx, Handler mainThreadHandler, UiManager uiManager) {
+    public SCModule(Context ctx, Handler mainThreadHandler) {
         ctx_ = ctx;
         mainThreadHandler_ = mainThreadHandler;
-        uiManager_ = uiManager;
+        playbackQueue_ = new LinkedTransferQueue<>();
         streamStates_ = new HashMap<>();
     }
 
@@ -51,23 +51,7 @@ public class SCModule {
                     Log.d(TAG, "Notified of new stream " + "(" +
                             Helpers.getStreamInfoString(streamInfo) +
                             ")");
-                    InputStreamDataSource transferSource = new InputStreamDataSource();
-                    StreamPlayer streamPlayer = new StreamPlayer(ctx_, transferSource,
-                            streamInfo.streamName,mainThreadHandler_);
-                    StreamConsumer streamConsumer = new StreamConsumer(
-                            streamInfo.streamName,
-                            transferSource,
-                            mainThreadHandler_,
-                            new StreamConsumer.Options(streamInfo.framesPerSegment,
-                                    DEFAULT_JITTER_BUFFER_SIZE,
-                                    streamInfo.producerSamplingRate));
-                    StreamState streamState = new StreamState(streamConsumer, streamPlayer);
-                    streamStates_.put(streamInfo.streamName, streamState);
-                    streamConsumer.start();
-                    mainThreadHandler_
-                            .obtainMessage(MessageTypes.MSG_PROGRESS_EVENT, MessageTypes.MSG_PROGRESS_EVENT_STREAM_STATE_CREATED, 0,
-                                    streamState)
-                            .sendToTarget();
+                    playbackQueue_.add(streamInfo);
                     break;
                 }
                 default: {
@@ -85,7 +69,7 @@ public class SCModule {
 
             ProgressEventInfo progressEventInfo = (ProgressEventInfo) msg.obj;
             Name streamName = progressEventInfo.streamName;
-            StreamState streamState = streamStates_.get(streamName);
+            InternalStreamState streamState = streamStates_.get(streamName);
 
             if (streamState == null) {
                 Log.w(TAG, "streamState was null for msg (" +
@@ -111,12 +95,11 @@ public class SCModule {
                     break;
                 }
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_PLAYER_PLAYING_COMPLETE: {
-                    Log.d(TAG, "playing of stream " + streamName.toString() +
-                            " finished, stream statistics: " + "\n" +
-                            streamState.streamConsumer.getStreamFetcherState().toString());
+                    Log.d(TAG, "playing of stream " + streamName.toString());
                     streamState.streamConsumer.close();
                     streamState.streamPlayer.close();
                     streamStates_.remove(streamName);
+                    currentlyPlaying_ = false;
                     break;
                 }
                 case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_PRODUCTION_WINDOW_GROW: {
@@ -161,6 +144,31 @@ public class SCModule {
             }
         }
 
+    }
+
+    public void doSomeWork() {
+        if (playbackQueue_.size() != 0 && !currentlyPlaying_) {
+            currentlyPlaying_ = true;
+            StreamInfo streamInfo = playbackQueue_.poll();
+            Log.d(TAG, "playback queue was non empty, playing stream " + streamInfo.streamName.toString());
+            InputStreamDataSource transferSource = new InputStreamDataSource();
+            StreamPlayer streamPlayer = new StreamPlayer(ctx_, transferSource,
+                    streamInfo.streamName,mainThreadHandler_);
+            StreamConsumer streamConsumer = new StreamConsumer(
+                    streamInfo.streamName,
+                    transferSource,
+                    mainThreadHandler_,
+                    new StreamConsumer.Options(streamInfo.framesPerSegment,
+                            DEFAULT_JITTER_BUFFER_SIZE,
+                            streamInfo.producerSamplingRate));
+            InternalStreamState internalStreamState = new InternalStreamState(streamConsumer, streamPlayer);
+            streamStates_.put(streamInfo.streamName, internalStreamState);
+            mainThreadHandler_
+                    .obtainMessage(MessageTypes.MSG_PROGRESS_EVENT, MessageTypes.MSG_PROGRESS_EVENT_STREAM_STATE_CREATED, 0,
+                            streamInfo)
+                    .sendToTarget();
+            streamConsumer.start();
+        }
     }
 
 }

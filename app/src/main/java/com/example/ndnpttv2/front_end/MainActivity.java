@@ -15,32 +15,25 @@ import android.os.Message;
 import android.util.Log;
 
 import com.example.ndnpttv2.R;
-import com.example.ndnpttv2.back_end.AppLogicModule;
-import com.example.ndnpttv2.back_end.SCModule;
-import com.example.ndnpttv2.back_end.SPModule;
-import com.example.ndnpttv2.back_end.SyncModule;
+import com.example.ndnpttv2.back_end.app_logic_module.AppLogicModule;
+import com.example.ndnpttv2.back_end.sc_module.SCModule;
+import com.example.ndnpttv2.back_end.sp_module.SPModule;
+import com.example.ndnpttv2.back_end.sync_module.SyncModule;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
 
-    // Messages
-    public static final int MSG_LOGIN_ACTIVITY_FINISHED = 0;
-    public static final int MSG_SYNC_NEW_STREAM = 1;
-    public static final int MSG_BUTTON_RECORDING_STARTED = 2;
-    public static final int MSG_BUTTON_RECORDING_ENDED = 3;
-    public static final int MSG_APPLOGIC_RECORDING_STARTED = 4;
-    public static final int MSG_APPLOGIC_RECORDING_ENDED = 5;
-    public static final int MSG_STREAMPRODUCER_RECORDING_ENDED = 6;
-    public static final int MSG_APPLOGIC_STREAM_AVAILABLE = 7;
-    public static final int MSG_STREAMCONSUMER_STREAM_PLAYING_FINISHED = 8;
+    // Public constants
+    public static final int GENERAL_MODULE_MSG_BASE = 0;
 
-    // Modules
+    // Back-end modules
     private AppLogicModule appLogicModule_;
     private SCModule streamConsumerModule_;
     private SPModule streamProducerModule_;
     private SyncModule syncModule_;
 
+    private UiManager uiManager_;
     private BroadcastReceiver pttButtonPressReceiverListener_;
     private Handler handler_;
 
@@ -52,16 +45,13 @@ public class MainActivity extends AppCompatActivity {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
-        appLogicModule_ = new AppLogicModule();
-        streamConsumerModule_ = new SCModule(handler_);
-
         pttButtonPressReceiverListener_ = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_DOWN)) {
-                    handler_.obtainMessage(MSG_BUTTON_RECORDING_STARTED).sendToTarget();
+                    handler_.obtainMessage(AppLogicModule.MSG_BUTTON_RECORD_START_REQUEST).sendToTarget();
                 } else if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_UP)) {
-                    handler_.obtainMessage(MSG_BUTTON_RECORDING_ENDED).sendToTarget();
+                    handler_.obtainMessage(AppLogicModule.MSG_BUTTON_RECORD_STOP_REQUEST).sendToTarget();
                 } else {
                     Log.e(TAG, "pttButtonPressReceiverListener_ unexpected intent: " + intent.getAction());
                 }
@@ -73,55 +63,52 @@ public class MainActivity extends AppCompatActivity {
         handler_ = new Handler() {
             @Override
             public void handleMessage(@NonNull Message msg) {
-                switch (msg.what) {
-                    case MSG_LOGIN_ACTIVITY_FINISHED: {
+                Log.d(TAG, "Got message " + msg.what);
 
-                        break;
-                    }
-                    case MSG_SYNC_NEW_STREAM: {
-
-                        break;
-                    }
-                    case MSG_BUTTON_RECORDING_STARTED: {
-
-                        break;
-                    }
-                    case MSG_BUTTON_RECORDING_ENDED: {
-
-                        break;
-                    }
-                    case MSG_APPLOGIC_RECORDING_STARTED: {
-
-                        break;
-                    }
-                    case MSG_APPLOGIC_RECORDING_ENDED: {
-
-                        break;
-                    }
-                    case MSG_STREAMPRODUCER_RECORDING_ENDED: {
-
-                        break;
-                    }
-                    case MSG_APPLOGIC_STREAM_AVAILABLE: {
-
-                        break;
-                    }
-                    case MSG_STREAMCONSUMER_STREAM_PLAYING_FINISHED: {
-
-                        break;
-                    }
-                    default:
-                        throw new IllegalStateException("unexpected msg.what: " + msg.what);
+                if (msg.what >= GENERAL_MODULE_MSG_BASE && msg.what < SCModule.SC_MODULE_MSG_BASE) {
+                    this.handleMessage(msg);
+                }
+                else if (msg.what >= SCModule.SC_MODULE_MSG_BASE && msg.what < SPModule.SP_MODULE_MSG_BASE) {
+                    streamConsumerModule_.handleMessage(msg);
+                }
+                else if (msg.what >= SPModule.SP_MODULE_MSG_BASE && msg.what < SyncModule.SYNC_MODULE_MSG_BASE) {
+                    streamProducerModule_.handleMessage(msg);
+                }
+                else if (msg.what >= SyncModule.SYNC_MODULE_MSG_BASE && msg.what < AppLogicModule.APPLOGIC_MODULE_MSG_BASE) {
+                    syncModule_.handleMessage(msg);
+                }
+                else if (msg.what >= AppLogicModule.APPLOGIC_MODULE_MSG_BASE) {
+                    appLogicModule_.handleMessage(msg);
                 }
             }
         };
 
+        uiManager_ = new UiManager(this);
+
+        appLogicModule_ = new AppLogicModule(handler_);
+        streamConsumerModule_ = new SCModule(this, handler_, uiManager_);
+        streamProducerModule_ = new SPModule();
+        syncModule_ = new SyncModule();
+
+
+
+    }
+
+    private void handleMessage(Message msg) {
+        switch (msg.what) {
+            default:
+                throw new IllegalStateException("unexpected msg.what " + msg.what);
+        }
     }
 
     @Override
     protected void onDestroy() {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(pttButtonPressReceiverListener_);
         super.onDestroy();
+    }
+
+    public Handler getHandler() {
+        return handler_;
     }
 
 }

@@ -6,9 +6,6 @@ public class SyncModule {
 
     private static final String TAG = "SyncModule";
 
-    // Public constants
-    public static final int SYNC_MODULE_MSG_BASE = 1500;
-
     public SyncModule() {
 
     }

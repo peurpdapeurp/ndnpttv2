@@ -23,7 +23,7 @@ public class CustomProgressBar extends AppCompatSeekBar {
     // Private constants
     public static final int DEFAULT_TOTAL_SEGMENTS = 30;
 
-    Name currentStreamName_;
+    private Name streamName_;
     private int totalSegments_ = DEFAULT_TOTAL_SEGMENTS;
     private ArrayList<ProgressItem> progressItemsList_;
     private HashMap<Long, Integer> segmentColors_;
@@ -34,11 +34,11 @@ public class CustomProgressBar extends AppCompatSeekBar {
     }
 
     public void setStreamName(Name streamName) {
-        currentStreamName_ = streamName;
+        streamName_ = streamName;
     }
 
     public Name getStreamName() {
-        return currentStreamName_;
+        return streamName_;
     }
 
     public void setTotalSegments(int totalSegments) {

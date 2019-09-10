@@ -7,9 +7,6 @@ public class SPModule {
 
     private static final String TAG = "SPModule";
 
-    // Public constants
-    public static final int SP_MODULE_MSG_BASE = 1000;
-
     public SPModule() {
 
     }

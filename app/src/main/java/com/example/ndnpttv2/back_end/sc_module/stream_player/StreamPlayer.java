@@ -5,10 +5,11 @@ import android.net.Uri;
 import android.os.Handler;
 import android.util.Log;
 
+import com.example.ndnpttv2.back_end.MessageTypes;
 import com.example.ndnpttv2.back_end.sc_module.SCModule;
 import com.example.ndnpttv2.back_end.sc_module.stream_player.exoplayer_customization.AdtsExtractorFactory;
 import com.example.ndnpttv2.back_end.sc_module.stream_player.exoplayer_customization.InputStreamDataSource;
-import com.example.ndnpttv2.back_end.UiEventInfo;
+import com.example.ndnpttv2.back_end.ProgressEventInfo;
 import com.google.android.exoplayer2.DefaultLoadControl;
 import com.google.android.exoplayer2.ExoPlayer;
 import com.google.android.exoplayer2.ExoPlayerFactory;
@@ -22,9 +23,6 @@ import net.named_data.jndn.Name;
 public class StreamPlayer {
 
     private static final String TAG = "StreamPlayer";
-
-    // Events for stream statistics and ui notifications
-    private static final int EVENT_STREAM_PLAY_COMPLETE = 0;
 
     private ExoPlayer player_;
     private Handler uiHandler_;
@@ -72,7 +70,7 @@ public class StreamPlayer {
                         "Exoplayer state changed to: " + playbackStateString);
 
                 if (playbackState == Player.STATE_ENDED) {
-                    notifyUiEvent(EVENT_STREAM_PLAY_COMPLETE, 0);
+                    notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_PLAYER_PLAYING_COMPLETE, 0);
                 }
             }
         });
@@ -86,17 +84,9 @@ public class StreamPlayer {
         player_.release();
     }
 
-    private void notifyUiEvent(int event_code, long arg1) {
-        int what;
-        switch (event_code) {
-            case EVENT_STREAM_PLAY_COMPLETE:
-                what = SCModule.MSG_STREAM_PLAYER_PLAY_COMPLETE;
-                break;
-            default:
-                throw new IllegalStateException("unrecognized event_code: " + event_code);
-        }
+    private void notifyProgressEvent(int eventCode, long arg1) {
         uiHandler_
-                .obtainMessage(what, new UiEventInfo(streamName_, arg1))
+                .obtainMessage(MessageTypes.MSG_PROGRESS_EVENT, eventCode, 0, new ProgressEventInfo(streamName_, arg1))
                 .sendToTarget();
     }
 

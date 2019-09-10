@@ -12,25 +12,10 @@ public class IntentInfo {
     public static String
         LoginActivity_CONFIG = "LoginActivity_CONFIG";
 
-    // MainActivity broadcast intent info
-    public static String
-        MainActivity_RECORD_REQUEST_START = "MainActivity_RECORD_REQUEST_START",
-        MainActivity_RECORD_REQUEST_STOP = "MainActivity_RECORD_REQUEST_STOP";
-
     // PTTButtonPressReceiver broadcast intent info
     public static String PTTButtonPressReceiver_PTT_BUTTON_DOWN =
             "PTTButtonPressReceiver_PTT_BUTTON_DOWN";
     public static String PTTButtonPressReceiver_PTT_BUTTON_UP =
             "PTTButtonPressReceiver_PTT_BUTTON_UP";
-
-    // AppLogicModuleImpl broadcast intent info
-    public static String
-        Recorder_RECORD_REQUEST_START = "Recorder_RECORD_REQUEST_START",
-        Recorder_RECORD_REQUEST_STOP = "Recorder_RECORD_REQUEST_STOP";
-
-    // SCModuleImpl broadcast intent info
-    public static String
-        Streamer_RECORDING_STARTED = "Streamer_RECORDING_STARTED",
-        Streamer_RECORDING_FINISHED = "Streamer_RECORDING_FINISHED";
 
 }

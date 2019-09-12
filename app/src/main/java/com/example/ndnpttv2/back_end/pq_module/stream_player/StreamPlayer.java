@@ -5,7 +5,6 @@ import android.net.Uri;
 import android.os.Handler;
 import android.util.Log;
 
-import com.example.ndnpttv2.back_end.pq_module.EventCodes;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.AdtsExtractorFactory;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.InputStreamDataSource;
 import com.example.ndnpttv2.back_end.ProgressEventInfo;
@@ -28,7 +27,9 @@ public class StreamPlayer {
     private ExoPlayer player_;
     private Handler uiHandler_;
     private Name streamName_;
-    private Event<ProgressEventInfo> progressEvent_;
+
+    // Events
+    public Event<ProgressEventInfo> eventPlayingCompleted;
 
     public StreamPlayer(Context ctx, InputStreamDataSource dataSource,
                         Name streamName, Handler uiHandler) {
@@ -36,7 +37,7 @@ public class StreamPlayer {
         streamName_ = streamName;
         uiHandler_ = uiHandler;
 
-        progressEvent_ = new SimpleEvent<>();
+        eventPlayingCompleted = new SimpleEvent<>();
 
         player_ = ExoPlayerFactory.newSimpleInstance(ctx, new DefaultTrackSelector(),
                 new DefaultLoadControl.Builder()
@@ -74,7 +75,7 @@ public class StreamPlayer {
                         "Exoplayer state changed to: " + playbackStateString);
 
                 if (playbackState == Player.STATE_ENDED) {
-                    progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_PLAYING_COMPLETE, 0));
+                    eventPlayingCompleted.trigger(new ProgressEventInfo(streamName_, 0));
                 }
             }
         });

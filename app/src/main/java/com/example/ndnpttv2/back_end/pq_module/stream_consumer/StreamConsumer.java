@@ -10,7 +10,6 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.example.ndnpttv2.back_end.pq_module.EventCodes;
 import com.example.ndnpttv2.util.Helpers;
 import com.example.ndnpttv2.back_end.Constants;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.jndn_utils.RttEstimator;
@@ -38,7 +37,6 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.PriorityQueue;
-import java.util.function.Consumer;
 
 public class StreamConsumer extends HandlerThread {
 
@@ -63,7 +61,19 @@ public class StreamConsumer extends HandlerThread {
     private Handler handler_;
     private boolean streamConsumerClosed_ = false;
     private Options options_;
-    private Event<ProgressEventInfo> progressEvent_;
+
+    // Events
+    public Event<ProgressEventInfo> eventInitialized;
+    public Event<ProgressEventInfo> eventProductionWindowGrowth;
+    public Event<ProgressEventInfo> eventAudioRetrieved;
+    public Event<ProgressEventInfo> eventNackRetrieved;
+    public Event<ProgressEventInfo> eventInterestSkipped;
+    public Event<ProgressEventInfo> eventFinalBlockIdLearned;
+    public Event<ProgressEventInfo> eventFetchingCompleted;
+    public Event<ProgressEventInfo> eventFrameBuffered;
+    public Event<ProgressEventInfo> eventFrameSkippped;
+    public Event<ProgressEventInfo> eventFinalFrameNumLearned;
+    public Event<ProgressEventInfo> eventBufferingCompleted;
 
     public static class Options {
         public Options(long framesPerSegment, long jitterBufferSize, long producerSamplingRate) {
@@ -79,11 +89,24 @@ public class StreamConsumer extends HandlerThread {
     public StreamConsumer(Name streamName, InputStreamDataSource outSource, Handler uiHandler,
                           Options options) {
         super("StreamConsumer");
+
         streamName_ = streamName;
         options_ = options;
         outSource_ = outSource;
         scModuleHandler_ = uiHandler;
-        progressEvent_ = new SimpleEvent<>();
+
+        eventInitialized = new SimpleEvent<>();
+        eventProductionWindowGrowth = new SimpleEvent<>();
+        eventAudioRetrieved = new SimpleEvent<>();
+        eventNackRetrieved = new SimpleEvent<>();
+        eventInterestSkipped = new SimpleEvent<>();
+        eventFinalBlockIdLearned = new SimpleEvent<>();
+        eventFetchingCompleted = new SimpleEvent<>();
+        eventFrameBuffered = new SimpleEvent<>();
+        eventFrameSkippped = new SimpleEvent<>();
+        eventFinalFrameNumLearned = new SimpleEvent<>();
+        eventBufferingCompleted = new SimpleEvent<>();
+
         Log.d(TAG, "Initialized (" +
                 "framesPerSegment " + options_.framesPerSegment + ", " +
                 "jitterBufferSize " + options_.jitterBufferSize + ", " +
@@ -99,10 +122,6 @@ public class StreamConsumer extends HandlerThread {
         handler_.obtainMessage(MSG_PLAY_START).sendToTarget();
     }
 
-    public void addListener(Consumer<ProgressEventInfo> listener) {
-        progressEvent_.addListener(listener);
-    }
-
     public void close() {
         Log.d(TAG, "close called");
         streamFetcher_.close();
@@ -110,7 +129,7 @@ public class StreamConsumer extends HandlerThread {
         streamPlayerBuffer_.close();
         handler_.removeCallbacksAndMessages(null);
         handler_.getLooper().quitSafely();
-        progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_BUFFERING_COMPLETE, 0));
+        eventBufferingCompleted.trigger(new ProgressEventInfo(streamName_, 0));
         streamConsumerClosed_ = true;
     }
 
@@ -167,7 +186,7 @@ public class StreamConsumer extends HandlerThread {
         network_ = new Network();
         streamFetcher_ = new StreamFetcher(Looper.getMainLooper());
         streamPlayerBuffer_ = new StreamPlayerBuffer(this);
-        progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_INITIALIZED, 0));
+        eventInitialized.trigger(new ProgressEventInfo(streamName_, 0));
     }
 
     public Handler getHandler() {
@@ -379,7 +398,7 @@ public class StreamConsumer extends HandlerThread {
             if (closed_) return;
             Log.d(TAG, "close called");
             Log.d(TAG, state_.toString());
-            progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_FETCHING_COMPLETE, 0));
+            eventFetchingCompleted.trigger(new ProgressEventInfo(streamName_, 0));
             closed_ = true;
         }
 
@@ -401,7 +420,7 @@ public class StreamConsumer extends HandlerThread {
                 while (nextSegShouldBeSent() && withinCwnd()) {
                     if (closed_) return;
                     state_.highestSegAnticipated++;
-                    progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_PRODUCTION_WINDOW_GROWTH, state_.highestSegAnticipated));
+                    eventProductionWindowGrowth.trigger(new ProgressEventInfo(streamName_, state_.highestSegAnticipated));
                     transmitInterest(state_.highestSegAnticipated, false);
                 }
             }
@@ -443,7 +462,7 @@ public class StreamConsumer extends HandlerThread {
                         "retx: " + isRetransmission +
                         ")");
                 recordPacketEvent(segNum, PACKET_EVENT_INTEREST_SKIP);
-                progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_INTEREST_SKIP, segNum));
+                eventInterestSkipped.trigger(new ProgressEventInfo(streamName_, segNum));
                 return;
             }
 
@@ -528,7 +547,7 @@ public class StreamConsumer extends HandlerThread {
                 }
             }
             if (state_.finalBlockId != FINAL_BLOCK_ID_UNKNOWN) {
-                progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_FINAL_BLOCK_ID_LEARNED, state_.finalBlockId));
+                eventFinalBlockIdLearned.trigger(new ProgressEventInfo(streamName_, state_.finalBlockId));
             }
 
             Log.d(TAG, "receive data (" +
@@ -541,11 +560,11 @@ public class StreamConsumer extends HandlerThread {
 
             if (audioPacketWasAppNack) {
                 recordPacketEvent(segNum, PACKET_EVENT_NACK_RETRIEVED);
-                progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_NACK_RETRIEVED, segNum));
+                eventNackRetrieved.trigger(new ProgressEventInfo(streamName_, segNum));
             }
             else {
                 recordPacketEvent(segNum, PACKET_EVENT_AUDIO_RETRIEVED);
-                progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_AUDIO_RETRIEVED, segNum));
+                eventAudioRetrieved.trigger(new ProgressEventInfo(streamName_, segNum));
             }
             retransmissionQueue_.remove(segNum);
             streamConsumerHandler_.removeCallbacksAndMessages(rtoTokens_.get(segNum));
@@ -730,7 +749,7 @@ public class StreamConsumer extends HandlerThread {
                             (finalFrameNumDeadline_ != FINAL_FRAME_NUM_DEADLINE_UNKNOWN &&
                                     currentTime > finalFrameNumDeadline_));
                     jitterBuffer_.poll();
-                    progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_FRAME_PLAY, highestFrameNumPlayed_));
+                    eventFrameBuffered.trigger(new ProgressEventInfo(streamName_, highestFrameNumPlayed_));
                 }
                 else {
                     if (nextFrame == null || nextFrame.frameNum > highestFrameNumPlayed_) {
@@ -738,7 +757,7 @@ public class StreamConsumer extends HandlerThread {
                         outSource_.write(getSilentFrame(),
                                 (finalFrameNumDeadline_ != FINAL_FRAME_NUM_DEADLINE_UNKNOWN &&
                                         currentTime > finalFrameNumDeadline_));
-                        progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_FRAME_SKIP, highestFrameNumPlayed_));
+                        eventFrameSkippped.trigger(new ProgressEventInfo(streamName_, highestFrameNumPlayed_));
                     }
                 }
 
@@ -782,7 +801,7 @@ public class StreamConsumer extends HandlerThread {
             // frames in it
             if (parsedFrames.size() < options_.framesPerSegment) {
                 finalFrameNum_ = (segNum * options_.framesPerSegment) + parsedFrames.size() - 1;
-                progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_FINAL_FRAME_NUM_LEARNED, finalFrameNum_));
+                eventFinalFrameNumLearned.trigger(new ProgressEventInfo(streamName_, finalFrameNum_));
                 Log.d(TAG, "detected end of stream (" +
                         "final seg num " + segNum + ", " +
                         "final frame num " + finalFrameNum_ +

@@ -87,7 +87,7 @@ public class MainActivity extends AppCompatActivity {
             public void handleMessage(@NonNull Message msg) {
                 switch (msg.what) {
                     case MSG_NETWORK_THREAD_INITIALIZED: {
-                        Log.d(TAG, "Network thread initialized");
+                        Log.d(TAG, "Network thread eventInitialized");
                         networkThreadInfo_ = (NetworkThread.Info) msg.obj;
                         networkThreadInitialized_ = true;
                         if (workThreadInitialized_) {
@@ -96,7 +96,7 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     }
                     case MSG_WORK_THREAD_INITIALIZED: {
-                        Log.d(TAG, "Work thread initialized");
+                        Log.d(TAG, "Work thread eventInitialized");
                         workThreadInfo_ = (WorkThread.Info) msg.obj;
                         workThreadInitialized_ = true;
                         if (networkThreadInitialized_) {
@@ -136,7 +136,7 @@ public class MainActivity extends AppCompatActivity {
         incrementStreamIdButton_.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
+                streamIdInput_.setText(Long.toString(Long.parseLong(streamIdInput_.getText().toString()) + 1));
             }
         });
 

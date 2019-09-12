@@ -21,7 +21,7 @@ import java.util.HashMap;
 import java.util.concurrent.LinkedTransferQueue;
 import java.util.function.Consumer;
 
-public class PlaybackQueueModule implements Consumer<ProgressEventInfo> {
+public class PlaybackQueueModule {
 
     private static final String TAG = "PlaybackQueueModule";
 
@@ -79,7 +79,7 @@ public class PlaybackQueueModule implements Consumer<ProgressEventInfo> {
                         break;
                     }
                     case MSG_STREAM_PLAYER_PLAYING_COMPLETE: {
-                        Log.d(TAG, "playing of stream " + streamName.toString());
+                        Log.d(TAG, "playing of stream " + streamName.toString() + " finished");
                         streamState.streamConsumer.close();
                         streamState.streamPlayer.close();
                         streamStates_.remove(streamName);
@@ -145,9 +145,17 @@ public class PlaybackQueueModule implements Consumer<ProgressEventInfo> {
             currentlyPlaying_ = true;
             StreamInfo streamInfo = playbackQueue_.poll();
             Log.d(TAG, "playback queue was non empty, playing stream " + streamInfo.streamName.toString());
+
             InputStreamDataSource transferSource = new InputStreamDataSource();
+
             StreamPlayer streamPlayer = new StreamPlayer(ctx_, transferSource,
                     streamInfo.streamName, progressEventHandler_);
+            streamPlayer.eventPlayingCompleted.addListener(progressEventInfo -> {
+                progressEventHandler_
+                        .obtainMessage(MSG_STREAM_PLAYER_PLAYING_COMPLETE, progressEventInfo)
+                        .sendToTarget();
+            });
+
             StreamConsumer streamConsumer = new StreamConsumer(
                     streamInfo.streamName,
                     transferSource,
@@ -158,7 +166,16 @@ public class PlaybackQueueModule implements Consumer<ProgressEventInfo> {
             );
             InternalStreamState internalStreamState = new InternalStreamState(streamConsumer, streamPlayer);
             streamStates_.put(streamInfo.streamName, internalStreamState);
-            streamConsumer.addListener(this);
+            streamConsumer.eventInitialized.addListener(progressEventInfo -> {
+                progressEventHandler_
+                        .obtainMessage(MSG_STREAM_CONSUMER_INITIALIZED, progressEventInfo)
+                        .sendToTarget();
+            });
+            streamConsumer.eventFetchingCompleted.addListener(progressEventInfo -> {
+                progressEventHandler_
+                        .obtainMessage(MSG_STREAM_CONSUMER_FETCHING_COMPLETE, progressEventInfo)
+                        .sendToTarget();
+            });
             streamConsumer.start();
         }
         scheduleNextWork(SystemClock.uptimeMillis() + PROCESSING_INTERVAL_MS);
@@ -167,27 +184,5 @@ public class PlaybackQueueModule implements Consumer<ProgressEventInfo> {
     private void scheduleNextWork(long thisOperationStartTimeMs) {
         workHandler_.removeMessages(MSG_DO_SOME_WORK);
         workHandler_.sendEmptyMessageAtTime(MSG_DO_SOME_WORK, thisOperationStartTimeMs + PROCESSING_INTERVAL_MS);
-    }
-
-    @Override
-    public void accept(ProgressEventInfo progressEventInfo) {
-        switch (progressEventInfo.eventCode) {
-            case EventCodes.EVENT_INITIALIZED: {
-                progressEventHandler_.obtainMessage(MSG_STREAM_CONSUMER_INITIALIZED, progressEventInfo).sendToTarget();
-                break;
-            }
-            case EventCodes.EVENT_FETCHING_COMPLETE: {
-                progressEventHandler_.obtainMessage(MSG_STREAM_CONSUMER_FETCHING_COMPLETE, progressEventInfo).sendToTarget();
-                break;
-            }
-            case EventCodes.EVENT_PLAYING_COMPLETE: {
-                progressEventHandler_.obtainMessage(MSG_STREAM_PLAYER_PLAYING_COMPLETE, progressEventInfo).sendToTarget();
-                break;
-            }
-            default: {
-                // ignore
-                break;
-            }
-        }
     }
 }

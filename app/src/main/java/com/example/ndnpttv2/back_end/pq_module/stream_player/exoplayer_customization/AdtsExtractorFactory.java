@@ -1,4 +1,4 @@
-package com.example.ndnpttv2.back_end.sc_module.stream_player.exoplayer_customization;
+package com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization;
 
 import com.google.android.exoplayer2.extractor.Extractor;
 import com.google.android.exoplayer2.extractor.ExtractorsFactory;

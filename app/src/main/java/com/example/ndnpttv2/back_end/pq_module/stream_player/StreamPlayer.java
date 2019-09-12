@@ -1,14 +1,13 @@
-package com.example.ndnpttv2.back_end.sc_module.stream_player;
+package com.example.ndnpttv2.back_end.pq_module.stream_player;
 
 import android.content.Context;
 import android.net.Uri;
 import android.os.Handler;
 import android.util.Log;
 
-import com.example.ndnpttv2.back_end.MessageTypes;
-import com.example.ndnpttv2.back_end.sc_module.SCModule;
-import com.example.ndnpttv2.back_end.sc_module.stream_player.exoplayer_customization.AdtsExtractorFactory;
-import com.example.ndnpttv2.back_end.sc_module.stream_player.exoplayer_customization.InputStreamDataSource;
+import com.example.ndnpttv2.back_end.pq_module.EventCodes;
+import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.AdtsExtractorFactory;
+import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.InputStreamDataSource;
 import com.example.ndnpttv2.back_end.ProgressEventInfo;
 import com.google.android.exoplayer2.DefaultLoadControl;
 import com.google.android.exoplayer2.ExoPlayer;
@@ -17,6 +16,8 @@ import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.source.ProgressiveMediaSource;
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
+import com.pploder.events.Event;
+import com.pploder.events.SimpleEvent;
 
 import net.named_data.jndn.Name;
 
@@ -27,12 +28,15 @@ public class StreamPlayer {
     private ExoPlayer player_;
     private Handler uiHandler_;
     private Name streamName_;
+    private Event<ProgressEventInfo> progressEvent_;
 
     public StreamPlayer(Context ctx, InputStreamDataSource dataSource,
                         Name streamName, Handler uiHandler) {
 
         streamName_ = streamName;
         uiHandler_ = uiHandler;
+
+        progressEvent_ = new SimpleEvent<>();
 
         player_ = ExoPlayerFactory.newSimpleInstance(ctx, new DefaultTrackSelector(),
                 new DefaultLoadControl.Builder()
@@ -70,7 +74,7 @@ public class StreamPlayer {
                         "Exoplayer state changed to: " + playbackStateString);
 
                 if (playbackState == Player.STATE_ENDED) {
-                    notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_PLAYER_PLAYING_COMPLETE, 0);
+                    progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_PLAYING_COMPLETE, 0));
                 }
             }
         });
@@ -82,12 +86,6 @@ public class StreamPlayer {
 
     public void close() {
         player_.release();
-    }
-
-    private void notifyProgressEvent(int eventCode, long arg1) {
-        uiHandler_
-                .obtainMessage(MessageTypes.MSG_PROGRESS_EVENT, eventCode, 0, new ProgressEventInfo(streamName_, arg1))
-                .sendToTarget();
     }
 
 }

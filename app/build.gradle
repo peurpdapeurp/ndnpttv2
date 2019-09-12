@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+repositories {
+    maven {
+        url 'https://jitpack.io'
+    }
+}
+
 android {
     compileSdkVersion 29
     defaultConfig {
@@ -31,4 +37,5 @@ dependencies {
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
     implementation 'net.named-data:jndn-android:0.22'
     implementation 'com.google.android.exoplayer:exoplayer-core:2.10.4'
+    implementation('com.github.Fylipp:easy-events:1.1.0'){ exclude group: 'org.hamcrest', module: 'hamcrest-core' }
 }

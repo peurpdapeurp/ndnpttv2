@@ -1,4 +1,4 @@
-package com.example.ndnpttv2.back_end.sc_module.stream_consumer;
+package com.example.ndnpttv2.back_end.pq_module.stream_consumer;
 
 import android.annotation.SuppressLint;
 import android.os.Handler;
@@ -10,12 +10,14 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.example.ndnpttv2.Util.Helpers;
+import com.example.ndnpttv2.back_end.pq_module.EventCodes;
+import com.example.ndnpttv2.util.Helpers;
 import com.example.ndnpttv2.back_end.Constants;
-import com.example.ndnpttv2.back_end.MessageTypes;
-import com.example.ndnpttv2.back_end.sc_module.stream_consumer.jndn_utils.RttEstimator;
-import com.example.ndnpttv2.back_end.sc_module.stream_player.exoplayer_customization.InputStreamDataSource;
+import com.example.ndnpttv2.back_end.pq_module.stream_consumer.jndn_utils.RttEstimator;
+import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.InputStreamDataSource;
 import com.example.ndnpttv2.back_end.ProgressEventInfo;
+import com.pploder.events.Event;
+import com.pploder.events.SimpleEvent;
 
 import net.named_data.jndn.ContentType;
 import net.named_data.jndn.Data;
@@ -36,6 +38,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.PriorityQueue;
+import java.util.function.Consumer;
 
 public class StreamConsumer extends HandlerThread {
 
@@ -46,20 +49,21 @@ public class StreamConsumer extends HandlerThread {
 
     // Messages
     private static final int MSG_DO_SOME_WORK = 0;
-    public static final int MSG_FETCH_START = 1;
-    public static final int MSG_PLAY_START = 2;
+    private static final int MSG_FETCH_START = 1;
+    private static final int MSG_PLAY_START = 2;
 
     private Network network_;
     private StreamFetcher streamFetcher_;
     private StreamPlayerBuffer streamPlayerBuffer_;
     private boolean streamFetchStartCalled_ = false;
     private boolean streamPlayStartCalled_ = false;
-    private Handler uiHandler_;
+    private Handler scModuleHandler_;
     private Name streamName_;
     private InputStreamDataSource outSource_;
     private Handler handler_;
     private boolean streamConsumerClosed_ = false;
     private Options options_;
+    private Event<ProgressEventInfo> progressEvent_;
 
     public static class Options {
         public Options(long framesPerSegment, long jitterBufferSize, long producerSamplingRate) {
@@ -78,12 +82,25 @@ public class StreamConsumer extends HandlerThread {
         streamName_ = streamName;
         options_ = options;
         outSource_ = outSource;
-        uiHandler_ = uiHandler;
+        scModuleHandler_ = uiHandler;
+        progressEvent_ = new SimpleEvent<>();
         Log.d(TAG, "Initialized (" +
                 "framesPerSegment " + options_.framesPerSegment + ", " +
                 "jitterBufferSize " + options_.jitterBufferSize + ", " +
                 "producerSamplingRate " + options_.producerSamplingRate +
                 ")");
+    }
+
+    public void streamFetchStart() {
+        handler_.obtainMessage(MSG_FETCH_START).sendToTarget();
+    }
+
+    public void streamPlayStart() {
+        handler_.obtainMessage(MSG_PLAY_START).sendToTarget();
+    }
+
+    public void addListener(Consumer<ProgressEventInfo> listener) {
+        progressEvent_.addListener(listener);
     }
 
     public void close() {
@@ -93,7 +110,7 @@ public class StreamConsumer extends HandlerThread {
         streamPlayerBuffer_.close();
         handler_.removeCallbacksAndMessages(null);
         handler_.getLooper().quitSafely();
-        notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_BUFFER_BUFFERING_COMPLETE, 0);
+        progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_BUFFERING_COMPLETE, 0));
         streamConsumerClosed_ = true;
     }
 
@@ -111,23 +128,6 @@ public class StreamConsumer extends HandlerThread {
         handler_.sendEmptyMessageAtTime(MSG_DO_SOME_WORK, thisOperationStartTimeMs + PROCESSING_INTERVAL_MS);
     }
 
-    private void streamFetchStart() {
-        if (streamFetchStartCalled_) return;
-        streamFetcher_.setStreamFetchStartTime(System.currentTimeMillis());
-        Log.d(TAG, streamFetcher_.getState().streamFetchStartTime_ + ": " +
-                "stream fetch started");
-        streamFetchStartCalled_ = true;
-        doSomeWork();
-    }
-
-    private void streamPlayStart() {
-        if (streamPlayStartCalled_) return;
-        streamPlayerBuffer_.setStreamPlayStartTime(System.currentTimeMillis());
-        Log.d(TAG, streamPlayerBuffer_.getStreamPlayStartTime() + ": " +
-                "stream play started");
-        streamPlayStartCalled_ = true;
-    }
-
     @SuppressLint("HandlerLeak")
     @Override
     protected void onLooperPrepared() {
@@ -137,22 +137,37 @@ public class StreamConsumer extends HandlerThread {
             public void handleMessage(@NonNull Message msg) {
                 super.handleMessage(msg);
                 switch (msg.what) {
-                    case MSG_DO_SOME_WORK:
+                    case MSG_DO_SOME_WORK: {
                         doSomeWork();
                         break;
-                    case MSG_FETCH_START:
-                        streamFetchStart();
+                    }
+                    case MSG_FETCH_START: {
+                        if (streamFetchStartCalled_) return;
+                        streamFetcher_.setStreamFetchStartTime(System.currentTimeMillis());
+                        Log.d(TAG, streamFetcher_.getState().fetchStartTime + ": " +
+                                "stream fetch started");
+                        streamFetchStartCalled_ = true;
+                        doSomeWork();
                         break;
-                    case MSG_PLAY_START:
-                        streamPlayStart();
+                    }
+                    case MSG_PLAY_START: {
+                        if (streamPlayStartCalled_) return;
+                        streamPlayerBuffer_.setStreamPlayStartTime(System.currentTimeMillis());
+                        Log.d(TAG, streamPlayerBuffer_.getStreamPlayStartTime() + ": " +
+                                "stream play started");
+                        streamPlayStartCalled_ = true;
                         break;
+                    }
+                    default: {
+                        throw new IllegalStateException("unexpected msg.what " + msg.what);
+                    }
                 }
             }
         };
         network_ = new Network();
         streamFetcher_ = new StreamFetcher(Looper.getMainLooper());
         streamPlayerBuffer_ = new StreamPlayerBuffer(this);
-        notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_CONSUMER_INITIALIZED, 0);
+        progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_INITIALIZED, 0));
     }
 
     public Handler getHandler() {
@@ -286,6 +301,14 @@ public class StreamConsumer extends HandlerThread {
         private static final int DEFAULT_INTEREST_LIFETIME_MS = 4000;
         private static final int N_EXPECTED_SAMPLES = 1;
 
+        // Packet events
+        private static final int PACKET_EVENT_AUDIO_RETRIEVED = 0;
+        private static final int PACKET_EVENT_INTEREST_TIMEOUT = 1;
+        private static final int PACKET_EVENT_INTEREST_TRANSMIT = 2;
+        private static final int PACKET_EVENT_PREMATURE_RTO = 3;
+        private static final int PACKET_EVENT_INTEREST_SKIP = 4;
+        private static final int PACKET_EVENT_NACK_RETRIEVED = 5;
+
         private PriorityQueue<Long> retransmissionQueue_;
         private HashMap<Long, Long> segSendTimes_;
         private HashMap<Long, Object> rtoTokens_;
@@ -297,39 +320,39 @@ public class StreamConsumer extends HandlerThread {
 
         public class StreamFetcherState {
             public long msPerSegNum_;
-            public long streamFetchStartTime_;
-            public long streamFinalBlockId_ = FINAL_BLOCK_ID_UNKNOWN;
-            public long highestSegSent_ = NO_SEGS_SENT;
-            public int numInterestsTransmitted_ = 0;
-            public int numInterestTimeouts_ = 0;
-            public int numDataReceives_ = 0;
-            public int numPrematureRtos_ = 0;
-            public int numInterestSkips_ = 0;
-            public int numNacks_ = 0;
+            public long fetchStartTime;
+            public long finalBlockId = FINAL_BLOCK_ID_UNKNOWN;
+            public long highestSegAnticipated = NO_SEGS_SENT;
+            public int numInterestsTransmitted = 0;
+            public int numInterestTimeouts = 0;
+            public int numDataReceives = 0;
+            public int numPrematureRtos = 0;
+            public int numInterestSkips = 0;
+            public int numNacks = 0;
 
             public String toString() {
                 return "State of StreamFetcher:" + "\n" +
-                        "streamFetchStartTime_ " + streamFetchStartTime_ + ", " +
+                        "fetchStartTime " + fetchStartTime + ", " +
                         "msPerSegNum_ " + msPerSegNum_ + ", " +
-                        "streamFinalBlockId_ " +
-                        ((streamFinalBlockId_ == FINAL_BLOCK_ID_UNKNOWN) ? "unknown" : streamFinalBlockId_) +
+                        "finalBlockId " +
+                        ((finalBlockId == FINAL_BLOCK_ID_UNKNOWN) ? "unknown" : finalBlockId) +
                         ", " +
-                        "highestSegSent_ " +
-                        ((highestSegSent_ == NO_SEGS_SENT) ? "none " : highestSegSent_) +
+                        "highestSegAnticipated " +
+                        ((highestSegAnticipated == NO_SEGS_SENT) ? "none " : highestSegAnticipated) +
                         "\n" +
-                        "numInterestsTransmitted_ " + numInterestsTransmitted_ + ", " +
-                        "numInterestTimeouts_ " + numInterestTimeouts_ + ", " +
-                        "numDataReceives_ " + numDataReceives_ + "\n" +
-                        "numInterestSkips_ " + numInterestSkips_ + ", " +
-                        "numPrematureRtos_ " + numPrematureRtos_ + ", " +
-                        "numNacks_ " + numNacks_ + "\n" +
+                        "numInterestsTransmitted " + numInterestsTransmitted + ", " +
+                        "numInterestTimeouts " + numInterestTimeouts + ", " +
+                        "numDataReceives " + numDataReceives + "\n" +
+                        "numInterestSkips " + numInterestSkips + ", " +
+                        "numPrematureRtos " + numPrematureRtos + ", " +
+                        "numNacks " + numNacks + "\n" +
                         "retransmissionQueue_ " + retransmissionQueue_ + "\n" +
                         "segSendTimes_ " + segSendTimes_;
             }
         }
 
         private long getTimeSinceStreamFetchStart() {
-            return System.currentTimeMillis() - state_.streamFetchStartTime_;
+            return System.currentTimeMillis() - state_.fetchStartTime;
         }
 
         private StreamFetcher(Looper streamConsumerLooper) {
@@ -349,14 +372,14 @@ public class StreamConsumer extends HandlerThread {
         }
 
         private void setStreamFetchStartTime(long streamFetchStartTime) {
-            state_.streamFetchStartTime_ = streamFetchStartTime;
+            state_.fetchStartTime = streamFetchStartTime;
         }
 
         private void close() {
             if (closed_) return;
             Log.d(TAG, "close called");
             Log.d(TAG, state_.toString());
-            notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_FETCHING_COMPLETE, 0);
+            progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_FETCHING_COMPLETE, 0));
             closed_ = true;
         }
 
@@ -373,18 +396,18 @@ public class StreamConsumer extends HandlerThread {
 
             if (closed_) return;
 
-            if (state_.streamFinalBlockId_ == FINAL_BLOCK_ID_UNKNOWN ||
-                    state_.highestSegSent_ < state_.streamFinalBlockId_) {
+            if (state_.finalBlockId == FINAL_BLOCK_ID_UNKNOWN ||
+                    state_.highestSegAnticipated < state_.finalBlockId) {
                 while (nextSegShouldBeSent() && withinCwnd()) {
                     if (closed_) return;
-                    state_.highestSegSent_++;
-                    notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_PRODUCTION_WINDOW_GROW, state_.highestSegSent_);
-                    transmitInterest(state_.highestSegSent_, false);
+                    state_.highestSegAnticipated++;
+                    progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_PRODUCTION_WINDOW_GROWTH, state_.highestSegAnticipated));
+                    transmitInterest(state_.highestSegAnticipated, false);
                 }
             }
 
             if (retransmissionQueue_.size() == 0 && rtoTokens_.size() == 0 &&
-                    state_.streamFinalBlockId_ != FINAL_BLOCK_ID_UNKNOWN) {
+                    state_.finalBlockId != FINAL_BLOCK_ID_UNKNOWN) {
                 close();
                 return;
             }
@@ -394,7 +417,7 @@ public class StreamConsumer extends HandlerThread {
         private boolean nextSegShouldBeSent() {
             long timeSinceFetchStart = getTimeSinceStreamFetchStart();
             boolean nextSegShouldBeSent = false;
-            if (timeSinceFetchStart / state_.msPerSegNum_ > state_.highestSegSent_) {
+            if (timeSinceFetchStart / state_.msPerSegNum_ > state_.highestSegAnticipated) {
                 nextSegShouldBeSent = true;
             }
             return nextSegShouldBeSent;
@@ -419,8 +442,8 @@ public class StreamConsumer extends HandlerThread {
                         "playback deadline " + playbackDeadline + ", " +
                         "retx: " + isRetransmission +
                         ")");
-                recordPacketEvent(segNum, MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_INTEREST_SKIP);
-                notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_INTEREST_SKIP, segNum);
+                recordPacketEvent(segNum, PACKET_EVENT_INTEREST_SKIP);
+                progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_INTEREST_SKIP, segNum));
                 return;
             }
 
@@ -438,7 +461,7 @@ public class StreamConsumer extends HandlerThread {
                     Log.d(TAG, getTimeSinceStreamFetchStart() + ": " + "rto timeout (seg num " + segNum + ")");
                     retransmissionQueue_.add(segNum);
                     rtoTokens_.remove(segNum);
-                    recordPacketEvent(segNum, MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_INTEREST_TIMEOUT);
+                    recordPacketEvent(segNum, PACKET_EVENT_INTEREST_TIMEOUT);
                 }
             }, rtoToken, SystemClock.uptimeMillis() + rto);
             rtoTokens_.put(segNum, rtoToken);
@@ -449,14 +472,14 @@ public class StreamConsumer extends HandlerThread {
                 segSendTimes_.put(segNum, System.currentTimeMillis());
             }
             network_.sendInterest(interestToSend);
-            recordPacketEvent(segNum, MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_INTEREST_TRANSMIT);
+            recordPacketEvent(segNum, PACKET_EVENT_INTEREST_TRANSMIT);
             Log.d(TAG, "interest transmitted (" +
                     "seg num " + segNum + ", " +
                     "first frame num " + segFirstFrameNum + ", " +
                     "rto " + rto + ", " +
                     "lifetime " + lifetime + ", " +
                     "retx: " + isRetransmission + ", " +
-                    "numPrematureRtos_ " + state_.numPrematureRtos_ +
+                    "numPrematureRtos " + state_.numPrematureRtos +
                     ")");
         }
 
@@ -471,7 +494,7 @@ public class StreamConsumer extends HandlerThread {
 
             boolean detectedPrematureRto = retransmissionQueue_.contains(segNum);
             if (detectedPrematureRto) {
-                recordPacketEvent(segNum, MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_PREMATURE_RTO);
+                recordPacketEvent(segNum, PACKET_EVENT_PREMATURE_RTO);
             }
 
             if (segSendTimes_.containsKey(segNum)) {
@@ -490,7 +513,7 @@ public class StreamConsumer extends HandlerThread {
             if (audioPacketWasAppNack) {
                 finalBlockId = Helpers.bytesToLong(audioPacket.getContent().getImmutableArray());
                 Log.d(TAG, "audioPacketWasAppNack, final block id " + finalBlockId);
-                state_.streamFinalBlockId_ = finalBlockId;
+                state_.finalBlockId = finalBlockId;
                 streamPlayerBuffer_.receiveFinalSegNum(finalBlockId);
             }
             else {
@@ -499,13 +522,13 @@ public class StreamConsumer extends HandlerThread {
                 if (finalBlockIdComponent != null) {
                     try {
                         finalBlockId = finalBlockIdComponent.toSegment();
-                        state_.streamFinalBlockId_ = finalBlockId;
+                        state_.finalBlockId = finalBlockId;
                     }
                     catch (EncodingException ignored) { }
                 }
             }
-            if (state_.streamFinalBlockId_ != FINAL_BLOCK_ID_UNKNOWN) {
-                notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED, state_.streamFinalBlockId_);
+            if (state_.finalBlockId != FINAL_BLOCK_ID_UNKNOWN) {
+                progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_FINAL_BLOCK_ID_LEARNED, state_.finalBlockId));
             }
 
             Log.d(TAG, "receive data (" +
@@ -517,12 +540,12 @@ public class StreamConsumer extends HandlerThread {
                     ")");
 
             if (audioPacketWasAppNack) {
-                recordPacketEvent(segNum, MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_NACK_RETRIEVED);
-                notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_NACK_RETRIEVED, segNum);
+                recordPacketEvent(segNum, PACKET_EVENT_NACK_RETRIEVED);
+                progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_NACK_RETRIEVED, segNum));
             }
             else {
-                recordPacketEvent(segNum, MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_AUDIO_RETRIEVED);
-                notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_AUDIO_RETRIEVED, segNum);
+                recordPacketEvent(segNum, PACKET_EVENT_AUDIO_RETRIEVED);
+                progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_AUDIO_RETRIEVED, segNum));
             }
             retransmissionQueue_.remove(segNum);
             streamConsumerHandler_.removeCallbacksAndMessages(rtoTokens_.get(segNum));
@@ -553,28 +576,28 @@ public class StreamConsumer extends HandlerThread {
         private void recordPacketEvent(long segNum, int event_code) {
             String eventString = "";
             switch (event_code) {
-                case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_AUDIO_RETRIEVED:
-                    state_.numDataReceives_++;
+                case PACKET_EVENT_AUDIO_RETRIEVED:
+                    state_.numDataReceives++;
                     eventString = "data_receive";
                     break;
-                case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_INTEREST_TIMEOUT:
-                    state_.numInterestTimeouts_++;
+                case PACKET_EVENT_INTEREST_TIMEOUT:
+                    state_.numInterestTimeouts++;
                     eventString = "interest_timeout";
                     break;
-                case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_INTEREST_TRANSMIT:
-                    state_.numInterestsTransmitted_++;
+                case PACKET_EVENT_INTEREST_TRANSMIT:
+                    state_.numInterestsTransmitted++;
                     eventString = "interest_transmit";
                     break;
-                case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_PREMATURE_RTO:
-                    state_.numPrematureRtos_++;
+                case PACKET_EVENT_PREMATURE_RTO:
+                    state_.numPrematureRtos++;
                     eventString = "premature_rto";
                     break;
-                case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_INTEREST_SKIP:
-                    state_.numInterestSkips_++;
+                case PACKET_EVENT_INTEREST_SKIP:
+                    state_.numInterestSkips++;
                     eventString = "interest_skip";
                     break;
-                case MessageTypes.MSG_PROGRESS_EVENT_STREAM_FETCHER_NACK_RETRIEVED:
-                    state_.numNacks_++;
+                case PACKET_EVENT_NACK_RETRIEVED:
+                    state_.numNacks++;
                     eventString = "nack_receive";
                     break;
             }
@@ -707,7 +730,7 @@ public class StreamConsumer extends HandlerThread {
                             (finalFrameNumDeadline_ != FINAL_FRAME_NUM_DEADLINE_UNKNOWN &&
                                     currentTime > finalFrameNumDeadline_));
                     jitterBuffer_.poll();
-                    notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_BUFFER_FRAME_PLAYED, highestFrameNumPlayed_);
+                    progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_FRAME_PLAY, highestFrameNumPlayed_));
                 }
                 else {
                     if (nextFrame == null || nextFrame.frameNum > highestFrameNumPlayed_) {
@@ -715,7 +738,7 @@ public class StreamConsumer extends HandlerThread {
                         outSource_.write(getSilentFrame(),
                                 (finalFrameNumDeadline_ != FINAL_FRAME_NUM_DEADLINE_UNKNOWN &&
                                         currentTime > finalFrameNumDeadline_));
-                        notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_BUFFER_FRAME_SKIP, highestFrameNumPlayed_);
+                        progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_FRAME_SKIP, highestFrameNumPlayed_));
                     }
                 }
 
@@ -759,7 +782,7 @@ public class StreamConsumer extends HandlerThread {
             // frames in it
             if (parsedFrames.size() < options_.framesPerSegment) {
                 finalFrameNum_ = (segNum * options_.framesPerSegment) + parsedFrames.size() - 1;
-                notifyProgressEvent(MessageTypes.MSG_PROGRESS_EVENT_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED, finalFrameNum_);
+                progressEvent_.trigger(new ProgressEventInfo(streamName_, EventCodes.EVENT_FINAL_FRAME_NUM_LEARNED, finalFrameNum_));
                 Log.d(TAG, "detected end of stream (" +
                         "final seg num " + segNum + ", " +
                         "final frame num " + finalFrameNum_ +
@@ -844,12 +867,6 @@ public class StreamConsumer extends HandlerThread {
     private long calculateMsPerSeg(long producerSamplingRate, long framesPerSegment) {
         return (framesPerSegment * Constants.SAMPLES_PER_ADTS_FRAME *
                 Constants.MILLISECONDS_PER_SECOND) / producerSamplingRate;
-    }
-
-    private void notifyProgressEvent(int eventCode, long arg1) {
-        uiHandler_
-                .obtainMessage(MessageTypes.MSG_PROGRESS_EVENT, eventCode, 0, new ProgressEventInfo(streamName_, arg1))
-                .sendToTarget();
     }
 
     public Name getStreamName() {

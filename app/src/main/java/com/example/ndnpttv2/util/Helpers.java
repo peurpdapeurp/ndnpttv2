@@ -1,6 +1,6 @@
-package com.example.ndnpttv2.Util;
+package com.example.ndnpttv2.util;
 
-import com.example.ndnpttv2.back_end.StreamInfo;
+import com.example.ndnpttv2.back_end.pq_module.StreamInfo;
 
 import java.nio.ByteBuffer;
 

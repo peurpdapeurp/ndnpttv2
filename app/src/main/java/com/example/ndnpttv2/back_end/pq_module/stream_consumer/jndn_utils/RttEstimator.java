@@ -1,4 +1,4 @@
-package com.example.ndnpttv2.back_end.sc_module.stream_consumer.jndn_utils;
+package com.example.ndnpttv2.back_end.pq_module.stream_consumer.jndn_utils;
 
 /**
  * Copyright (C) 2015-2019 Regents of the University of California.

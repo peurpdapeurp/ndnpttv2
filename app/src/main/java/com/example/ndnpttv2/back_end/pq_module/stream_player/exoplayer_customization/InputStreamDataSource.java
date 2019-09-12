@@ -1,4 +1,4 @@
-package com.example.ndnpttv2.back_end.sc_module.stream_player.exoplayer_customization;
+package com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization;
 
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;

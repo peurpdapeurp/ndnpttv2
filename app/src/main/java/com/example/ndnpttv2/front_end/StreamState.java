@@ -1,13 +1,10 @@
 package com.example.ndnpttv2.front_end;
 
-import com.example.ndnpttv2.back_end.StreamInfo;
-import com.example.ndnpttv2.back_end.sc_module.stream_consumer.StreamConsumer;
-import com.example.ndnpttv2.back_end.sc_module.stream_player.StreamPlayer;
+import com.example.ndnpttv2.back_end.pq_module.StreamInfo;
 
 import net.named_data.jndn.Name;
 
 public class StreamState {
-
     // Public constants
     public static final int FINAL_BLOCK_ID_UNKNOWN = -1;
     public static final int FINAL_FRAME_NUM_UNKNOWN = -1;

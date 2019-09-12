@@ -1,7 +1,7 @@
-package com.example.ndnpttv2.back_end;
+package com.example.ndnpttv2.back_end.pq_module;
 
-import com.example.ndnpttv2.back_end.sc_module.stream_consumer.StreamConsumer;
-import com.example.ndnpttv2.back_end.sc_module.stream_player.StreamPlayer;
+import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
+import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
 
 public class InternalStreamState {
 

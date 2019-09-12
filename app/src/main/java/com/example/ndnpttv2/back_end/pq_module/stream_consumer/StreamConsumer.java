@@ -37,7 +37,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.PriorityQueue;
 
-public class StreamConsumer extends HandlerThread {
+public class StreamConsumer {
 
     private static final String TAG = "StreamConsumer";
 
@@ -83,9 +83,8 @@ public class StreamConsumer extends HandlerThread {
         long producerSamplingRate; // samples/sec from producer
     }
 
-    public StreamConsumer(Name streamName, InputStreamDataSource outSource, Looper workThreadLooper,
+    public StreamConsumer(Name streamName, InputStreamDataSource outSource, Looper networkThreadLooper,
                           Options options) {
-        super("StreamConsumer");
 
         streamName_ = streamName;
         options_ = options;
@@ -102,7 +101,7 @@ public class StreamConsumer extends HandlerThread {
         eventFinalFrameNumLearned = new SimpleEvent<>();
         eventBufferingCompleted = new SimpleEvent<>();
 
-        handler_ = new Handler(workThreadLooper) {
+        handler_ = new Handler(networkThreadLooper) {
             @Override
             public void handleMessage(@NonNull Message msg) {
                 super.handleMessage(msg);
@@ -134,6 +133,7 @@ public class StreamConsumer extends HandlerThread {
                 }
             }
         };
+
         network_ = new Network();
         streamFetcher_ = new StreamFetcher(Looper.getMainLooper());
         streamPlayerBuffer_ = new StreamPlayerBuffer(this);
@@ -358,7 +358,7 @@ public class StreamConsumer extends HandlerThread {
             return System.currentTimeMillis() - state_.fetchStartTime;
         }
 
-        private StreamFetcher(Looper streamConsumerLooper) {
+        private StreamFetcher(Looper networkThreadLooper) {
             cwndCalculator_ = new CwndCalculator();
             retransmissionQueue_ = new PriorityQueue<>();
             segSendTimes_ = new HashMap<>();
@@ -367,7 +367,7 @@ public class StreamConsumer extends HandlerThread {
             rttEstimator_ = new RttEstimator(new RttEstimator.Options(streamPlayerBufferJitterDelay, streamPlayerBufferJitterDelay));
             state_ = new StreamFetcherState();
             state_.msPerSegNum_ = calculateMsPerSeg(options_.producerSamplingRate, options_.framesPerSegment);
-            rtoHandler_ = new Handler(streamConsumerLooper);
+            rtoHandler_ = new Handler(networkThreadLooper);
             Log.d(TAG, "Initialized (" +
                     "maxRto / initialRto " + streamPlayerBufferJitterDelay + ", " +
                     "ms per seg num " + state_.msPerSegNum_ +

@@ -20,8 +20,8 @@ import android.widget.EditText;
 import com.example.ndnpttv2.R;
 import com.example.ndnpttv2.back_end.Threads.NetworkThread;
 import com.example.ndnpttv2.back_end.pq_module.PlaybackQueueModule;
-import com.example.ndnpttv2.back_end.pq_module.StreamInfo;
-import com.example.ndnpttv2.back_end.r_module.RecorderModule;
+import com.example.ndnpttv2.back_end.rec_module.RecorderModule;
+import com.example.ndnpttv2.back_end.sync_module.StreamMetaData;
 import com.example.ndnpttv2.back_end.sync_module.SyncModule;
 
 import net.named_data.jndn.Name;
@@ -41,14 +41,18 @@ public class MainActivity extends AppCompatActivity {
     private RecorderModule recorderModule_;
     private SyncModule syncModule_;
 
+    // Configuration parameters
+    private Name channelName_;
+    private Name userName_;
+
     // UI objects
-    private Button notifyNewStreamButton_;
-    private Button incrementStreamIdButton_;
-    private EditText streamIdInput_;
+    EditText streamIdInput_;
+    Button notifyNewStreamButton_;
 
     private BroadcastReceiver pttButtonPressReceiverListener_;
     private Handler handler_;
     private Context ctx_;
+    private long lastStreamId_ = 0;
 
     @SuppressLint("HandlerLeak")
     @Override
@@ -82,6 +86,11 @@ public class MainActivity extends AppCompatActivity {
                     case MSG_NETWORK_THREAD_INITIALIZED: {
                         Log.d(TAG, "Network thread eventInitialized");
                         NetworkThread.Info networkThreadInfo = (NetworkThread.Info) msg.obj;
+                        syncModule_ = new SyncModule(
+                                new Name(getString(R.string.broadcast_prefix)).append(channelName_),
+                                new Name(getString(R.string.data_prefix)).append(userName_),
+                                networkThreadInfo.looper
+                        );
                         playbackQueueModule_ = new PlaybackQueueModule(ctx_, getMainLooper(), networkThreadInfo.looper);
                         break;
                     }
@@ -90,6 +99,35 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         };
+
+        notifyNewStreamButton_ = (Button) findViewById(R.id.notify_new_stream_button);
+        notifyNewStreamButton_.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (syncModule_ != null) {
+                    syncModule_.notifyNewStreamProducing(
+                            ++lastStreamId_, new StreamMetaData(1, 8000)
+                    );
+                }
+            }
+        });
+
+        startActivityForResult(new Intent(this, LoginActivity.class), 0);
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (resultCode != RESULT_OK) {
+            throw new IllegalStateException("problem getting result from login activity, result code " + resultCode);
+        }
+
+        String[] configInfo = data.getStringArrayExtra(IntentInfo.LOGIN_CONFIG);
+
+        channelName_ = new Name(configInfo[IntentInfo.CHANNEL]);
+        userName_ = new Name(configInfo[IntentInfo.USER_NAME]);
 
         networkThread_ = new NetworkThread(new NetworkThread.Callbacks() {
             @Override
@@ -101,33 +139,8 @@ public class MainActivity extends AppCompatActivity {
         });
         networkThread_.start();
 
-        streamIdInput_ = (EditText) findViewById(R.id.stream_id);
-
-        incrementStreamIdButton_ = (Button) findViewById(R.id.increment_stream_id_button);
-        incrementStreamIdButton_.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                streamIdInput_.setText(Long.toString(Long.parseLong(streamIdInput_.getText().toString()) + 1));
-            }
-        });
-
-        notifyNewStreamButton_ = (Button) findViewById(R.id.notify_new_stream_button);
-        notifyNewStreamButton_.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (playbackQueueModule_ != null) {
-                    Name streamName = new Name(getString(R.string.network_prefix))
-                            .append("test_stream")
-                            .append(streamIdInput_.getText().toString())
-                            .appendVersion(0);
-                    playbackQueueModule_.notifyNewStreamAvailable(
-                            new StreamInfo(streamName, 1, 8000)
-                    );
-                }
-            }
-        });
-
     }
+
 
     @Override
     protected void onDestroy() {

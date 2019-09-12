@@ -33,13 +33,6 @@
                 android:inputType="textPersonName"
                 android:text="0" />
 
-            <Button
-                android:id="@+id/increment_stream_id_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Increment Stream Id" />
-
         </LinearLayout>
 
         <Button

@@ -5,12 +5,9 @@ public class IntentInfo {
     // LoginActivity broadcast intent info
     public static int
         CHANNEL = 0,
-        USER_NAME = 1,
-        SEGMENT_INTEREST_MAX_REATTEMPTS = 2,
-        SEGMENT_INTEREST_LIFETIME = 3,
-        AP_IP_ADDRESS = 4;
+        USER_NAME = 1;
     public static String
-        LoginActivity_CONFIG = "LoginActivity_CONFIG";
+            LOGIN_CONFIG = "LOGIN_CONFIG";
 
     // PTTButtonPressReceiver broadcast intent info
     public static String PTTButtonPressReceiver_PTT_BUTTON_DOWN =

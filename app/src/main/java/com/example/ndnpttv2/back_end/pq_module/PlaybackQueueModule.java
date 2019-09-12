@@ -43,14 +43,14 @@ public class PlaybackQueueModule {
     private HashMap<Name, InternalStreamState> streamStates_;
     private boolean currentlyPlaying_ = false;
 
-    public PlaybackQueueModule(Context ctx, Looper workThreadLooper, Looper networkThreadLooper) {
+    public PlaybackQueueModule(Context ctx, Looper mainThreadLooper, Looper networkThreadLooper) {
 
         ctx_ = ctx;
         playbackQueue_ = new LinkedTransferQueue<>();
         streamStates_ = new HashMap<>();
         networkThreadLooper_ = networkThreadLooper;
 
-        progressEventHandler_ = new Handler(workThreadLooper) {
+        progressEventHandler_ = new Handler(mainThreadLooper) {
             @Override
             public void handleMessage(@NonNull Message msg) {
                 ProgressEventInfo progressEventInfo = (ProgressEventInfo) msg.obj;
@@ -85,7 +85,7 @@ public class PlaybackQueueModule {
             }
         };
 
-        moduleMessageHandler_ = new Handler(workThreadLooper) {
+        moduleMessageHandler_ = new Handler(mainThreadLooper) {
             @Override
             public void handleMessage(@NonNull Message msg) {
 
@@ -96,7 +96,7 @@ public class PlaybackQueueModule {
                 switch (msg.what) {
                     case MSG_NEW_STREAM_AVAILABLE: {
                         Log.d(TAG, "Notified of new stream " + "(" +
-                                Helpers.getStreamInfoString(streamInfo) +
+                                streamInfo.toString() +
                                 ")");
                         playbackQueue_.add(streamInfo);
                         break;
@@ -108,7 +108,7 @@ public class PlaybackQueueModule {
             }
         };
 
-        workHandler_ = new Handler(workThreadLooper) {
+        workHandler_ = new Handler(mainThreadLooper) {
             @Override
             public void handleMessage(@NonNull Message msg) {
                 switch (msg.what) {

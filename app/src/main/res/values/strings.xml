@@ -1,6 +1,5 @@
 <resources>
     <string name="app_name">NDNPTTv2</string>
-    <string name="network_prefix">/ndnpttv2</string>
-    <string name="stream_statistics_label">Stream Statistics:</string>
-    <string name="current_stream_name_label">Fetched Stream Name:</string>
+    <string name="data_prefix">/pscr/NDN-PTT</string>
+    <string name="broadcast_prefix">/pscr/NDN-PTT/sync</string>
 </resources>

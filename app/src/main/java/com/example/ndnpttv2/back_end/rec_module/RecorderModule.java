@@ -1,4 +1,4 @@
-package com.example.ndnpttv2.back_end.r_module;
+package com.example.ndnpttv2.back_end.rec_module;
 
 public class RecorderModule {
 

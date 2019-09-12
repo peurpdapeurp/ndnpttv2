@@ -1,6 +1,7 @@
 package com.example.ndnpttv2.util;
 
 import com.example.ndnpttv2.back_end.pq_module.StreamInfo;
+import com.example.ndnpttv2.back_end.sync_module.StreamMetaData;
 
 import java.nio.ByteBuffer;
 
@@ -16,12 +17,6 @@ public class Helpers {
 
     public static long getNumFrames(long finalBlockId, long framesPerSegment) {
         return finalBlockId * framesPerSegment + framesPerSegment - 1;
-    }
-
-    public static String getStreamInfoString(StreamInfo info) {
-        return "stream name " + info.streamName + ", " +
-                "frames per segment " + info.framesPerSegment + ", " +
-                "producer sampling rate " + info.producerSamplingRate;
     }
 
 }

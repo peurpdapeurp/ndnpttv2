@@ -38,4 +38,5 @@ dependencies {
     implementation 'net.named-data:jndn-android:0.22'
     implementation 'com.google.android.exoplayer:exoplayer-core:2.10.4'
     implementation('com.github.Fylipp:easy-events:1.1.0'){ exclude group: 'org.hamcrest', module: 'hamcrest-core' }
+    implementation 'com.google.code.gson:gson:2.8.5'
 }

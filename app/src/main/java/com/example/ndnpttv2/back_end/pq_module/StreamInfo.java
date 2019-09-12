@@ -14,4 +14,10 @@ public class StreamInfo {
     public long framesPerSegment;
     public long producerSamplingRate;
 
+    @Override
+    public String toString() {
+        return "streamName " + streamName.toString() + ", " +
+                "framesPerSegment " + framesPerSegment + ", " +
+                "producerSamplingRate " + producerSamplingRate;
+    }
 }

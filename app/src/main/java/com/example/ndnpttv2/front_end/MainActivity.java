@@ -19,7 +19,6 @@ import android.widget.EditText;
 
 import com.example.ndnpttv2.R;
 import com.example.ndnpttv2.back_end.Threads.NetworkThread;
-import com.example.ndnpttv2.back_end.Threads.WorkThread;
 import com.example.ndnpttv2.back_end.pq_module.PlaybackQueueModule;
 import com.example.ndnpttv2.back_end.pq_module.StreamInfo;
 import com.example.ndnpttv2.back_end.r_module.RecorderModule;
@@ -33,15 +32,9 @@ public class MainActivity extends AppCompatActivity {
 
     // Messages
     private static final int MSG_NETWORK_THREAD_INITIALIZED = 0;
-    private static final int MSG_WORK_THREAD_INITIALIZED = 1;
 
     // Thread objects
     private NetworkThread networkThread_;
-    private NetworkThread.Info networkThreadInfo_;
-    boolean networkThreadInitialized_ = false;
-    private WorkThread workThread_;
-    private WorkThread.Info workThreadInfo_;
-    boolean workThreadInitialized_ = false;
 
     // Back-end modules
     private PlaybackQueueModule playbackQueueModule_;
@@ -88,20 +81,8 @@ public class MainActivity extends AppCompatActivity {
                 switch (msg.what) {
                     case MSG_NETWORK_THREAD_INITIALIZED: {
                         Log.d(TAG, "Network thread eventInitialized");
-                        networkThreadInfo_ = (NetworkThread.Info) msg.obj;
-                        networkThreadInitialized_ = true;
-                        if (workThreadInitialized_) {
-                            playbackQueueModule_ = new PlaybackQueueModule(ctx_, workThreadInfo_.looper, networkThreadInfo_.looper);
-                        }
-                        break;
-                    }
-                    case MSG_WORK_THREAD_INITIALIZED: {
-                        Log.d(TAG, "Work thread eventInitialized");
-                        workThreadInfo_ = (WorkThread.Info) msg.obj;
-                        workThreadInitialized_ = true;
-                        if (networkThreadInitialized_) {
-                            playbackQueueModule_ = new PlaybackQueueModule(ctx_, workThreadInfo_.looper, networkThreadInfo_.looper);
-                        }
+                        NetworkThread.Info networkThreadInfo = (NetworkThread.Info) msg.obj;
+                        playbackQueueModule_ = new PlaybackQueueModule(ctx_, getMainLooper(), networkThreadInfo.looper);
                         break;
                     }
                     default:
@@ -119,16 +100,6 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         networkThread_.start();
-
-        workThread_ = new WorkThread(new WorkThread.Callbacks() {
-            @Override
-            public void onInitialized(WorkThread.Info info) {
-                handler_
-                        .obtainMessage(MSG_WORK_THREAD_INITIALIZED, info)
-                        .sendToTarget();
-            }
-        });
-        workThread_.start();
 
         streamIdInput_ = (EditText) findViewById(R.id.stream_id);
 

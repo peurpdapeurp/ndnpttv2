@@ -1,6 +1,5 @@
 package com.example.ndnpttv2.back_end.pq_module.stream_consumer;
 
-import android.annotation.SuppressLint;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -48,14 +47,13 @@ public class StreamConsumer extends HandlerThread {
     // Messages
     private static final int MSG_DO_SOME_WORK = 0;
     private static final int MSG_FETCH_START = 1;
-    private static final int MSG_PLAY_START = 2;
+    private static final int MSG_BUFFER_START = 2;
 
     private Network network_;
     private StreamFetcher streamFetcher_;
     private StreamPlayerBuffer streamPlayerBuffer_;
     private boolean streamFetchStartCalled_ = false;
     private boolean streamPlayStartCalled_ = false;
-    private Handler scModuleHandler_;
     private Name streamName_;
     private InputStreamDataSource outSource_;
     private Handler handler_;
@@ -63,7 +61,6 @@ public class StreamConsumer extends HandlerThread {
     private Options options_;
 
     // Events
-    public Event<ProgressEventInfo> eventInitialized;
     public Event<ProgressEventInfo> eventProductionWindowGrowth;
     public Event<ProgressEventInfo> eventAudioRetrieved;
     public Event<ProgressEventInfo> eventNackRetrieved;
@@ -86,16 +83,14 @@ public class StreamConsumer extends HandlerThread {
         long producerSamplingRate; // samples/sec from producer
     }
 
-    public StreamConsumer(Name streamName, InputStreamDataSource outSource, Handler uiHandler,
+    public StreamConsumer(Name streamName, InputStreamDataSource outSource, Looper workThreadLooper,
                           Options options) {
         super("StreamConsumer");
 
         streamName_ = streamName;
         options_ = options;
         outSource_ = outSource;
-        scModuleHandler_ = uiHandler;
 
-        eventInitialized = new SimpleEvent<>();
         eventProductionWindowGrowth = new SimpleEvent<>();
         eventAudioRetrieved = new SimpleEvent<>();
         eventNackRetrieved = new SimpleEvent<>();
@@ -107,51 +102,7 @@ public class StreamConsumer extends HandlerThread {
         eventFinalFrameNumLearned = new SimpleEvent<>();
         eventBufferingCompleted = new SimpleEvent<>();
 
-        Log.d(TAG, "Initialized (" +
-                "framesPerSegment " + options_.framesPerSegment + ", " +
-                "jitterBufferSize " + options_.jitterBufferSize + ", " +
-                "producerSamplingRate " + options_.producerSamplingRate +
-                ")");
-    }
-
-    public void streamFetchStart() {
-        handler_.obtainMessage(MSG_FETCH_START).sendToTarget();
-    }
-
-    public void streamPlayStart() {
-        handler_.obtainMessage(MSG_PLAY_START).sendToTarget();
-    }
-
-    public void close() {
-        Log.d(TAG, "close called");
-        streamFetcher_.close();
-        network_.close();
-        streamPlayerBuffer_.close();
-        handler_.removeCallbacksAndMessages(null);
-        handler_.getLooper().quitSafely();
-        eventBufferingCompleted.trigger(new ProgressEventInfo(streamName_, 0));
-        streamConsumerClosed_ = true;
-    }
-
-    private void doSomeWork() {
-        network_.doSomeWork();
-        streamFetcher_.doSomeWork();
-        streamPlayerBuffer_.doSomeWork();
-        if (!streamConsumerClosed_) {
-            scheduleNextWork(SystemClock.uptimeMillis());
-        }
-    }
-
-    private void scheduleNextWork(long thisOperationStartTimeMs) {
-        handler_.removeMessages(MSG_DO_SOME_WORK);
-        handler_.sendEmptyMessageAtTime(MSG_DO_SOME_WORK, thisOperationStartTimeMs + PROCESSING_INTERVAL_MS);
-    }
-
-    @SuppressLint("HandlerLeak")
-    @Override
-    protected void onLooperPrepared() {
-        super.onLooperPrepared();
-        handler_ = new Handler() {
+        handler_ = new Handler(workThreadLooper) {
             @Override
             public void handleMessage(@NonNull Message msg) {
                 super.handleMessage(msg);
@@ -169,11 +120,11 @@ public class StreamConsumer extends HandlerThread {
                         doSomeWork();
                         break;
                     }
-                    case MSG_PLAY_START: {
+                    case MSG_BUFFER_START: {
                         if (streamPlayStartCalled_) return;
                         streamPlayerBuffer_.setStreamPlayStartTime(System.currentTimeMillis());
                         Log.d(TAG, streamPlayerBuffer_.getStreamPlayStartTime() + ": " +
-                                "stream play started");
+                                "stream buffering started");
                         streamPlayStartCalled_ = true;
                         break;
                     }
@@ -186,11 +137,44 @@ public class StreamConsumer extends HandlerThread {
         network_ = new Network();
         streamFetcher_ = new StreamFetcher(Looper.getMainLooper());
         streamPlayerBuffer_ = new StreamPlayerBuffer(this);
-        eventInitialized.trigger(new ProgressEventInfo(streamName_, 0));
+
+        Log.d(TAG, "Initialized (" +
+                "framesPerSegment " + options_.framesPerSegment + ", " +
+                "jitterBufferSize " + options_.jitterBufferSize + ", " +
+                "producerSamplingRate " + options_.producerSamplingRate +
+                ")");
     }
 
-    public Handler getHandler() {
-        return handler_;
+    public void streamFetchStart() {
+        handler_.obtainMessage(MSG_FETCH_START).sendToTarget();
+    }
+
+    public void streamBufferStart() {
+        handler_.obtainMessage(MSG_BUFFER_START).sendToTarget();
+    }
+
+    public void close() {
+        Log.d(TAG, "close called");
+        streamFetcher_.close();
+        network_.close();
+        streamPlayerBuffer_.close();
+        handler_.removeCallbacksAndMessages(null);
+        eventBufferingCompleted.trigger(new ProgressEventInfo(streamName_, 0));
+        streamConsumerClosed_ = true;
+    }
+
+    private void doSomeWork() {
+        network_.doSomeWork();
+        streamFetcher_.doSomeWork();
+        streamPlayerBuffer_.doSomeWork();
+        if (!streamConsumerClosed_) {
+            scheduleNextWork(SystemClock.uptimeMillis());
+        }
+    }
+
+    private void scheduleNextWork(long thisOperationStartTimeMs) {
+        handler_.removeMessages(MSG_DO_SOME_WORK);
+        handler_.sendEmptyMessageAtTime(MSG_DO_SOME_WORK, thisOperationStartTimeMs + PROCESSING_INTERVAL_MS);
     }
 
     private class Network {
@@ -334,7 +318,7 @@ public class StreamConsumer extends HandlerThread {
         private CwndCalculator cwndCalculator_;
         private RttEstimator rttEstimator_;
         private boolean closed_ = false;
-        private Handler streamConsumerHandler_;
+        private Handler rtoHandler_;
         private StreamFetcherState state_;
 
         public class StreamFetcherState {
@@ -383,7 +367,7 @@ public class StreamConsumer extends HandlerThread {
             rttEstimator_ = new RttEstimator(new RttEstimator.Options(streamPlayerBufferJitterDelay, streamPlayerBufferJitterDelay));
             state_ = new StreamFetcherState();
             state_.msPerSegNum_ = calculateMsPerSeg(options_.producerSamplingRate, options_.framesPerSegment);
-            streamConsumerHandler_ = new Handler(streamConsumerLooper);
+            rtoHandler_ = new Handler(streamConsumerLooper);
             Log.d(TAG, "Initialized (" +
                     "maxRto / initialRto " + streamPlayerBufferJitterDelay + ", " +
                     "ms per seg num " + state_.msPerSegNum_ +
@@ -396,10 +380,14 @@ public class StreamConsumer extends HandlerThread {
 
         private void close() {
             if (closed_) return;
-            Log.d(TAG, "close called");
-            Log.d(TAG, state_.toString());
+            Log.d(TAG, "close called, state of fetcher: " + state_.toString());
+            rtoHandler_.removeCallbacksAndMessages(null);
             eventFetchingCompleted.trigger(new ProgressEventInfo(streamName_, 0));
             closed_ = true;
+        }
+
+        private StreamFetcherState getState() {
+            return state_;
         }
 
         private void doSomeWork() {
@@ -474,7 +462,7 @@ public class StreamConsumer extends HandlerThread {
             interestToSend.setMustBeFresh(false);
 
             Object rtoToken = new Object();
-            streamConsumerHandler_.postAtTime(new Runnable() {
+            rtoHandler_.postAtTime(new Runnable() {
                 @Override
                 public void run() {
                     Log.d(TAG, getTimeSinceStreamFetchStart() + ": " + "rto timeout (seg num " + segNum + ")");
@@ -567,7 +555,7 @@ public class StreamConsumer extends HandlerThread {
                 eventAudioRetrieved.trigger(new ProgressEventInfo(streamName_, segNum));
             }
             retransmissionQueue_.remove(segNum);
-            streamConsumerHandler_.removeCallbacksAndMessages(rtoTokens_.get(segNum));
+            rtoHandler_.removeCallbacksAndMessages(rtoTokens_.get(segNum));
             rtoTokens_.remove(segNum);
 
         }
@@ -626,10 +614,6 @@ public class StreamConsumer extends HandlerThread {
                     "event " + eventString + ", " +
                     "num outstanding interests " + rtoTokens_.size() +
                     ")");
-        }
-
-        public StreamFetcherState getState() {
-            return state_;
         }
     }
 

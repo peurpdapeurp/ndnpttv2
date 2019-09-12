@@ -19,7 +19,6 @@ import net.named_data.jndn.Name;
 
 import java.util.HashMap;
 import java.util.concurrent.LinkedTransferQueue;
-import java.util.function.Consumer;
 
 public class PlaybackQueueModule {
 
@@ -31,10 +30,9 @@ public class PlaybackQueueModule {
 
     // Messages
     private static final int MSG_DO_SOME_WORK = 0;
-    private static final int MSG_STREAM_CONSUMER_INITIALIZED = 1;
-    private static final int MSG_STREAM_CONSUMER_FETCHING_COMPLETE = 2;
-    private static final int MSG_STREAM_PLAYER_PLAYING_COMPLETE = 3;
-    private static final int MSG_NEW_STREAM_AVAILABLE = 4;
+    private static final int MSG_STREAM_CONSUMER_FETCHING_COMPLETE = 1;
+    private static final int MSG_STREAM_PLAYER_PLAYING_COMPLETE = 2;
+    private static final int MSG_NEW_STREAM_AVAILABLE = 3;
 
     private Looper networkThreadLooper_;
     private Context ctx_;
@@ -68,12 +66,6 @@ public class PlaybackQueueModule {
                 }
 
                 switch (msg.what) {
-                    case MSG_STREAM_CONSUMER_INITIALIZED: {
-                        streamState.streamConsumer.streamFetchStart();
-                        streamState.streamConsumer.streamPlayStart();
-                        Log.d(TAG, "fetching of stream " + streamName.toString() + " started");
-                        break;
-                    }
                     case MSG_STREAM_CONSUMER_FETCHING_COMPLETE: {
                         Log.d(TAG, "fetching of stream " + streamName.toString() + " finished");
                         break;
@@ -129,7 +121,7 @@ public class PlaybackQueueModule {
             }
         };
 
-        doSomeWork(); // start the work handler's work cycle
+        workHandler_.obtainMessage(MSG_DO_SOME_WORK).sendToTarget(); // start the work handler's work cycle
 
         Log.d(TAG, "PlaybackQueueModule constructed.");
 
@@ -159,26 +151,23 @@ public class PlaybackQueueModule {
             StreamConsumer streamConsumer = new StreamConsumer(
                     streamInfo.streamName,
                     transferSource,
-                    progressEventHandler_,
+                    networkThreadLooper_,
                     new StreamConsumer.Options(streamInfo.framesPerSegment,
                             DEFAULT_JITTER_BUFFER_SIZE,
                             streamInfo.producerSamplingRate)
             );
             InternalStreamState internalStreamState = new InternalStreamState(streamConsumer, streamPlayer);
             streamStates_.put(streamInfo.streamName, internalStreamState);
-            streamConsumer.eventInitialized.addListener(progressEventInfo -> {
-                progressEventHandler_
-                        .obtainMessage(MSG_STREAM_CONSUMER_INITIALIZED, progressEventInfo)
-                        .sendToTarget();
-            });
             streamConsumer.eventFetchingCompleted.addListener(progressEventInfo -> {
                 progressEventHandler_
                         .obtainMessage(MSG_STREAM_CONSUMER_FETCHING_COMPLETE, progressEventInfo)
                         .sendToTarget();
             });
-            streamConsumer.start();
+
+            streamConsumer.streamFetchStart();
+            streamConsumer.streamBufferStart();
         }
-        scheduleNextWork(SystemClock.uptimeMillis() + PROCESSING_INTERVAL_MS);
+        scheduleNextWork(SystemClock.uptimeMillis());
     }
 
     private void scheduleNextWork(long thisOperationStartTimeMs) {

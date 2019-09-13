@@ -9,6 +9,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.example.ndnpttv2.back_end.Threads.NetworkThread;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.InputStreamDataSource;
@@ -34,7 +35,6 @@ public class PlaybackQueueModule {
     private static final int MSG_STREAM_PLAYER_PLAYING_COMPLETE = 2;
     private static final int MSG_NEW_STREAM_AVAILABLE = 3;
 
-    private Looper networkThreadLooper_;
     private Context ctx_;
     private Handler progressEventHandler_;
     private Handler moduleMessageHandler_;
@@ -42,13 +42,14 @@ public class PlaybackQueueModule {
     private LinkedTransferQueue<StreamInfo> playbackQueue_;
     private HashMap<Name, InternalStreamState> streamStates_;
     private boolean currentlyPlaying_ = false;
+    private NetworkThread.Info networkThreadInfo_;
 
-    public PlaybackQueueModule(Context ctx, Looper mainThreadLooper, Looper networkThreadLooper) {
+    public PlaybackQueueModule(Context ctx, Looper mainThreadLooper, NetworkThread.Info networkThreadInfo) {
 
         ctx_ = ctx;
         playbackQueue_ = new LinkedTransferQueue<>();
         streamStates_ = new HashMap<>();
-        networkThreadLooper_ = networkThreadLooper;
+        networkThreadInfo_ = networkThreadInfo;
 
         progressEventHandler_ = new Handler(mainThreadLooper) {
             @Override
@@ -151,7 +152,7 @@ public class PlaybackQueueModule {
             StreamConsumer streamConsumer = new StreamConsumer(
                     streamInfo.streamName,
                     transferSource,
-                    networkThreadLooper_,
+                    networkThreadInfo_,
                     new StreamConsumer.Options(streamInfo.framesPerSegment,
                             DEFAULT_JITTER_BUFFER_SIZE,
                             streamInfo.producerSamplingRate)

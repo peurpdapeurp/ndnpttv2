@@ -9,6 +9,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.example.ndnpttv2.back_end.Threads.NetworkThread;
 import com.example.ndnpttv2.util.Helpers;
 import com.example.ndnpttv2.back_end.Constants;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.jndn_utils.RttEstimator;
@@ -59,6 +60,7 @@ public class StreamConsumer {
     private Handler handler_;
     private boolean streamConsumerClosed_ = false;
     private Options options_;
+    private NetworkThread.Info networkThreadInfo_;
 
     // Events
     public Event<ProgressEventInfo> eventProductionWindowGrowth;
@@ -83,7 +85,7 @@ public class StreamConsumer {
         long producerSamplingRate; // samples/sec from producer
     }
 
-    public StreamConsumer(Name streamName, InputStreamDataSource outSource, Looper networkThreadLooper,
+    public StreamConsumer(Name streamName, InputStreamDataSource outSource, NetworkThread.Info networkThreadInfo,
                           Options options) {
 
         streamName_ = streamName;
@@ -101,7 +103,7 @@ public class StreamConsumer {
         eventFinalFrameNumLearned = new SimpleEvent<>();
         eventBufferingCompleted = new SimpleEvent<>();
 
-        handler_ = new Handler(networkThreadLooper) {
+        handler_ = new Handler(networkThreadInfo.looper) {
             @Override
             public void handleMessage(@NonNull Message msg) {
                 super.handleMessage(msg);
@@ -134,7 +136,7 @@ public class StreamConsumer {
             }
         };
 
-        network_ = new Network();
+        network_ = new Network(networkThreadInfo.face);
         streamFetcher_ = new StreamFetcher(Looper.getMainLooper());
         streamPlayerBuffer_ = new StreamPlayerBuffer(this);
 
@@ -156,7 +158,6 @@ public class StreamConsumer {
     public void close() {
         Log.d(TAG, "close called");
         streamFetcher_.close();
-        network_.close();
         streamPlayerBuffer_.close();
         handler_.removeCallbacksAndMessages(null);
         eventBufferingCompleted.trigger(new ProgressEventInfo(streamName_, 0));
@@ -164,7 +165,6 @@ public class StreamConsumer {
     }
 
     private void doSomeWork() {
-        network_.doSomeWork();
         streamFetcher_.doSomeWork();
         streamPlayerBuffer_.doSomeWork();
         if (!streamConsumerClosed_) {
@@ -182,39 +182,13 @@ public class StreamConsumer {
         private final static String TAG = "StreamConsumer_Network";
 
         private Face face_;
-        private KeyChain keyChain_;
         private HashSet<Name> recvDatas;
         private HashSet<Name> retransmits;
-        private boolean closed_ = false;
 
-        private Network() {
-            // set up keychain
-            keyChain_ = configureKeyChain();
-            // set up face
-            face_ = new Face();
-            try {
-                face_.setCommandSigningInfo(keyChain_, keyChain_.getDefaultCertificateName());
-            } catch (SecurityException e) {
-                e.printStackTrace();
-            }
+        private Network(Face face) {
+            face_ = face;
             recvDatas = new HashSet<>();
             retransmits = new HashSet<>();
-        }
-
-        private void close() {
-            if (closed_) return;
-            closed_ = true;
-        }
-
-        private void doSomeWork() {
-            if (closed_) return;
-            try {
-                face_.processEvents();
-            } catch (IOException e) {
-                e.printStackTrace();
-            } catch (EncodingException e) {
-                e.printStackTrace();
-            }
         }
 
         private void sendInterest(Interest interest) {
@@ -265,32 +239,6 @@ public class StreamConsumer {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        }
-
-        // taken from https://github.com/named-data-mobile/NFD-android/blob/4a20a88fb288403c6776f81c1d117cfc7fced122/app/src/main/java/net/named_data/nfd/utils/NfdcHelper.java
-        private KeyChain configureKeyChain() {
-
-            final MemoryIdentityStorage identityStorage = new MemoryIdentityStorage();
-            final MemoryPrivateKeyStorage privateKeyStorage = new MemoryPrivateKeyStorage();
-            final KeyChain keyChain = new KeyChain(new IdentityManager(identityStorage, privateKeyStorage),
-                    new SelfVerifyPolicyManager(identityStorage));
-
-            Name name = new Name("/tmp-identity");
-
-            try {
-                // create keys, certs if necessary
-                if (!identityStorage.doesIdentityExist(name)) {
-                    keyChain.createIdentityAndCertificate(name);
-
-                    // set default identity
-                    keyChain.getIdentityManager().setDefaultIdentity(name);
-                }
-            }
-            catch (SecurityException e){
-                e.printStackTrace();
-            }
-
-            return keyChain;
         }
     }
 

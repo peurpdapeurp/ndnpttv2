@@ -20,6 +20,7 @@ import android.widget.EditText;
 import com.example.ndnpttv2.R;
 import com.example.ndnpttv2.back_end.Threads.NetworkThread;
 import com.example.ndnpttv2.back_end.pq_module.PlaybackQueueModule;
+import com.example.ndnpttv2.back_end.pq_module.StreamInfo;
 import com.example.ndnpttv2.back_end.rec_module.RecorderModule;
 import com.example.ndnpttv2.back_end.sync_module.StreamMetaData;
 import com.example.ndnpttv2.back_end.sync_module.SyncModule;
@@ -46,7 +47,6 @@ public class MainActivity extends AppCompatActivity {
     private Name userName_;
 
     // UI objects
-    EditText streamIdInput_;
     Button notifyNewStreamButton_;
 
     private BroadcastReceiver pttButtonPressReceiverListener_;
@@ -91,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
                                 new Name(getString(R.string.data_prefix)).append(userName_),
                                 networkThreadInfo.looper
                         );
-                        playbackQueueModule_ = new PlaybackQueueModule(ctx_, getMainLooper(), networkThreadInfo.looper);
+                        playbackQueueModule_ = new PlaybackQueueModule(ctx_, getMainLooper(), networkThreadInfo);
                         break;
                     }
                     default:
@@ -104,9 +104,20 @@ public class MainActivity extends AppCompatActivity {
         notifyNewStreamButton_.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                if (syncModule_ != null) {
-                    syncModule_.notifyNewStreamProducing(
-                            ++lastStreamId_, new StreamMetaData(1, 8000, System.currentTimeMillis())
+//                if (syncModule_ != null) {
+//                    syncModule_.notifyNewStreamProducing(
+//                            ++lastStreamId_, new StreamMetaData(1, 8000, System.currentTimeMillis())
+//                    );
+//                }
+                if (playbackQueueModule_ != null) {
+                    playbackQueueModule_.notifyNewStreamAvailable(
+                            new StreamInfo(
+                                    new Name("ndnpttv2")
+                                    .append("test_stream")
+                                    .append("0")
+                                    .appendVersion(0),
+                                    1, 8000
+                            )
                     );
                 }
             }

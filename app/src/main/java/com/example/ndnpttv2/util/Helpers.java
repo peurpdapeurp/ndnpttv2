@@ -15,6 +15,13 @@ public class Helpers {
         return buffer.getLong();
     }
 
+    // https://stackoverflow.com/questions/4485128/how-do-i-convert-long-to-byte-and-back-in-java
+    public static byte[] longToBytes(long x) {
+        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+        buffer.putLong(x);
+        return buffer.array();
+    }
+
     public static long getNumFrames(long finalBlockId, long framesPerSegment) {
         return finalBlockId * framesPerSegment + framesPerSegment - 1;
     }

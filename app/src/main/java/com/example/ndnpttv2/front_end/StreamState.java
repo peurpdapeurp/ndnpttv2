@@ -1,6 +1,6 @@
 package com.example.ndnpttv2.front_end;
 
-import com.example.ndnpttv2.back_end.pq_module.StreamInfo;
+import com.example.ndnpttv2.back_end.StreamInfo;
 
 import net.named_data.jndn.Name;
 

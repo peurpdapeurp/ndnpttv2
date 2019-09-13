@@ -13,19 +13,16 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
-import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
 
 import com.example.ndnpttv2.R;
-import com.example.ndnpttv2.back_end.Threads.NetworkThread;
+import com.example.ndnpttv2.back_end.StreamInfo;
+import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.back_end.pq_module.PlaybackQueueModule;
-import com.example.ndnpttv2.back_end.pq_module.StreamInfo;
 import com.example.ndnpttv2.back_end.rec_module.RecorderModule;
-import com.example.ndnpttv2.back_end.sync_module.StreamMetaData;
 import com.example.ndnpttv2.back_end.sync_module.SyncModule;
 
 import net.named_data.jndn.Name;
+import net.named_data.jndn.encoding.EncodingException;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -33,11 +30,12 @@ public class MainActivity extends AppCompatActivity {
 
     // Messages
     private static final int MSG_NETWORK_THREAD_INITIALIZED = 0;
-    private static final int MSG_RECORD_REQUEST_START = 1;
-    private static final int MSG_RECORD_REQUEST_STOP = 2;
+    private static final int MSG_BUTTON_RECORD_REQUEST_START = 1;
+    private static final int MSG_BUTTON_RECORD_REQUEST_STOP = 2;
+    private static final int MSG_RECORDERMODULE_RECORD_STARTED = 3;
+    private static final int MSG_RECORDERMODULE_RECORD_FINISHED = 4;
+    private static final int MSG_SYNCMODULE_NEW_STREAM_AVAILABLE = 5;
 
-    // Thread objects
-    private NetworkThread networkThread_;
     private boolean networkThreadInitialized_ = false;
 
     // Back-end modules
@@ -46,11 +44,9 @@ public class MainActivity extends AppCompatActivity {
     private SyncModule syncModule_;
 
     // Configuration parameters
-    private Name channelName_;
-    private Name userName_;
-
-    // UI objects
-    Button notifyNewStreamButton_;
+    private Name applicationBroadcastPrefix_;
+    private Name applicationDataPrefix_;
+    private long syncSessionId_;
 
     private BroadcastReceiver pttButtonPressReceiverListener_;
     private Handler handler_;
@@ -71,11 +67,11 @@ public class MainActivity extends AppCompatActivity {
             public void onReceive(Context context, Intent intent) {
                 if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_DOWN)) {
                     if (networkThreadInitialized_) {
-                        handler_.obtainMessage(MSG_RECORD_REQUEST_START).sendToTarget();
+                        handler_.obtainMessage(MSG_BUTTON_RECORD_REQUEST_START).sendToTarget();
                     }
                 } else if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_UP)) {
                     if (networkThreadInitialized_) {
-                        handler_.obtainMessage(MSG_RECORD_REQUEST_STOP).sendToTarget();
+                        handler_.obtainMessage(MSG_BUTTON_RECORD_REQUEST_STOP).sendToTarget();
                     }
                 } else {
                     Log.e(TAG, "pttButtonPressReceiverListener_ unexpected intent: " + intent.getAction());
@@ -92,24 +88,68 @@ public class MainActivity extends AppCompatActivity {
                     case MSG_NETWORK_THREAD_INITIALIZED: {
                         Log.d(TAG, "Network thread eventInitialized");
                         NetworkThread.Info networkThreadInfo = (NetworkThread.Info) msg.obj;
-                        Name applicationBroadcastPrefix = new Name(getString(R.string.broadcast_prefix)).append(channelName_);
-                        Name applicationDataPrefix = new Name(getString(R.string.data_prefix)).append(userName_);
+
                         syncModule_ = new SyncModule(
-                                applicationBroadcastPrefix,
-                                applicationDataPrefix,
+                                applicationBroadcastPrefix_,
+                                applicationDataPrefix_,
+                                syncSessionId_,
                                 networkThreadInfo.looper
                         );
-                        playbackQueueModule_ = new PlaybackQueueModule(ctx_, getMainLooper(), networkThreadInfo);
-                        recorderModule_ = new RecorderModule(applicationDataPrefix, networkThreadInfo);
+                        syncModule_.eventNewStreamAvailable.addListener(streamName ->
+                                    handler_
+                                    .obtainMessage(MSG_SYNCMODULE_NEW_STREAM_AVAILABLE, streamName)
+                                    .sendToTarget()
+                        );
+
+                        playbackQueueModule_ = new PlaybackQueueModule(
+                                ctx_,
+                                getMainLooper(),
+                                networkThreadInfo
+                        );
+
+                        recorderModule_ = new RecorderModule(
+                                applicationDataPrefix_,
+                                networkThreadInfo
+                        );
+                        recorderModule_.eventRecordingStarted.addListener(streamInfo ->
+                                handler_
+                                .obtainMessage(MSG_RECORDERMODULE_RECORD_STARTED, streamInfo)
+                                .sendToTarget());
+                        recorderModule_.eventRecordingFinished.addListener(streamName ->
+                                handler_
+                                .obtainMessage(MSG_RECORDERMODULE_RECORD_FINISHED, streamName)
+                                .sendToTarget());
+
                         networkThreadInitialized_ = true;
                         break;
                     }
-                    case MSG_RECORD_REQUEST_START: {
+                    case MSG_BUTTON_RECORD_REQUEST_START: {
                         recorderModule_.recordRequestStart();
                         break;
                     }
-                    case MSG_RECORD_REQUEST_STOP: {
+                    case MSG_BUTTON_RECORD_REQUEST_STOP: {
                         recorderModule_.recordRequestStop();
+                        break;
+                    }
+                    case MSG_RECORDERMODULE_RECORD_STARTED: {
+                        StreamInfo streamInfo = (StreamInfo) msg.obj;
+                        try {
+                            syncModule_.notifyNewStreamProducing(
+                                streamInfo.streamName.get(-1).toSequenceNumber(),
+                                    streamInfo.getMetaData()
+                            );
+                        } catch (EncodingException e) {
+                            e.printStackTrace();
+                        }
+                        break;
+                    }
+                    case MSG_RECORDERMODULE_RECORD_FINISHED: {
+                        Log.d(TAG, "RecorderModule finished recording");
+                        break;
+                    }
+                    case MSG_SYNCMODULE_NEW_STREAM_AVAILABLE: {
+                        StreamInfo streamInfo = (StreamInfo) msg.obj;
+                        playbackQueueModule_.notifyNewStreamAvailable(streamInfo);
                         break;
                     }
                     default:
@@ -117,24 +157,6 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         };
-
-        notifyNewStreamButton_ = (Button) findViewById(R.id.notify_new_stream_button);
-        notifyNewStreamButton_.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                if (playbackQueueModule_ != null) {
-                    playbackQueueModule_.notifyNewStreamAvailable(
-                            new StreamInfo(
-                                    new Name("ndnpttv2")
-                                    .append("test_stream")
-                                    .append("0")
-                                    .appendVersion(0),
-                                    1, 8000
-                            )
-                    );
-                }
-            }
-        });
 
         startActivityForResult(new Intent(this, LoginActivity.class), 0);
 
@@ -150,18 +172,26 @@ public class MainActivity extends AppCompatActivity {
 
         String[] configInfo = data.getStringArrayExtra(IntentInfo.LOGIN_CONFIG);
 
-        channelName_ = new Name(configInfo[IntentInfo.CHANNEL]);
-        userName_ = new Name(configInfo[IntentInfo.USER_NAME]);
+        String channelName = configInfo[IntentInfo.CHANNEL];
+        String userName = configInfo[IntentInfo.USER_NAME];
 
-        networkThread_ = new NetworkThread(new NetworkThread.Callbacks() {
-            @Override
-            public void onInitialized(NetworkThread.Info info) {
-                handler_
+        syncSessionId_ = System.currentTimeMillis();
+
+        applicationBroadcastPrefix_ = new Name(getString(R.string.broadcast_prefix))
+                .append(channelName);
+        applicationDataPrefix_ = new Name(getString(R.string.data_prefix))
+                .append(channelName)
+                .append(userName)
+                .append(Long.toString(syncSessionId_));
+
+        // Thread objects
+        NetworkThread networkThread = new NetworkThread(
+                applicationDataPrefix_,
+                info -> handler_
                         .obtainMessage(MSG_NETWORK_THREAD_INITIALIZED, info)
-                        .sendToTarget();
-            }
-        });
-        networkThread_.start();
+                        .sendToTarget());
+
+        networkThread.start();
 
     }
 

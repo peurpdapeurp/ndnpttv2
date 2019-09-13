@@ -8,9 +8,9 @@ public class StreamMetaData {
         this.recordingStartTimestamp = recordingStartTimeStamp;
     }
 
-    public long framesPerSegment;
-    public long producerSamplingRate;
-    public long recordingStartTimestamp;
+    long framesPerSegment;
+    long producerSamplingRate;
+    long recordingStartTimestamp;
 
     @Override
     public String toString() {

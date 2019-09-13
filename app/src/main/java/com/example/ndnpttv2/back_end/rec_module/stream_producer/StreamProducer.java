@@ -15,7 +15,7 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.example.ndnpttv2.back_end.ProgressEventInfo;
-import com.example.ndnpttv2.back_end.Threads.NetworkThread;
+import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.util.Helpers;
 import com.example.ndnpttv2.util.Pipe;
 import com.pploder.events.Event;
@@ -24,11 +24,8 @@ import com.pploder.events.SimpleEvent;
 import net.named_data.jndn.ContentType;
 import net.named_data.jndn.Data;
 import net.named_data.jndn.Face;
-import net.named_data.jndn.Interest;
-import net.named_data.jndn.InterestFilter;
 import net.named_data.jndn.MetaInfo;
 import net.named_data.jndn.Name;
-import net.named_data.jndn.OnInterestCallback;
 import net.named_data.jndn.encoding.EncodingException;
 import net.named_data.jndn.security.KeyChain;
 import net.named_data.jndn.util.Blob;
@@ -50,12 +47,11 @@ public class StreamProducer {
 
     // Events
     public Event<ProgressEventInfo> eventSegmentPublished;
-    public Event<ProgressEventInfo> eventFinalSegmentRecorded;
+    public Event<ProgressEventInfo> eventFinalSegmentPublished;
 
     private MediaRecorder mediaRecorder_;
     private Network network_;
     private FrameProcessor frameProcessor_;
-    private Pipe audioDataPipe_;
     private Name streamName_;
     private Options options_;
     private Handler handler_;
@@ -79,10 +75,10 @@ public class StreamProducer {
 
         streamName_ = new Name(applicationDataPrefix).appendSequenceNumber(streamSeqNum);
         options_ = options;
-        audioDataPipe_ = new Pipe();
+        Pipe audioDataPipe = new Pipe();
 
         eventSegmentPublished = new SimpleEvent<>();
-        eventFinalSegmentRecorded = new SimpleEvent<>();
+        eventFinalSegmentPublished = new SimpleEvent<>();
 
         handler_ = new Handler(networkThreadInfo.looper) {
             @Override
@@ -98,7 +94,8 @@ public class StreamProducer {
                         break;
                     }
                     case MSG_RECORD_STOP: {
-                        mediaRecorder_.stop();
+                        Log.d(TAG, "Got MSG_RECORD_STOP");
+                        mediaRecorder_.stopRecording();
                         break;
                     }
                     default: {
@@ -109,8 +106,8 @@ public class StreamProducer {
         };
 
         network_ = new Network(networkThreadInfo.face);
-        frameProcessor_ = new FrameProcessor(audioDataPipe_.getInputStream());
-        mediaRecorder_ = new MediaRecorder(audioDataPipe_.getOutputFileDescriptor());
+        frameProcessor_ = new FrameProcessor(audioDataPipe.getInputStream());
+        mediaRecorder_ = new MediaRecorder(audioDataPipe.getOutputFileDescriptor());
 
         Log.d(TAG, System.currentTimeMillis() + ": " +
                 "Initialized (" +
@@ -164,7 +161,7 @@ public class StreamProducer {
             int current_bytes_read = 0;
         }
 
-        public FrameProcessor(InputStream inputStream) {
+        private FrameProcessor(InputStream inputStream) {
             inputStream_ = inputStream;
 
             // set up frame processing state
@@ -173,7 +170,7 @@ public class StreamProducer {
             packetizer_ = new FramePacketizer();
         }
 
-        public void doSomeWork() {
+        private void doSomeWork() {
 
             if (closed_) return;
 
@@ -304,7 +301,7 @@ public class StreamProducer {
 
                 }
 
-                eventFinalSegmentRecorded.trigger(new ProgressEventInfo(streamName_, currentSegmentNum_));
+                eventSegmentPublished.trigger(new ProgressEventInfo(streamName_, currentSegmentNum_));
 
                 finalBlockId_ = currentSegmentNum_;
 
@@ -319,35 +316,33 @@ public class StreamProducer {
 
             private final static String TAG = "StreamProducer_FrameBundler";
 
-            private long maxBundleSize_ = 10; // number of frames per audio bundle
+            private long maxBundleSize_; // number of frames per audio bundle
             private ArrayList<byte[]> bundle_;
             private int current_bundle_size_; // number of frames in current bundle
 
             FrameBundler(long maxBundleSize) {
                 maxBundleSize_ = maxBundleSize;
-                bundle_ = new ArrayList<byte[]>();
+                bundle_ = new ArrayList<>();
                 current_bundle_size_ = 0;
             }
 
-            public int getCurrentBundleSize() {
+            private int getCurrentBundleSize() {
                 return current_bundle_size_;
             }
 
-            public boolean addFrame(byte[] frame) {
+            private void addFrame(byte[] frame) {
                 if (current_bundle_size_ == maxBundleSize_)
-                    return false;
+                    return;
 
                 bundle_.add(frame);
                 current_bundle_size_++;
-
-                return true;
             }
 
-            public boolean hasFullBundle() {
+            private boolean hasFullBundle() {
                 return (current_bundle_size_ == maxBundleSize_);
             }
 
-            public byte[] getCurrentBundle() {
+            private byte[] getCurrentBundle() {
                 int bundleLength = 0;
                 for (byte[] frame : bundle_) {
                     bundleLength += frame.length;
@@ -370,9 +365,7 @@ public class StreamProducer {
 
         private class FramePacketizer {
 
-            private static final String TAG = "StreamProducer_FramePacketizer";
-
-            public Data generateAudioDataPacket(byte[] audioBundle, boolean final_block, long seg_num) {
+            private Data generateAudioDataPacket(byte[] audioBundle, boolean final_block, long seg_num) {
 
                 Name dataName = new Name(streamName_);
                 dataName.appendSegment(seg_num); // set the segment ID
@@ -404,11 +397,11 @@ public class StreamProducer {
         private FileDescriptor ofs_;
         private android.media.MediaRecorder recorder_;
 
-        public MediaRecorder(FileDescriptor ofs) {
+        private MediaRecorder(FileDescriptor ofs) {
             ofs_ = ofs;
         }
 
-        public void start() {
+        private void start() {
             // configure the recorder
             recorder_ = new android.media.MediaRecorder();
             recorder_.setAudioSource(android.media.MediaRecorder.AudioSource.CAMCORDER);
@@ -428,7 +421,17 @@ public class StreamProducer {
             }
         }
 
-        public void stop() {
+        private void stopRecording() {
+            // delay reporting that recording is finished for 500 ms, so that the frame processor
+            // can finish processing the last part of the stream
+            handler_
+                    .postAtTime(() -> {
+                        stop();
+                        recordingFinished_ = true;
+                    }, 500);
+        }
+
+        private void stop() {
             try {
                 if (recorder_ != null) {
                     recorder_.stop();
@@ -443,16 +446,6 @@ public class StreamProducer {
                 recorder_.release();
             }
             recorder_ = null;
-
-            // delay reporting that recording is finished for 500 ms, so that the frame processor
-            // can finish processing the last part of the stream
-            handler_
-                    .postAtTime(new Runnable() {
-                        @Override
-                        public void run() {
-                            recordingFinished_ = true;
-                        }
-                    }, 500);
         }
     }
 
@@ -463,7 +456,7 @@ public class StreamProducer {
         private MemoryContentCache mcc_;
         private LinkedTransferQueue<Data> audioPacketTransferQueue_;
 
-        public Network(Face face) {
+        private Network(Face face) {
 
             audioPacketTransferQueue_ = new LinkedTransferQueue<>();
 
@@ -472,35 +465,32 @@ public class StreamProducer {
             // set up memory content cache
             mcc_ = new MemoryContentCache(face_);
             mcc_.setInterestFilter(streamName_,
-                    new OnInterestCallback() {
-                        @Override
-                        public void onInterest(Name prefix, Interest interest, Face face, long interestFilterId, InterestFilter filter) {
-                            Log.d(TAG, "No data in MCC found for interest " + interest.getName().toUri());
-                            Name streamPrefix = interest.getName().getPrefix(-1);
+                    (prefix, interest, face1, interestFilterId, filter) -> {
+                        Log.d(TAG, "No data in MCC found for interest " + interest.getName().toUri());
+                        Name streamPrefix = interest.getName().getPrefix(-1);
 
-                            if (finalBlockId_ == FINAL_BLOCK_ID_UNKNOWN) {
-                                Log.d(TAG, "Final block id unknown for stream " + streamPrefix.toUri());
-                                mcc_.storePendingInterest(interest, face);
-                            }
-                            else {
-                                Log.d(TAG, "Final block id " + finalBlockId_ + " known for stream " + streamPrefix.toUri());
-                                Data appNack = new Data();
-                                appNack.setName(interest.getName());
-                                MetaInfo metaInfo = new MetaInfo();
-                                metaInfo.setType(ContentType.NACK);
-                                metaInfo.setFreshnessPeriod(1.0);
-                                appNack.setMetaInfo(metaInfo);
-                                appNack.setContent(new Blob(Helpers.longToBytes(finalBlockId_)));
-                                Log.d(TAG, "Putting application nack with name " + interest.getName().toUri() + " in mcc.");
-                                mcc_.add(appNack);
-                                try {
-                                    face.putData(appNack);
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
-                            }
-
+                        if (finalBlockId_ == FINAL_BLOCK_ID_UNKNOWN) {
+                            Log.d(TAG, "Final block id unknown for stream " + streamPrefix.toUri());
+                            mcc_.storePendingInterest(interest, face1);
                         }
+                        else {
+                            Log.d(TAG, "Final block id " + finalBlockId_ + " known for stream " + streamPrefix.toUri());
+                            Data appNack = new Data();
+                            appNack.setName(interest.getName());
+                            MetaInfo metaInfo = new MetaInfo();
+                            metaInfo.setType(ContentType.NACK);
+                            metaInfo.setFreshnessPeriod(1.0);
+                            appNack.setMetaInfo(metaInfo);
+                            appNack.setContent(new Blob(Helpers.longToBytes(finalBlockId_)));
+                            Log.d(TAG, "Putting application nack with name " + interest.getName().toUri() + " in mcc.");
+                            mcc_.add(appNack);
+                            try {
+                                face1.putData(appNack);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+
                     }
             );
 
@@ -509,7 +499,7 @@ public class StreamProducer {
         private void doSomeWork() {
             while (audioPacketTransferQueue_.size() != 0) {
 
-                Data data = (Data) audioPacketTransferQueue_.poll();
+                Data data = audioPacketTransferQueue_.poll();
                 if (data == null) continue;
                 Log.d(TAG, "NetworkThread received data packet." + "\n" +
                         "Name: " + data.getName() + "\n" +
@@ -528,6 +518,7 @@ public class StreamProducer {
             // so just close the StreamProducer
             if (frameProcessingFinished_) {
                 close();
+                eventFinalSegmentPublished.trigger(new ProgressEventInfo(streamName_, 0));
             }
         }
 

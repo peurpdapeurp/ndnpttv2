@@ -7,9 +7,11 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 
 import com.example.ndnpttv2.back_end.ProgressEventInfo;
-import com.example.ndnpttv2.back_end.Threads.NetworkThread;
-import com.example.ndnpttv2.back_end.pq_module.StreamInfo;
+import com.example.ndnpttv2.back_end.StreamInfo;
+import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.back_end.rec_module.stream_producer.StreamProducer;
+import com.pploder.events.Event;
+import com.pploder.events.SimpleEvent;
 
 import net.named_data.jndn.Name;
 
@@ -19,14 +21,14 @@ public class RecorderModule {
 
     private static final String TAG = "RecorderModule";
 
-    // Private constants
-    private static final int PROCESSING_INTERVAL_MS = 50;
-
     // Messages
-    private static final int MSG_DO_SOME_WORK = 0;
-    private static final int MSG_RECORDING_COMPLETE = 1;
-    private static final int MSG_RECORD_REQUEST_START = 2;
-    private static final int MSG_RECORD_REQUEST_STOP = 3;
+    private static final int MSG_RECORDING_COMPLETE = 0;
+    private static final int MSG_RECORD_REQUEST_START = 1;
+    private static final int MSG_RECORD_REQUEST_STOP = 2;
+
+    // Events
+    public Event<StreamInfo> eventRecordingStarted;
+    public Event<Name> eventRecordingFinished;
 
     private Handler progressEventHandler_;
     private Handler moduleMessageHandler_;
@@ -42,6 +44,9 @@ public class RecorderModule {
         applicationDataPrefix_ = applicationDataPrefix;
         networkThreadInfo_ = networkThreadInfo;
         pastStreamProducers_ = new HashMap<>();
+
+        eventRecordingStarted = new SimpleEvent<>();
+        eventRecordingFinished = new SimpleEvent<>();
 
         progressEventHandler_ = new Handler(networkThreadInfo_.looper) {
             @Override
@@ -62,6 +67,7 @@ public class RecorderModule {
                     case MSG_RECORDING_COMPLETE: {
                         Log.d(TAG, "recording of stream " + streamName.toString() + " finished");
                         currentlyRecording_ = false;
+                        eventRecordingFinished.trigger(streamName);
                         break;
                     }
                     default: {
@@ -84,10 +90,13 @@ public class RecorderModule {
                             return;
                         }
                         Log.d(TAG, "Got request to start recording, last stream id " + lastStreamId_);
-                        currentStreamProducer_ = new StreamProducer(applicationDataPrefix_, ++lastStreamId_,
+
+                        lastStreamId_++;
+
+                        currentStreamProducer_ = new StreamProducer(applicationDataPrefix_, lastStreamId_,
                                 networkThreadInfo_,
                                 new StreamProducer.Options(1, 8000, 5));
-                        currentStreamProducer_.eventFinalSegmentRecorded.addListener(progressEventInfo -> {
+                        currentStreamProducer_.eventFinalSegmentPublished.addListener(progressEventInfo -> {
                             progressEventHandler_
                                     .obtainMessage(MSG_RECORDING_COMPLETE, progressEventInfo)
                                     .sendToTarget();
@@ -95,6 +104,15 @@ public class RecorderModule {
                         pastStreamProducers_.put(new Name(applicationDataPrefix_).appendSequenceNumber(lastStreamId_),
                                 new InternalStreamProductionState(currentStreamProducer_));
                         currentStreamProducer_.recordStart();
+                        eventRecordingStarted.trigger(
+                                new StreamInfo(
+                                        new Name(applicationDataPrefix_).appendSequenceNumber(lastStreamId_),
+                                        1,
+                                        8000,
+                                        System.currentTimeMillis()
+                                )
+                        );
+
                         currentlyRecording_ = true;
                         break;
                     }

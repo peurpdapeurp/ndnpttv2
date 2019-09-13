@@ -8,7 +8,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.example.ndnpttv2.back_end.Threads.NetworkThread;
+import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.util.Helpers;
 import com.example.ndnpttv2.back_end.Constants;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.jndn_utils.RttEstimator;
@@ -262,16 +262,16 @@ public class StreamConsumer {
         private StreamFetcherState state_;
 
         public class StreamFetcherState {
-            public long msPerSegNum_;
-            public long fetchStartTime;
-            public long finalBlockId = FINAL_BLOCK_ID_UNKNOWN;
-            public long highestSegAnticipated = NO_SEGS_SENT;
-            public int numInterestsTransmitted = 0;
-            public int numInterestTimeouts = 0;
-            public int numDataReceives = 0;
-            public int numPrematureRtos = 0;
-            public int numInterestSkips = 0;
-            public int numNacks = 0;
+            long msPerSegNum_;
+            long fetchStartTime;
+            long finalBlockId = FINAL_BLOCK_ID_UNKNOWN;
+            long highestSegAnticipated = NO_SEGS_SENT;
+            int numInterestsTransmitted = 0;
+            int numInterestTimeouts = 0;
+            int numDataReceives = 0;
+            int numPrematureRtos = 0;
+            int numInterestSkips = 0;
+            int numNacks = 0;
 
             public String toString() {
                 return "State of StreamFetcher:" + "\n" +
@@ -356,7 +356,6 @@ public class StreamConsumer {
             if (retransmissionQueue_.size() == 0 && rtoTokens_.size() == 0 &&
                     state_.finalBlockId != FINAL_BLOCK_ID_UNKNOWN) {
                 close();
-                return;
             }
 
         }
@@ -402,14 +401,11 @@ public class StreamConsumer {
             interestToSend.setMustBeFresh(false);
 
             Object rtoToken = new Object();
-            rtoHandler_.postAtTime(new Runnable() {
-                @Override
-                public void run() {
-                    Log.d(TAG, getTimeSinceStreamFetchStart() + ": " + "rto timeout (seg num " + segNum + ")");
-                    retransmissionQueue_.add(segNum);
-                    rtoTokens_.remove(segNum);
-                    recordPacketEvent(segNum, PACKET_EVENT_INTEREST_TIMEOUT);
-                }
+            rtoHandler_.postAtTime(() -> {
+                Log.d(TAG, getTimeSinceStreamFetchStart() + ": " + "rto timeout (seg num " + segNum + ")");
+                retransmissionQueue_.add(segNum);
+                rtoTokens_.remove(segNum);
+                recordPacketEvent(segNum, PACKET_EVENT_INTEREST_TIMEOUT);
             }, rtoToken, SystemClock.uptimeMillis() + rto);
             rtoTokens_.put(segNum, rtoToken);
 
@@ -557,7 +553,7 @@ public class StreamConsumer {
         }
     }
 
-    public class StreamPlayerBuffer {
+    private class StreamPlayerBuffer {
 
         private final static String TAG = "StreamConsumer_PlayerBuffer";
 
@@ -810,10 +806,6 @@ public class StreamConsumer {
     private long calculateMsPerSeg(long producerSamplingRate, long framesPerSegment) {
         return (framesPerSegment * Constants.SAMPLES_PER_ADTS_FRAME *
                 Constants.MILLISECONDS_PER_SECOND) / producerSamplingRate;
-    }
-
-    public Name getStreamName() {
-        return streamName_;
     }
 
 }

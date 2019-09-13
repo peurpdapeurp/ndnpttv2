@@ -9,7 +9,8 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.example.ndnpttv2.back_end.Threads.NetworkThread;
+import com.example.ndnpttv2.back_end.StreamInfo;
+import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.InputStreamDataSource;

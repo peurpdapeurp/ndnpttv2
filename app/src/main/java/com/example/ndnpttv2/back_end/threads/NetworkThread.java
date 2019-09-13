@@ -1,4 +1,4 @@
-package com.example.ndnpttv2.back_end.Threads;
+package com.example.ndnpttv2.back_end.threads;
 
 import android.annotation.SuppressLint;
 import android.os.Handler;
@@ -10,7 +10,11 @@ import android.os.SystemClock;
 import androidx.annotation.NonNull;
 
 import net.named_data.jndn.Face;
+import net.named_data.jndn.Interest;
+import net.named_data.jndn.InterestFilter;
 import net.named_data.jndn.Name;
+import net.named_data.jndn.OnInterestCallback;
+import net.named_data.jndn.OnRegisterFailed;
 import net.named_data.jndn.encoding.EncodingException;
 import net.named_data.jndn.security.KeyChain;
 import net.named_data.jndn.security.SecurityException;
@@ -18,7 +22,6 @@ import net.named_data.jndn.security.identity.IdentityManager;
 import net.named_data.jndn.security.identity.MemoryIdentityStorage;
 import net.named_data.jndn.security.identity.MemoryPrivateKeyStorage;
 import net.named_data.jndn.security.policy.SelfVerifyPolicyManager;
-import net.named_data.jndn.util.MemoryContentCache;
 
 import java.io.IOException;
 
@@ -36,6 +39,7 @@ public class NetworkThread extends HandlerThread {
     private KeyChain keyChain_;
     private Callbacks callbacks_;
     private Handler handler_;
+    private Name applicationDataPrefix_;
 
     public static class Info {
         public Info(Looper looper, Face face) {
@@ -50,8 +54,9 @@ public class NetworkThread extends HandlerThread {
         void onInitialized(Info info);
     }
 
-    public NetworkThread(Callbacks callbacks) {
+    public NetworkThread(Name applicationDataPrefix, Callbacks callbacks) {
         super(TAG);
+        applicationDataPrefix_ = applicationDataPrefix;
         callbacks_ = callbacks;
     }
 
@@ -66,6 +71,25 @@ public class NetworkThread extends HandlerThread {
         face_ = new Face();
         try {
             face_.setCommandSigningInfo(keyChain_, keyChain_.getDefaultCertificateName());
+        } catch (SecurityException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            face_.registerPrefix(applicationDataPrefix_,
+                    new OnInterestCallback() {
+                        @Override
+                        public void onInterest(Name prefix, Interest interest, Face face, long interestFilterId, InterestFilter filter) {
+
+                        }
+                    }, new OnRegisterFailed() {
+                        @Override
+                        public void onRegisterFailed(Name prefix) {
+
+                        }
+                    });
+        } catch (IOException e) {
+            e.printStackTrace();
         } catch (SecurityException e) {
             e.printStackTrace();
         }

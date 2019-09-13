@@ -8,7 +8,10 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.example.ndnpttv2.back_end.StreamInfo;
 import com.google.gson.Gson;
+import com.pploder.events.Event;
+import com.pploder.events.SimpleEvent;
 
 import net.named_data.jndn.Face;
 import net.named_data.jndn.Name;
@@ -42,9 +45,13 @@ public class SyncModule {
     private static final int MSG_INITIALIZE_SYNC = 1;
     public static final int MSG_NEW_STREAM_PRODUCING = 2;
 
+    // Events
+    public Event<StreamInfo> eventNewStreamAvailable;
+
     private Network network_;
     private Name applicationBroadcastPrefix_;
     private Name applicationDataPrefix_;
+    private long sessionId_;
     private Handler handler_;
 
     private class StreamSeqNumAndMetaData {
@@ -64,7 +71,7 @@ public class SyncModule {
     }
 
     public SyncModule(Name applicationBroadcastPrefix, Name applicationDataPrefix,
-                      Looper networkThreadLooper) {
+                      long sessionId, Looper networkThreadLooper) {
 
         applicationBroadcastPrefix_ = applicationBroadcastPrefix;
         applicationDataPrefix_ = applicationDataPrefix;
@@ -72,6 +79,10 @@ public class SyncModule {
                 "applicationBroadcastPrefix " + applicationBroadcastPrefix + ", " +
                 "applicationDataPrefix " + applicationDataPrefix +
                 ")");
+
+        sessionId_ = sessionId;
+
+        eventNewStreamAvailable = new SimpleEvent<>();
 
         handler_ = new Handler(networkThreadLooper) {
             @Override
@@ -161,7 +172,7 @@ public class SyncModule {
         private void initializeSync() {
             try {
                 sync_ = new ChronoSync2013(onReceivedSyncState, onInitialized, applicationDataPrefix_, applicationBroadcastPrefix_,
-                        System.currentTimeMillis(), face_, keyChain_, keyChain_.getDefaultCertificateName(), DEFAULT_SYNC_INTEREST_LIFETIME_MS,
+                        sessionId_, face_, keyChain_, keyChain_.getDefaultCertificateName(), DEFAULT_SYNC_INTEREST_LIFETIME_MS,
                         onRegisterFailed);
             } catch (SecurityException e) {
                 e.printStackTrace();
@@ -252,6 +263,15 @@ public class SyncModule {
                             "stream meta data (" +
                             metaData.toString() +
                             ")");
+
+                    eventNewStreamAvailable.trigger(
+                            new StreamInfo(
+                                    new Name(dataPrefix).appendSequenceNumber(seqNum),
+                                    metaData.framesPerSegment,
+                                    metaData.producerSamplingRate,
+                                    metaData.recordingStartTimestamp
+                            )
+                    );
 
                 }
 

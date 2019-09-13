@@ -24,6 +24,8 @@ import net.named_data.jndn.sync.ChronoSync2013;
 import net.named_data.jndn.util.Blob;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.LinkedTransferQueue;
 
@@ -133,10 +135,13 @@ public class SyncModule {
         private boolean closed_ = false;
         private ChronoSync2013 sync_;
         private Gson jsonSerializer_;
+        private HashMap<String, HashSet<Long>> recvdSeqNums_;
 
         private Network() {
 
             newStreamProductionNotifications_ = new LinkedTransferQueue<>();
+
+            recvdSeqNums_ = new HashMap<>();
 
             jsonSerializer_ = new Gson();
 
@@ -211,13 +216,25 @@ public class SyncModule {
                     ChronoSync2013.SyncState syncState = (ChronoSync2013.SyncState) o;
                     long session = syncState.getSessionNo();
                     long seqNum = syncState.getSequenceNo();
-
                     String dataPrefix = syncState.getDataPrefix();
                     String userId = dataPrefix.substring(dataPrefix.lastIndexOf("/") + 1);
 
                     if (dataPrefix.equals(applicationDataPrefix_.toString())) {
                         Log.d(TAG, "got sync state for own user");
                         continue;
+                    }
+
+                    if (!recvdSeqNums_.containsKey(userId)) {
+                        recvdSeqNums_.put(userId, new HashSet<Long>());
+                        recvdSeqNums_.get(userId).add(seqNum);
+                    }
+                    else {
+                        HashSet<Long> seqNums = recvdSeqNums_.get(userId);
+                        if (seqNums.contains(seqNum)) {
+                            Log.d(TAG, "duplicate seq num " + seqNum + " from " + userId);
+                            continue;
+                        }
+                        seqNums.add(seqNum);
                     }
 
                     Log.d(TAG, "app info from sync state: " + syncState.getApplicationInfo().toString());
@@ -229,7 +246,8 @@ public class SyncModule {
                             "session " + session + ", " +
                             "seqNum " + seqNum + ", " +
                             "dataPrefix " + dataPrefix + ", " +
-                            "userId " + userId +
+                            "userId " + userId + ", " +
+                            "isRecovery " + isRecovery +
                             ")" + "\n" +
                             "stream meta data (" +
                             metaData.toString() +

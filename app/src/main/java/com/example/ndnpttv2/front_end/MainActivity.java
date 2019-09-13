@@ -106,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 if (syncModule_ != null) {
                     syncModule_.notifyNewStreamProducing(
-                            ++lastStreamId_, new StreamMetaData(1, 8000)
+                            ++lastStreamId_, new StreamMetaData(1, 8000, System.currentTimeMillis())
                     );
                 }
             }

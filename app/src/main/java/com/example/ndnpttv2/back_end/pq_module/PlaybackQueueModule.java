@@ -14,7 +14,6 @@ import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.InputStreamDataSource;
 import com.example.ndnpttv2.back_end.ProgressEventInfo;
-import com.example.ndnpttv2.util.Helpers;
 
 import net.named_data.jndn.Name;
 
@@ -40,7 +39,7 @@ public class PlaybackQueueModule {
     private Handler moduleMessageHandler_;
     private Handler workHandler_;
     private LinkedTransferQueue<StreamInfo> playbackQueue_;
-    private HashMap<Name, InternalStreamState> streamStates_;
+    private HashMap<Name, InternalStreamConsumptionState> streamStates_;
     private boolean currentlyPlaying_ = false;
     private NetworkThread.Info networkThreadInfo_;
 
@@ -56,7 +55,7 @@ public class PlaybackQueueModule {
             public void handleMessage(@NonNull Message msg) {
                 ProgressEventInfo progressEventInfo = (ProgressEventInfo) msg.obj;
                 Name streamName = progressEventInfo.streamName;
-                InternalStreamState streamState = streamStates_.get(streamName);
+                InternalStreamConsumptionState streamState = streamStates_.get(streamName);
 
                 if (streamState == null) {
                     Log.w(TAG, "streamState was null for msg (" +
@@ -157,8 +156,8 @@ public class PlaybackQueueModule {
                             DEFAULT_JITTER_BUFFER_SIZE,
                             streamInfo.producerSamplingRate)
             );
-            InternalStreamState internalStreamState = new InternalStreamState(streamConsumer, streamPlayer);
-            streamStates_.put(streamInfo.streamName, internalStreamState);
+            InternalStreamConsumptionState internalStreamConsumptionState = new InternalStreamConsumptionState(streamConsumer, streamPlayer);
+            streamStates_.put(streamInfo.streamName, internalStreamConsumptionState);
             streamConsumer.eventFetchingCompleted.addListener(progressEventInfo -> {
                 progressEventHandler_
                         .obtainMessage(MSG_STREAM_CONSUMER_FETCHING_COMPLETE, progressEventInfo)

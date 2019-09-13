@@ -3,9 +3,9 @@ package com.example.ndnpttv2.back_end.pq_module;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
 
-public class InternalStreamState {
+public class InternalStreamConsumptionState {
 
-    public InternalStreamState(StreamConsumer streamConsumer, StreamPlayer streamPlayer) {
+    public InternalStreamConsumptionState(StreamConsumer streamConsumer, StreamPlayer streamPlayer) {
         this.streamConsumer = streamConsumer;
         this.streamPlayer = streamPlayer;
     }

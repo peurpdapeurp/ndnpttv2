@@ -34,19 +34,16 @@ public class NetworkThread extends HandlerThread {
 
     private Face face_;
     private KeyChain keyChain_;
-    private MemoryContentCache mcc_;
     private Callbacks callbacks_;
     private Handler handler_;
 
     public static class Info {
-        public Info(Looper looper, Face face, MemoryContentCache mcc) {
+        public Info(Looper looper, Face face) {
             this.looper = looper;
             this.face = face;
-            this.mcc = mcc;
         }
         public Looper looper;
         public Face face;
-        public MemoryContentCache mcc;
     }
 
     public interface Callbacks {
@@ -90,7 +87,7 @@ public class NetworkThread extends HandlerThread {
 
         handler_.obtainMessage(MSG_DO_SOME_WORK).sendToTarget();
 
-        callbacks_.onInitialized(new Info(getLooper(), face_, mcc_));
+        callbacks_.onInitialized(new Info(getLooper(), face_));
     }
 
     private void doSomeWork() {

@@ -33,9 +33,12 @@ public class MainActivity extends AppCompatActivity {
 
     // Messages
     private static final int MSG_NETWORK_THREAD_INITIALIZED = 0;
+    private static final int MSG_RECORD_REQUEST_START = 1;
+    private static final int MSG_RECORD_REQUEST_STOP = 2;
 
     // Thread objects
     private NetworkThread networkThread_;
+    private boolean networkThreadInitialized_ = false;
 
     // Back-end modules
     private PlaybackQueueModule playbackQueueModule_;
@@ -52,7 +55,6 @@ public class MainActivity extends AppCompatActivity {
     private BroadcastReceiver pttButtonPressReceiverListener_;
     private Handler handler_;
     private Context ctx_;
-    private long lastStreamId_ = 0;
 
     @SuppressLint("HandlerLeak")
     @Override
@@ -68,9 +70,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onReceive(Context context, Intent intent) {
                 if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_DOWN)) {
-                    handler_.obtainMessage().sendToTarget();
+                    if (networkThreadInitialized_) {
+                        handler_.obtainMessage(MSG_RECORD_REQUEST_START).sendToTarget();
+                    }
                 } else if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_UP)) {
-                    handler_.obtainMessage().sendToTarget();
+                    if (networkThreadInitialized_) {
+                        handler_.obtainMessage(MSG_RECORD_REQUEST_STOP).sendToTarget();
+                    }
                 } else {
                     Log.e(TAG, "pttButtonPressReceiverListener_ unexpected intent: " + intent.getAction());
                 }
@@ -86,12 +92,24 @@ public class MainActivity extends AppCompatActivity {
                     case MSG_NETWORK_THREAD_INITIALIZED: {
                         Log.d(TAG, "Network thread eventInitialized");
                         NetworkThread.Info networkThreadInfo = (NetworkThread.Info) msg.obj;
+                        Name applicationBroadcastPrefix = new Name(getString(R.string.broadcast_prefix)).append(channelName_);
+                        Name applicationDataPrefix = new Name(getString(R.string.data_prefix)).append(userName_);
                         syncModule_ = new SyncModule(
-                                new Name(getString(R.string.broadcast_prefix)).append(channelName_),
-                                new Name(getString(R.string.data_prefix)).append(userName_),
+                                applicationBroadcastPrefix,
+                                applicationDataPrefix,
                                 networkThreadInfo.looper
                         );
                         playbackQueueModule_ = new PlaybackQueueModule(ctx_, getMainLooper(), networkThreadInfo);
+                        recorderModule_ = new RecorderModule(applicationDataPrefix, networkThreadInfo);
+                        networkThreadInitialized_ = true;
+                        break;
+                    }
+                    case MSG_RECORD_REQUEST_START: {
+                        recorderModule_.recordRequestStart();
+                        break;
+                    }
+                    case MSG_RECORD_REQUEST_STOP: {
+                        recorderModule_.recordRequestStop();
                         break;
                     }
                     default:
@@ -104,11 +122,6 @@ public class MainActivity extends AppCompatActivity {
         notifyNewStreamButton_.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-//                if (syncModule_ != null) {
-//                    syncModule_.notifyNewStreamProducing(
-//                            ++lastStreamId_, new StreamMetaData(1, 8000, System.currentTimeMillis())
-//                    );
-//                }
                 if (playbackQueueModule_ != null) {
                     playbackQueueModule_.notifyNewStreamAvailable(
                             new StreamInfo(

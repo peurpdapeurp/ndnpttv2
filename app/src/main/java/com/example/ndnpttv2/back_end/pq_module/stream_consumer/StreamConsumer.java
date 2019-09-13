@@ -1,7 +1,6 @@
 package com.example.ndnpttv2.back_end.pq_module.stream_consumer;
 
 import android.os.Handler;
-import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
@@ -24,12 +23,6 @@ import net.named_data.jndn.Face;
 import net.named_data.jndn.Interest;
 import net.named_data.jndn.Name;
 import net.named_data.jndn.encoding.EncodingException;
-import net.named_data.jndn.security.KeyChain;
-import net.named_data.jndn.security.SecurityException;
-import net.named_data.jndn.security.identity.IdentityManager;
-import net.named_data.jndn.security.identity.MemoryIdentityStorage;
-import net.named_data.jndn.security.identity.MemoryPrivateKeyStorage;
-import net.named_data.jndn.security.policy.SelfVerifyPolicyManager;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -56,11 +49,10 @@ public class StreamConsumer {
     private boolean streamFetchStartCalled_ = false;
     private boolean streamPlayStartCalled_ = false;
     private Name streamName_;
-    private InputStreamDataSource outSource_;
+    private InputStreamDataSource audioOutputSource_;
     private Handler handler_;
     private boolean streamConsumerClosed_ = false;
     private Options options_;
-    private NetworkThread.Info networkThreadInfo_;
 
     // Events
     public Event<ProgressEventInfo> eventProductionWindowGrowth;
@@ -85,12 +77,12 @@ public class StreamConsumer {
         long producerSamplingRate; // samples/sec from producer
     }
 
-    public StreamConsumer(Name streamName, InputStreamDataSource outSource, NetworkThread.Info networkThreadInfo,
+    public StreamConsumer(Name streamName, InputStreamDataSource audioOutputSource, NetworkThread.Info networkThreadInfo,
                           Options options) {
 
         streamName_ = streamName;
         options_ = options;
-        outSource_ = outSource;
+        audioOutputSource_ = audioOutputSource;
 
         eventProductionWindowGrowth = new SimpleEvent<>();
         eventAudioRetrieved = new SimpleEvent<>();
@@ -677,7 +669,7 @@ public class StreamConsumer {
                         ")");
                 if (gotExpectedFrame) {
                     framesPlayed_++;
-                    outSource_.write(nextFrame.data,
+                    audioOutputSource_.write(nextFrame.data,
                             (finalFrameNumDeadline_ != FINAL_FRAME_NUM_DEADLINE_UNKNOWN &&
                                     currentTime > finalFrameNumDeadline_));
                     jitterBuffer_.poll();
@@ -686,7 +678,7 @@ public class StreamConsumer {
                 else {
                     if (nextFrame == null || nextFrame.frameNum > highestFrameNumPlayed_) {
                         framesSkipped_++;
-                        outSource_.write(getSilentFrame(),
+                        audioOutputSource_.write(getSilentFrame(),
                                 (finalFrameNumDeadline_ != FINAL_FRAME_NUM_DEADLINE_UNKNOWN &&
                                         currentTime > finalFrameNumDeadline_));
                         eventFrameSkippped.trigger(new ProgressEventInfo(streamName_, highestFrameNumPlayed_));
@@ -709,7 +701,7 @@ public class StreamConsumer {
                                 "unknown" : finalFrameNum_) + ", " +
                         "playback deadline " + finalFrameNumDeadline_ +
                         ")");
-                outSource_.write(getSilentFrame(), true);
+                audioOutputSource_.write(getSilentFrame(), true);
                 printState();
                 streamConsumer_.close(); // close the entire stream consumer, now that playback is done
             }

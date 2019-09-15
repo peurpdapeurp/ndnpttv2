@@ -16,6 +16,6 @@ public class StreamMetaData {
     public String toString() {
         return "framesPerSegment " + framesPerSegment + ", " +
                 "producerSamplingRate " + producerSamplingRate + ", " +
-                "recordingStartTimestamp " + recordingStartTimestamp;
+                "recordingStartTime " + recordingStartTimestamp;
     }
 }

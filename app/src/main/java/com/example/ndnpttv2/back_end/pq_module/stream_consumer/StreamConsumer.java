@@ -8,6 +8,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.example.ndnpttv2.back_end.StreamInfo;
 import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.util.Helpers;
 import com.example.ndnpttv2.back_end.Constants;
@@ -53,6 +54,7 @@ public class StreamConsumer {
     private Handler handler_;
     private boolean streamConsumerClosed_ = false;
     private Options options_;
+    private StreamInfo streamInfo_;
 
     // Events
     public Event<ProgressEventInfo> eventProductionWindowGrowth;
@@ -67,21 +69,23 @@ public class StreamConsumer {
     public Event<ProgressEventInfo> eventBufferingCompleted;
 
     public static class Options {
-        public Options(long framesPerSegment, long jitterBufferSize, long producerSamplingRate) {
-            this.framesPerSegment = framesPerSegment;
+        public Options(long jitterBufferSize) {
             this.jitterBufferSize = jitterBufferSize;
-            this.producerSamplingRate = producerSamplingRate;
         }
-        long framesPerSegment; // # of frames per segment
         long jitterBufferSize; // # of initial frames in StreamPlayerBuffer's jitter buffer before playback begins
-        long producerSamplingRate; // samples/sec from producer
+
+        @Override
+        public String toString() {
+            return "jitterBufferSize " + jitterBufferSize;
+        }
     }
 
-    public StreamConsumer(Name streamName, InputStreamDataSource audioOutputSource, NetworkThread.Info networkThreadInfo,
+    public StreamConsumer(StreamInfo streamInfo, InputStreamDataSource audioOutputSource, NetworkThread.Info networkThreadInfo,
                           Options options) {
 
-        streamName_ = streamName;
+        streamName_ = streamInfo.streamName;
         options_ = options;
+        streamInfo_ = streamInfo;
         audioOutputSource_ = audioOutputSource;
 
         eventProductionWindowGrowth = new SimpleEvent<>();
@@ -106,9 +110,7 @@ public class StreamConsumer {
                     }
                     case MSG_FETCH_START: {
                         if (streamFetchStartCalled_) return;
-                        streamFetcher_.setStreamFetchStartTime(System.currentTimeMillis());
-                        Log.d(TAG, streamFetcher_.getState().fetchStartTime + ": " +
-                                "stream fetch started");
+                        Log.d(TAG, "stream fetch started");
                         streamFetchStartCalled_ = true;
                         doSomeWork();
                         break;
@@ -133,9 +135,8 @@ public class StreamConsumer {
         streamPlayerBuffer_ = new StreamPlayerBuffer(this);
 
         Log.d(TAG, "Initialized (" +
-                "framesPerSegment " + options_.framesPerSegment + ", " +
-                "jitterBufferSize " + options_.jitterBufferSize + ", " +
-                "producerSamplingRate " + options_.producerSamplingRate +
+                "streamInfo " + streamInfo_.toString() + ", " +
+                "options " + options_.toString() +
                 ")");
     }
 
@@ -263,7 +264,7 @@ public class StreamConsumer {
 
         public class StreamFetcherState {
             long msPerSegNum_;
-            long fetchStartTime;
+            long recordingStartTime;
             long finalBlockId = FINAL_BLOCK_ID_UNKNOWN;
             long highestSegAnticipated = NO_SEGS_SENT;
             int numInterestsTransmitted = 0;
@@ -275,7 +276,7 @@ public class StreamConsumer {
 
             public String toString() {
                 return "State of StreamFetcher:" + "\n" +
-                        "fetchStartTime " + fetchStartTime + ", " +
+                        "recordingStartTime " + recordingStartTime + ", " +
                         "msPerSegNum_ " + msPerSegNum_ + ", " +
                         "finalBlockId " +
                         ((finalBlockId == FINAL_BLOCK_ID_UNKNOWN) ? "unknown" : finalBlockId) +
@@ -294,8 +295,8 @@ public class StreamConsumer {
             }
         }
 
-        private long getTimeSinceStreamFetchStart() {
-            return System.currentTimeMillis() - state_.fetchStartTime;
+        private long getTimeSinceStreamRecordingStart() {
+            return System.currentTimeMillis() - state_.recordingStartTime;
         }
 
         private StreamFetcher(Looper networkThreadLooper) {
@@ -303,19 +304,16 @@ public class StreamConsumer {
             retransmissionQueue_ = new PriorityQueue<>();
             segSendTimes_ = new HashMap<>();
             rtoTokens_ = new HashMap<>();
-            long streamPlayerBufferJitterDelay = options_.jitterBufferSize * calculateMsPerFrame(options_.producerSamplingRate);
+            long streamPlayerBufferJitterDelay = options_.jitterBufferSize * calculateMsPerFrame(streamInfo_.producerSamplingRate);
             rttEstimator_ = new RttEstimator(new RttEstimator.Options(streamPlayerBufferJitterDelay, streamPlayerBufferJitterDelay));
             state_ = new StreamFetcherState();
-            state_.msPerSegNum_ = calculateMsPerSeg(options_.producerSamplingRate, options_.framesPerSegment);
+            state_.msPerSegNum_ = calculateMsPerSeg(streamInfo_.producerSamplingRate, streamInfo_.framesPerSegment);
+            state_.recordingStartTime = streamInfo_.recordingStartTime;
             rtoHandler_ = new Handler(networkThreadLooper);
             Log.d(TAG, "Initialized (" +
                     "maxRto / initialRto " + streamPlayerBufferJitterDelay + ", " +
                     "ms per seg num " + state_.msPerSegNum_ +
                     ")");
-        }
-
-        private void setStreamFetchStartTime(long streamFetchStartTime) {
-            state_.fetchStartTime = streamFetchStartTime;
         }
 
         private void close() {
@@ -361,9 +359,9 @@ public class StreamConsumer {
         }
 
         private boolean nextSegShouldBeSent() {
-            long timeSinceFetchStart = getTimeSinceStreamFetchStart();
+            long timeSinceStreamRecordingStart = getTimeSinceStreamRecordingStart();
             boolean nextSegShouldBeSent = false;
-            if (timeSinceFetchStart / state_.msPerSegNum_ > state_.highestSegAnticipated) {
+            if (timeSinceStreamRecordingStart / state_.msPerSegNum_ > state_.highestSegAnticipated) {
                 nextSegShouldBeSent = true;
             }
             return nextSegShouldBeSent;
@@ -376,7 +374,7 @@ public class StreamConsumer {
             long avgRtt = (long) rttEstimator_.getAvgRtt();
             long rto = (long) rttEstimator_.getEstimatedRto();
             // if playback deadline for first frame of segment is known, set interest lifetime to expire at playback deadline
-            long segFirstFrameNum = options_.framesPerSegment * segNum;
+            long segFirstFrameNum = streamInfo_.framesPerSegment * segNum;
             long playbackDeadline = streamPlayerBuffer_.getPlaybackDeadline(segFirstFrameNum);
             long transmitTime = System.currentTimeMillis();
             if (playbackDeadline != StreamPlayerBuffer.PLAYBACK_DEADLINE_UNKNOWN && transmitTime + avgRtt > playbackDeadline) {
@@ -402,7 +400,7 @@ public class StreamConsumer {
 
             Object rtoToken = new Object();
             rtoHandler_.postAtTime(() -> {
-                Log.d(TAG, getTimeSinceStreamFetchStart() + ": " + "rto timeout (seg num " + segNum + ")");
+                Log.d(TAG, getTimeSinceStreamRecordingStart() + ": " + "rto timeout (seg num " + segNum + ")");
                 retransmissionQueue_.add(segNum);
                 rtoTokens_.remove(segNum);
                 recordPacketEvent(segNum, PACKET_EVENT_INTEREST_TIMEOUT);
@@ -619,8 +617,8 @@ public class StreamConsumer {
         private StreamPlayerBuffer(StreamConsumer streamConsumer) {
             jitterBuffer_ = new PriorityQueue<>();
             streamConsumer_ = streamConsumer;
-            jitterBufferDelay_ = options_.jitterBufferSize * calculateMsPerFrame(options_.producerSamplingRate);
-            msPerFrame_ = calculateMsPerFrame(options_.producerSamplingRate);
+            jitterBufferDelay_ = options_.jitterBufferSize * calculateMsPerFrame(streamInfo_.producerSamplingRate);
+            msPerFrame_ = calculateMsPerFrame(streamInfo_.producerSamplingRate);
             Log.d(TAG, "Initialized (" +
                     "jitterBufferDelay_ " + jitterBufferDelay_ + ", " +
                     "ms per frame " + msPerFrame_ +
@@ -712,15 +710,15 @@ public class StreamConsumer {
             int parsedFramesLength = parsedFrames.size();
             for (int i = 0; i < parsedFramesLength; i++) {
                 byte[] frameData = parsedFrames.get(i);
-                long frameNum = (segNum * options_.framesPerSegment) + i;
+                long frameNum = (segNum * streamInfo_.framesPerSegment) + i;
                 Log.d(TAG, "got frame " + frameNum);
                 jitterBuffer_.add(new Frame(frameNum, frameData));
             }
             // to detect end of stream, assume that every batch of frames besides the batch of
             // frames associated with the final segment of a stream will have exactly framesPerSegment_
             // frames in it
-            if (parsedFrames.size() < options_.framesPerSegment) {
-                finalFrameNum_ = (segNum * options_.framesPerSegment) + parsedFrames.size() - 1;
+            if (parsedFrames.size() < streamInfo_.framesPerSegment) {
+                finalFrameNum_ = (segNum * streamInfo_.framesPerSegment) + parsedFrames.size() - 1;
                 eventFinalFrameNumLearned.trigger(new ProgressEventInfo(streamName_, finalFrameNum_));
                 Log.d(TAG, "detected end of stream (" +
                         "final seg num " + segNum + ", " +
@@ -739,8 +737,8 @@ public class StreamConsumer {
             // calculate the finalFrameNumDeadline_ based on the assumption that the last segment
             // had framesPerSegment_ frames in it
             finalFrameNumDeadline_ = getPlaybackDeadline(
-                    (finalSegNum * options_.framesPerSegment) +
-                            options_.framesPerSegment);
+                    (finalSegNum * streamInfo_.framesPerSegment) +
+                            streamInfo_.framesPerSegment);
         }
 
         private ArrayList<byte[]> parseAdtsFrames(byte[] frames) {
@@ -760,7 +758,9 @@ public class StreamConsumer {
             if (streamPlayStartTime_ == STREAM_PLAY_START_TIME_UNKNOWN) {
                 return PLAYBACK_DEADLINE_UNKNOWN;
             }
-            long framePlayTimeOffset = (Constants.SAMPLES_PER_ADTS_FRAME * Constants.MILLISECONDS_PER_SECOND * frameNum) / options_.producerSamplingRate;
+            long framePlayTimeOffset =
+                    (Constants.SAMPLES_PER_ADTS_FRAME * Constants.MILLISECONDS_PER_SECOND * frameNum) /
+                            streamInfo_.producerSamplingRate;
             long deadline = streamPlayStartTime_ + jitterBufferDelay_ + framePlayTimeOffset;
             Log.d(TAG, "calculated deadline (" +
                     "frame num " + frameNum + ", " +

@@ -39,6 +39,7 @@ public class PlaybackQueueModule {
     private Handler progressEventHandler_;
     private Handler moduleMessageHandler_;
     private Handler workHandler_;
+    private LinkedTransferQueue<StreamInfo> fetchingQueue_;
     private LinkedTransferQueue<StreamInfo> playbackQueue_;
     private HashMap<Name, InternalStreamConsumptionState> streamStates_;
     private boolean currentlyPlaying_ = false;
@@ -47,6 +48,7 @@ public class PlaybackQueueModule {
     public PlaybackQueueModule(Context ctx, Looper mainThreadLooper, NetworkThread.Info networkThreadInfo) {
 
         ctx_ = ctx;
+        fetchingQueue_ = new LinkedTransferQueue<>();
         playbackQueue_ = new LinkedTransferQueue<>();
         streamStates_ = new HashMap<>();
         networkThreadInfo_ = networkThreadInfo;
@@ -99,6 +101,7 @@ public class PlaybackQueueModule {
                         Log.d(TAG, "Notified of new stream " + "(" +
                                 streamInfo.toString() +
                                 ")");
+                        fetchingQueue_.add(streamInfo);
                         playbackQueue_.add(streamInfo);
                         break;
                     }
@@ -133,11 +136,13 @@ public class PlaybackQueueModule {
         moduleMessageHandler_.obtainMessage(MSG_NEW_STREAM_AVAILABLE, streamInfo).sendToTarget();
     }
 
-    public void doSomeWork() {
-        if (playbackQueue_.size() != 0 && !currentlyPlaying_) {
-            currentlyPlaying_ = true;
-            StreamInfo streamInfo = playbackQueue_.poll();
-            Log.d(TAG, "playback queue was non empty, playing stream " + streamInfo.streamName.toString());
+    private void doSomeWork() {
+
+        // initiate the fetching of streams ready for fetching
+        if (fetchingQueue_.size() != 0) {
+
+            StreamInfo streamInfo = fetchingQueue_.poll();
+            Log.d(TAG, "fetching queue was non empty, fetching stream " + streamInfo.streamName.toString());
 
             InputStreamDataSource transferSource = new InputStreamDataSource();
 
@@ -150,12 +155,10 @@ public class PlaybackQueueModule {
             });
 
             StreamConsumer streamConsumer = new StreamConsumer(
-                    streamInfo.streamName,
+                    streamInfo,
                     transferSource,
                     networkThreadInfo_,
-                    new StreamConsumer.Options(streamInfo.framesPerSegment,
-                            DEFAULT_JITTER_BUFFER_SIZE,
-                            streamInfo.producerSamplingRate)
+                    new StreamConsumer.Options(DEFAULT_JITTER_BUFFER_SIZE)
             );
             InternalStreamConsumptionState internalStreamConsumptionState = new InternalStreamConsumptionState(streamConsumer, streamPlayer);
             streamStates_.put(streamInfo.streamName, internalStreamConsumptionState);
@@ -166,8 +169,21 @@ public class PlaybackQueueModule {
             });
 
             streamConsumer.streamFetchStart();
-            streamConsumer.streamBufferStart();
+
         }
+
+        // initiate the playback of streams ready for playback
+        if (playbackQueue_.size() != 0 && !currentlyPlaying_) {
+
+            currentlyPlaying_ = true;
+            StreamInfo streamInfo = playbackQueue_.poll();
+            Log.d(TAG, "playback queue was non empty, playing stream " + streamInfo.streamName.toString());
+
+            InternalStreamConsumptionState streamState = streamStates_.get(streamInfo.streamName);
+            streamState.streamConsumer.streamBufferStart();
+
+        }
+
         scheduleNextWork(SystemClock.uptimeMillis());
     }
 

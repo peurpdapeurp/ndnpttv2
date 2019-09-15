@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.concurrent.LinkedTransferQueue;
 
 import android.os.Handler;
+import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
 import android.util.Log;
@@ -107,7 +108,8 @@ public class StreamProducer {
 
         network_ = new Network(networkThreadInfo.face);
         frameProcessor_ = new FrameProcessor(audioDataPipe.getInputStream());
-        mediaRecorder_ = new MediaRecorder(audioDataPipe.getOutputFileDescriptor());
+        mediaRecorder_ = new MediaRecorder(audioDataPipe.getOutputFileDescriptor(),
+                networkThreadInfo.looper);
 
         Log.d(TAG, System.currentTimeMillis() + ": " +
                 "Initialized (" +
@@ -125,6 +127,7 @@ public class StreamProducer {
     }
 
     private void doSomeWork() {
+        Log.d(TAG, SystemClock.uptimeMillis() + ": " + "doSomeWork");
         network_.doSomeWork();
         frameProcessor_.doSomeWork();
         if (!streamProducerClosed_) {
@@ -396,9 +399,11 @@ public class StreamProducer {
 
         private FileDescriptor ofs_;
         private android.media.MediaRecorder recorder_;
+        private Handler handler_;
 
-        private MediaRecorder(FileDescriptor ofs) {
+        private MediaRecorder(FileDescriptor ofs, Looper workThreadLooper) {
             ofs_ = ofs;
+            handler_ = new Handler(workThreadLooper);
         }
 
         private void start() {
@@ -428,7 +433,7 @@ public class StreamProducer {
                     .postAtTime(() -> {
                         stop();
                         recordingFinished_ = true;
-                    }, 500);
+                    }, SystemClock.uptimeMillis() + 500);
         }
 
         private void stop() {

@@ -6,6 +6,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.example.ndnpttv2.back_end.AppState;
 import com.example.ndnpttv2.back_end.ProgressEventInfo;
 import com.example.ndnpttv2.back_end.StreamInfo;
 import com.example.ndnpttv2.back_end.threads.NetworkThread;
@@ -34,12 +35,16 @@ public class RecorderModule {
     private Handler moduleMessageHandler_;
     private HashMap<Name, InternalStreamProductionState> pastStreamProducers_;
     private StreamProducer currentStreamProducer_;
-    private boolean currentlyRecording_ = false;
     private Name applicationDataPrefix_;
     private NetworkThread.Info networkThreadInfo_;
     private long lastStreamId_ = 0;
 
-    public RecorderModule(Name applicationDataPrefix, NetworkThread.Info networkThreadInfo) {
+    private AppState appState_;
+
+    public RecorderModule(Name applicationDataPrefix, NetworkThread.Info networkThreadInfo,
+                          AppState appState) {
+
+        appState_ = appState;
 
         applicationDataPrefix_ = applicationDataPrefix;
         networkThreadInfo_ = networkThreadInfo;
@@ -66,7 +71,7 @@ public class RecorderModule {
                 switch (msg.what) {
                     case MSG_RECORDING_COMPLETE: {
                         Log.d(TAG, "recording of stream " + streamName.toString() + " finished");
-                        currentlyRecording_ = false;
+                        appState_.stopRecording();
                         eventRecordingFinished.trigger(streamName);
                         break;
                     }
@@ -85,11 +90,16 @@ public class RecorderModule {
 
                 switch (msg.what) {
                     case MSG_RECORD_REQUEST_START: {
-                        if (currentlyRecording_) {
+                        if (appState_.isRecording()) {
                             Log.e(TAG, "Got request to record while already recording, ignoring request.");
                             return;
                         }
-                        Log.d(TAG, "Got request to start recording, last stream id " + lastStreamId_);
+                        if (appState_.isPlaying()) {
+                            Log.e(TAG, "Got request to record while PlaybackQueueModule was playing, ignoring request.");
+                            return;
+                        }
+
+                        Log.d(TAG, "Got valid request to start recording, last stream id " + lastStreamId_);
 
                         lastStreamId_++;
 
@@ -113,7 +123,7 @@ public class RecorderModule {
                                 )
                         );
 
-                        currentlyRecording_ = true;
+                        appState_.startRecording();
                         break;
                     }
                     case MSG_RECORD_REQUEST_STOP: {

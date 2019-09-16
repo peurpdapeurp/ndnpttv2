@@ -15,6 +15,7 @@ import android.os.Message;
 import android.util.Log;
 
 import com.example.ndnpttv2.R;
+import com.example.ndnpttv2.back_end.AppState;
 import com.example.ndnpttv2.back_end.StreamInfo;
 import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.back_end.pq_module.PlaybackQueueModule;
@@ -36,12 +37,14 @@ public class MainActivity extends AppCompatActivity {
     private static final int MSG_RECORDERMODULE_RECORD_FINISHED = 4;
     private static final int MSG_SYNCMODULE_NEW_STREAM_AVAILABLE = 5;
 
+    // Thread objects
     private boolean networkThreadInitialized_ = false;
 
     // Back-end modules
     private PlaybackQueueModule playbackQueueModule_;
     private RecorderModule recorderModule_;
     private SyncModule syncModule_;
+    private AppState appState_;
 
     // Configuration parameters
     private Name applicationBroadcastPrefix_;
@@ -101,15 +104,19 @@ public class MainActivity extends AppCompatActivity {
                                     .sendToTarget()
                         );
 
+                        appState_ = new AppState();
+
                         playbackQueueModule_ = new PlaybackQueueModule(
                                 ctx_,
                                 getMainLooper(),
-                                networkThreadInfo
+                                networkThreadInfo,
+                                appState_
                         );
 
                         recorderModule_ = new RecorderModule(
                                 applicationDataPrefix_,
-                                networkThreadInfo
+                                networkThreadInfo,
+                                appState_
                         );
                         recorderModule_.eventRecordingStarted.addListener(streamInfo ->
                                 handler_

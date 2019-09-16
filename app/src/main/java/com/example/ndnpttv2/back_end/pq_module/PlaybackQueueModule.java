@@ -9,6 +9,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.example.ndnpttv2.back_end.AppState;
 import com.example.ndnpttv2.back_end.StreamInfo;
 import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
@@ -42,10 +43,14 @@ public class PlaybackQueueModule {
     private LinkedTransferQueue<StreamInfo> fetchingQueue_;
     private LinkedTransferQueue<StreamInfo> playbackQueue_;
     private HashMap<Name, InternalStreamConsumptionState> streamStates_;
-    private boolean currentlyPlaying_ = false;
     private NetworkThread.Info networkThreadInfo_;
 
-    public PlaybackQueueModule(Context ctx, Looper mainThreadLooper, NetworkThread.Info networkThreadInfo) {
+    AppState appState_;
+
+    public PlaybackQueueModule(Context ctx, Looper mainThreadLooper, NetworkThread.Info networkThreadInfo,
+                               AppState appState) {
+
+        appState_ = appState;
 
         ctx_ = ctx;
         fetchingQueue_ = new LinkedTransferQueue<>();
@@ -78,7 +83,7 @@ public class PlaybackQueueModule {
                         streamState.streamConsumer.close();
                         streamState.streamPlayer.close();
                         streamStates_.remove(streamName);
-                        currentlyPlaying_ = false;
+                        appState_.stopPlaying();
                         break;
                     }
                     default: {
@@ -173,14 +178,15 @@ public class PlaybackQueueModule {
         }
 
         // initiate the playback of streams ready for playback
-        if (playbackQueue_.size() != 0 && !currentlyPlaying_) {
+        if (playbackQueue_.size() != 0 && !appState_.isRecording() && !appState_.isPlaying()) {
 
-            currentlyPlaying_ = true;
             StreamInfo streamInfo = playbackQueue_.poll();
             Log.d(TAG, "playback queue was non empty, playing stream " + streamInfo.streamName.toString());
 
             InternalStreamConsumptionState streamState = streamStates_.get(streamInfo.streamName);
             streamState.streamConsumer.streamBufferStart();
+
+            appState_.startPlaying();
 
         }
 

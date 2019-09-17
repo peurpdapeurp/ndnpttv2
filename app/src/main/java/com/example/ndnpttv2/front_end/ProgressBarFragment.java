@@ -26,7 +26,6 @@ public abstract class ProgressBarFragment extends Fragment {
 
     TextView nameDisplay_;
     CustomProgressBar progressBar_;
-    Button displayInfoButton_;
 
     private Name streamName_;
     private Handler handler_;
@@ -61,19 +60,18 @@ public abstract class ProgressBarFragment extends Fragment {
         nameDisplay_ = (TextView) view.findViewById(R.id.name_display);
         String displayString = getString(R.string.progress_bar_name_label) + " " + streamName_.toString();
         nameDisplay_.setText(displayString);
+        nameDisplay_.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View view) {
+                showPopUp(view);
+                return true;
+            }
+        });
 
         progressBar_ = (CustomProgressBar) view.findViewById(R.id.progress_bar);
         progressBar_.getThumb().setAlpha(0);
         progressBar_.setEnabled(false);
         progressBar_.init();
-
-        displayInfoButton_ = (Button) view.findViewById(R.id.display_info_button);
-        displayInfoButton_.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                showPopUp(view);
-            }
-        });
 
         viewInitialized_ = true;
 

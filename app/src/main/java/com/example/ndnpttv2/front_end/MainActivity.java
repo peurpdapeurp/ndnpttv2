@@ -13,6 +13,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
+import android.widget.EditText;
+import android.widget.TextView;
 
 import com.example.ndnpttv2.R;
 import com.example.ndnpttv2.back_end.AppState;
@@ -33,9 +35,10 @@ public class MainActivity extends AppCompatActivity {
     private static final int MSG_NETWORK_THREAD_INITIALIZED = 0;
     private static final int MSG_BUTTON_RECORD_REQUEST_START = 1;
     private static final int MSG_BUTTON_RECORD_REQUEST_STOP = 2;
-    private static final int MSG_RECORDERMODULE_RECORD_STARTED = 3;
-    private static final int MSG_RECORDERMODULE_RECORD_FINISHED = 4;
-    private static final int MSG_SYNCMODULE_NEW_STREAM_AVAILABLE = 5;
+    private static final int MSG_RECORDER_RECORD_STARTED = 3;
+    private static final int MSG_RECORDER_RECORD_FINISHED = 4;
+    private static final int MSG_SYNC_NEW_STREAM_AVAILABLE = 5;
+    private static final int MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED = 6;
 
     // Thread objects
     private boolean networkThreadInitialized_ = false;
@@ -51,6 +54,11 @@ public class MainActivity extends AppCompatActivity {
     private Name applicationDataPrefix_;
     private long syncSessionId_;
 
+    // UI elements
+    private TextView channelNameDisplay_;
+    private TextView userNameDisplay_;
+    private ProgressBarListFragment progressBarListFragment_;
+
     private BroadcastReceiver pttButtonPressReceiverListener_;
     private Handler handler_;
     private Context ctx_;
@@ -64,6 +72,10 @@ public class MainActivity extends AppCompatActivity {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
         ctx_ = this;
+
+        channelNameDisplay_ = (TextView) findViewById(R.id.channel_name_display);
+        userNameDisplay_ = (TextView) findViewById(R.id.user_name_display);
+        progressBarListFragment_ = (ProgressBarListFragment) getSupportFragmentManager().findFragmentById(R.id.progress_bar_list_fragment);
 
         pttButtonPressReceiverListener_ = new BroadcastReceiver() {
             @Override
@@ -100,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
                         );
                         syncModule_.eventNewStreamAvailable.addListener(streamName ->
                                     handler_
-                                    .obtainMessage(MSG_SYNCMODULE_NEW_STREAM_AVAILABLE, streamName)
+                                    .obtainMessage(MSG_SYNC_NEW_STREAM_AVAILABLE, streamName)
                                     .sendToTarget()
                         );
 
@@ -112,6 +124,10 @@ public class MainActivity extends AppCompatActivity {
                                 networkThreadInfo,
                                 appState_
                         );
+                        playbackQueueModule_.eventStreamStateCreated.addListener(streamInfoAndStreamState ->
+                                handler_
+                                .obtainMessage(MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED, streamInfoAndStreamState)
+                                .sendToTarget());
 
                         recorderModule_ = new RecorderModule(
                                 applicationDataPrefix_,
@@ -120,11 +136,11 @@ public class MainActivity extends AppCompatActivity {
                         );
                         recorderModule_.eventRecordingStarted.addListener(streamInfo ->
                                 handler_
-                                .obtainMessage(MSG_RECORDERMODULE_RECORD_STARTED, streamInfo)
+                                .obtainMessage(MSG_RECORDER_RECORD_STARTED, streamInfo)
                                 .sendToTarget());
                         recorderModule_.eventRecordingFinished.addListener(streamName ->
                                 handler_
-                                .obtainMessage(MSG_RECORDERMODULE_RECORD_FINISHED, streamName)
+                                .obtainMessage(MSG_RECORDER_RECORD_FINISHED, streamName)
                                 .sendToTarget());
 
                         networkThreadInitialized_ = true;
@@ -138,7 +154,7 @@ public class MainActivity extends AppCompatActivity {
                         recorderModule_.recordRequestStop();
                         break;
                     }
-                    case MSG_RECORDERMODULE_RECORD_STARTED: {
+                    case MSG_RECORDER_RECORD_STARTED: {
                         StreamInfo streamInfo = (StreamInfo) msg.obj;
                         try {
                             syncModule_.notifyNewStreamProducing(
@@ -150,13 +166,21 @@ public class MainActivity extends AppCompatActivity {
                         }
                         break;
                     }
-                    case MSG_RECORDERMODULE_RECORD_FINISHED: {
+                    case MSG_RECORDER_RECORD_FINISHED: {
                         Log.d(TAG, "RecorderModule finished recording");
                         break;
                     }
-                    case MSG_SYNCMODULE_NEW_STREAM_AVAILABLE: {
+                    case MSG_SYNC_NEW_STREAM_AVAILABLE: {
                         StreamInfo streamInfo = (StreamInfo) msg.obj;
                         playbackQueueModule_.notifyNewStreamAvailable(streamInfo);
+                        break;
+                    }
+                    case MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED: {
+                        PlaybackQueueModule.StreamInfoAndStreamState streamInfoAndStreamState =
+                                (PlaybackQueueModule.StreamInfoAndStreamState) msg.obj;
+                        progressBarListFragment_.addProgressBar(
+                                new ProgressBarFragment(streamInfoAndStreamState, getMainLooper())
+                        );
                         break;
                     }
                     default:
@@ -181,6 +205,9 @@ public class MainActivity extends AppCompatActivity {
 
         String channelName = configInfo[IntentInfo.CHANNEL];
         String userName = configInfo[IntentInfo.USER_NAME];
+
+        channelNameDisplay_.setText(getString(R.string.channel_name_label) + channelName);
+        userNameDisplay_.setText(getString(R.string.user_name_label) + userName);
 
         syncSessionId_ = System.currentTimeMillis();
 

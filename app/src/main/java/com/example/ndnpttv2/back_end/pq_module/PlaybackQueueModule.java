@@ -16,6 +16,9 @@ import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.InputStreamDataSource;
 import com.example.ndnpttv2.back_end.ProgressEventInfo;
+import com.google.protobuf.Internal;
+import com.pploder.events.Event;
+import com.pploder.events.SimpleEvent;
 
 import net.named_data.jndn.Name;
 
@@ -36,6 +39,9 @@ public class PlaybackQueueModule {
     private static final int MSG_STREAM_PLAYER_PLAYING_COMPLETE = 2;
     private static final int MSG_NEW_STREAM_AVAILABLE = 3;
 
+    // Events
+    public Event<StreamInfoAndStreamState> eventStreamStateCreated;
+
     private Context ctx_;
     private Handler progressEventHandler_;
     private Handler moduleMessageHandler_;
@@ -45,7 +51,16 @@ public class PlaybackQueueModule {
     private HashMap<Name, InternalStreamConsumptionState> streamStates_;
     private NetworkThread.Info networkThreadInfo_;
 
-    AppState appState_;
+    private AppState appState_;
+
+    public static class StreamInfoAndStreamState {
+        StreamInfoAndStreamState(StreamInfo streamInfo, InternalStreamConsumptionState streamState) {
+            this.streamInfo = streamInfo;
+            this.streamState = streamState;
+        }
+        public StreamInfo streamInfo;
+        public InternalStreamConsumptionState streamState;
+    }
 
     public PlaybackQueueModule(Context ctx, Looper mainThreadLooper, NetworkThread.Info networkThreadInfo,
                                AppState appState) {
@@ -57,6 +72,8 @@ public class PlaybackQueueModule {
         playbackQueue_ = new LinkedTransferQueue<>();
         streamStates_ = new HashMap<>();
         networkThreadInfo_ = networkThreadInfo;
+
+        eventStreamStateCreated = new SimpleEvent<>();
 
         progressEventHandler_ = new Handler(mainThreadLooper) {
             @Override
@@ -172,6 +189,8 @@ public class PlaybackQueueModule {
                         .obtainMessage(MSG_STREAM_CONSUMER_FETCHING_COMPLETE, progressEventInfo)
                         .sendToTarget();
             });
+
+            eventStreamStateCreated.trigger(new StreamInfoAndStreamState(streamInfo, internalStreamConsumptionState));
 
             streamConsumer.streamFetchStart();
 

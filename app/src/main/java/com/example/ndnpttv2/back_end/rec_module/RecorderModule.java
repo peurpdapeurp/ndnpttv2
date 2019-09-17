@@ -127,7 +127,8 @@ public class RecorderModule {
                         break;
                     }
                     case MSG_RECORD_REQUEST_STOP: {
-                        currentStreamProducer_.recordStop();
+                        if (currentStreamProducer_ != null)
+                            currentStreamProducer_.recordStop();
                         break;
                     }
                     default: {

@@ -16,11 +16,13 @@ import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 
 import net.named_data.jndn.Name;
 
+import java.text.SimpleDateFormat;
+
 public class ProgressBarFragmentConsume extends ProgressBarFragment {
 
     // Private constants
-    private static final int POPUP_WINDOW_WIDTH = 700;
-    private static final int POPUP_WINDOW_HEIGHT = 625;
+    private static final int POPUP_WINDOW_WIDTH = 900;
+    private static final int POPUP_WINDOW_HEIGHT = 680;
 
     // Messages
     private static final int MSG_STREAM_FETCHER_PRODUCTION_WINDOW_GROW = 0;
@@ -43,11 +45,13 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
             this.streamName = streamInfo.streamName;
             this.framesPerSegment = streamInfo.framesPerSegment;
             this.producerSamplingRate = streamInfo.producerSamplingRate;
+            this.recordingStartTime = streamInfo.recordingStartTime;
         }
 
         Name streamName;
         long framesPerSegment;
         long producerSamplingRate;
+        long recordingStartTime;
         long finalBlockId = FINAL_BLOCK_ID_UNKNOWN;
         long highestSegAnticipated = NO_SEGMENTS_ANTICIPATED;
         long finalFrameNum = FINAL_FRAME_NUM_UNKNOWN;
@@ -59,15 +63,18 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
 
         @Override
         public String toString() {
+            java.util.Date d = new java.util.Date(recordingStartTime);
+            String itemDateStr = new SimpleDateFormat("dd-MMM HH:mm:ss.SSS").format(d);
             return
                     "Frames per segment: " + framesPerSegment + "\n" +
                     "Sampling rate: " + producerSamplingRate + "\n" +
+                    "Recording start time: " + itemDateStr + "\n" +
                     "Final block id: " +
-                    ((finalBlockId == FINAL_BLOCK_ID_UNKNOWN) ? "unknown" : finalBlockId) + "\n" +
+                        ((finalBlockId == FINAL_BLOCK_ID_UNKNOWN) ? "unknown" : finalBlockId) + "\n" +
                     "Final frame number: " +
-                    ((finalFrameNum == FINAL_FRAME_NUM_UNKNOWN) ? "unknown" : finalFrameNum) + "\n" +
+                        ((finalFrameNum == FINAL_FRAME_NUM_UNKNOWN) ? "unknown" : finalFrameNum) + "\n" +
                     "Segments anticipated: " +
-                    ((highestSegAnticipated == NO_SEGMENTS_ANTICIPATED) ? "none" : highestSegAnticipated) + "\n" +
+                        ((highestSegAnticipated == NO_SEGMENTS_ANTICIPATED) ? "none" : highestSegAnticipated) + "\n" +
                     "Segments fetched: " + segmentsFetched + "\n" +
                     "Segments skipped: " + segmentsSkipped + "\n" +
                     "Nacks fetched: " + nacksFetched + "\n" +

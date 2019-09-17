@@ -17,11 +17,13 @@ import com.example.ndnpttv2.back_end.rec_module.stream_producer.StreamProducer;
 
 import net.named_data.jndn.Name;
 
+import java.text.SimpleDateFormat;
+
 public class ProgressBarFragmentProduce extends ProgressBarFragment {
 
     // Private constants
-    private static final int POPUP_WINDOW_WIDTH = 700;
-    private static final int POPUP_WINDOW_HEIGHT = 400;
+    private static final int POPUP_WINDOW_WIDTH = 900;
+    private static final int POPUP_WINDOW_HEIGHT = 425;
 
     // Messages
     private static final int MSG_STREAM_PRODUCER_SEGMENT_PUBLISHED = 0;
@@ -37,25 +39,30 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
             this.streamName = streamInfo.streamName;
             this.framesPerSegment = streamInfo.framesPerSegment;
             this.producerSamplingRate = streamInfo.producerSamplingRate;
+            this.recordingStartTime = streamInfo.recordingStartTime;
         }
 
         Name streamName;
         long framesPerSegment;
         long producerSamplingRate;
+        long recordingStartTime;
         long finalBlockId = FINAL_BLOCK_ID_UNKNOWN;
         long numSegsPublished = 0;
         long highestSegPublished = NO_SEGMENTS_PUBLISHED;
 
         @Override
         public String toString() {
+            java.util.Date d = new java.util.Date(recordingStartTime);
+            String itemDateStr = new SimpleDateFormat("dd-MMM HH:mm:ss.SSS").format(d);
             return
                     "Frames per segment: " + framesPerSegment + "\n" +
                     "Sampling rate: " + producerSamplingRate + "\n" +
+                    "Recording start time: " + itemDateStr + "\n" +
                     "Final block id: " +
-                    ((finalBlockId == FINAL_BLOCK_ID_UNKNOWN) ? "unknown" : finalBlockId) + "\n" +
+                        ((finalBlockId == FINAL_BLOCK_ID_UNKNOWN) ? "unknown" : finalBlockId) + "\n" +
                     "Segments published: " + numSegsPublished + "\n" +
                     "Highest segment published: " +
-                    ((highestSegPublished == NO_SEGMENTS_PUBLISHED) ? "none" : highestSegPublished);
+                        ((highestSegPublished == NO_SEGMENTS_PUBLISHED) ? "none" : highestSegPublished);
         }
     }
 

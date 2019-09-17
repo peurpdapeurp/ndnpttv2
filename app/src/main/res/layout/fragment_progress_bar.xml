@@ -17,10 +17,31 @@
             android:layout_height="wrap_content"
             android:textColor="#000000" />
 
-        <com.example.ndnpttv2.front_end.custom_progress_bar.CustomProgressBar
-            android:id="@+id/progress_bar"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="30dp"
+            android:orientation="horizontal">
+
+            <com.example.ndnpttv2.front_end.custom_progress_bar.CustomProgressBar
+                android:id="@+id/progress_bar"
+                android:layout_width="276dp"
+                android:layout_height="match_parent" />
+
+            <Button
+                android:id="@+id/display_info_button"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_marginLeft="0dp"
+                android:layout_marginTop="0dp"
+                android:layout_marginRight="0dp"
+                android:layout_marginBottom="0dp"
+                android:layout_weight="1"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:text="info"
+                android:textSize="7sp" />
+        </LinearLayout>
+
     </LinearLayout>
 
 </FrameLayout>

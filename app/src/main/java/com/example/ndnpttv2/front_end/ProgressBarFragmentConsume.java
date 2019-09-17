@@ -1,7 +1,12 @@
 package com.example.ndnpttv2.front_end;
 
+import android.graphics.drawable.ColorDrawable;
 import android.os.Looper;
 import android.os.Message;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.PopupWindow;
+import android.widget.TextView;
 
 import com.example.ndnpttv2.R;
 import com.example.ndnpttv2.back_end.ProgressEventInfo;
@@ -12,6 +17,10 @@ import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import net.named_data.jndn.Name;
 
 public class ProgressBarFragmentConsume extends ProgressBarFragment {
+
+    // Private constants
+    private static final int POPUP_WINDOW_WIDTH = 700;
+    private static final int POPUP_WINDOW_HEIGHT = 625;
 
     // Messages
     private static final int MSG_STREAM_FETCHER_PRODUCTION_WINDOW_GROW = 0;
@@ -43,13 +52,31 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
         long highestSegAnticipated = NO_SEGMENTS_ANTICIPATED;
         long finalFrameNum = FINAL_FRAME_NUM_UNKNOWN;
         long segmentsFetched = 0;
-        long interestsSkipped = 0;
+        long segmentsSkipped = 0;
         long nacksFetched = 0;
         long framesBuffered = 0;
         long framesSkipped = 0;
+
+        @Override
+        public String toString() {
+            return
+                    "Frames per segment: " + framesPerSegment + "\n" +
+                    "Sampling rate: " + producerSamplingRate + "\n" +
+                    "Final block id: " +
+                    ((finalBlockId == FINAL_BLOCK_ID_UNKNOWN) ? "unknown" : finalBlockId) + "\n" +
+                    "Final frame number: " +
+                    ((finalFrameNum == FINAL_FRAME_NUM_UNKNOWN) ? "unknown" : finalFrameNum) + "\n" +
+                    "Segments anticipated: " +
+                    ((highestSegAnticipated == NO_SEGMENTS_ANTICIPATED) ? "none" : highestSegAnticipated) + "\n" +
+                    "Segments fetched: " + segmentsFetched + "\n" +
+                    "Segments skipped: " + segmentsSkipped + "\n" +
+                    "Nacks fetched: " + nacksFetched + "\n" +
+                    "Frames buffered: " + framesBuffered + "\n" +
+                    "Frames skipped: " + framesSkipped;
+        }
     }
 
-    public ProgressBarFragmentConsume(PlaybackQueueModule.StreamInfoAndStreamState streamInfoAndStreamState,
+    ProgressBarFragmentConsume(PlaybackQueueModule.StreamInfoAndStreamState streamInfoAndStreamState,
                                       Looper mainThreadLooper) {
         super(streamInfoAndStreamState.streamInfo.streamName, mainThreadLooper);
 
@@ -92,7 +119,7 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 break;
             }
             case MSG_STREAM_FETCHER_INTEREST_SKIPPED: {
-                state_.interestsSkipped++;
+                state_.segmentsSkipped++;
                 break;
             }
             case MSG_STREAM_FETCHER_AUDIO_RETRIEVED: {
@@ -133,6 +160,34 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
     @Override
     Name getStreamName() {
         return state_.streamName;
+    }
+
+    // https://stackoverflow.com/questions/18461990/pop-up-window-to-display-some-stuff-in-a-fragment
+    @Override
+    void showPopUp(View anchorView) {
+        View popupView = getLayoutInflater().inflate(R.layout.popup_layout, null);
+
+        PopupWindow popupWindow = new PopupWindow(popupView,
+                POPUP_WINDOW_WIDTH, POPUP_WINDOW_HEIGHT);
+
+        // Example: If you have a TextView inside `popup_layout.xml`
+        TextView streamStatisticsDisplay = (TextView) popupView.findViewById(R.id.stream_statistics_display);
+        streamStatisticsDisplay.setText(state_.toString());
+
+        // If the PopupWindow should be focusable
+        popupWindow.setFocusable(true);
+
+        // If you need the PopupWindow to dismiss when when touched outside
+        popupWindow.setBackgroundDrawable(new ColorDrawable());
+
+        int location[] = new int[2];
+
+        // Get the View's(the one that was clicked in the Fragment) location
+        anchorView.getLocationOnScreen(location);
+
+        // Using location, the PopupWindow will be displayed right under anchorView
+        popupWindow.showAtLocation(anchorView, Gravity.NO_GRAVITY,
+                location[0], location[1] + anchorView.getHeight());
     }
 
     void updateProgressBar(int msg_what, long arg1, StreamState streamState) {

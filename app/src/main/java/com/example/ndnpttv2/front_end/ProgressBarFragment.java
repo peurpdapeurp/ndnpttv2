@@ -11,11 +11,11 @@ import android.os.Message;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.TextView;
 
 import com.example.ndnpttv2.R;
 import com.example.ndnpttv2.back_end.ProgressEventInfo;
-import com.example.ndnpttv2.back_end.StreamInfo;
 import com.example.ndnpttv2.front_end.custom_progress_bar.CustomProgressBar;
 
 import net.named_data.jndn.Name;
@@ -26,6 +26,7 @@ public abstract class ProgressBarFragment extends Fragment {
 
     TextView nameDisplay_;
     CustomProgressBar progressBar_;
+    Button displayInfoButton_;
 
     private Name streamName_;
     private Handler handler_;
@@ -62,9 +63,17 @@ public abstract class ProgressBarFragment extends Fragment {
         nameDisplay_.setText(displayString);
 
         progressBar_ = (CustomProgressBar) view.findViewById(R.id.progress_bar);
-        progressBar_.setEnabled(false);
         progressBar_.getThumb().setAlpha(0);
+        progressBar_.setEnabled(false);
         progressBar_.init();
+
+        displayInfoButton_ = (Button) view.findViewById(R.id.display_info_button);
+        displayInfoButton_.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                showPopUp(view);
+            }
+        });
 
         viewInitialized_ = true;
 
@@ -90,6 +99,8 @@ public abstract class ProgressBarFragment extends Fragment {
     abstract void handleMessageInternal(Message msg);
 
     abstract Name getStreamName();
+
+    abstract void showPopUp(View anchorView);
 
     long getNumFrames(long finalBlockId, long framesPerSegment) {
         return finalBlockId * framesPerSegment + framesPerSegment - 1;

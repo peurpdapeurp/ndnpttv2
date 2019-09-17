@@ -302,8 +302,6 @@ public class StreamProducer {
 
                 }
 
-                eventSegmentPublished.trigger(new ProgressEventInfo(streamName_, currentSegmentNum_));
-
                 finalBlockId_ = currentSegmentNum_;
 
                 closed_ = true;
@@ -521,7 +519,7 @@ public class StreamProducer {
             // so just close the StreamProducer
             if (frameProcessingFinished_) {
                 close();
-                eventFinalSegmentPublished.trigger(new ProgressEventInfo(streamName_, 0));
+                eventFinalSegmentPublished.trigger(new ProgressEventInfo(streamName_, finalBlockId_));
             }
         }
 

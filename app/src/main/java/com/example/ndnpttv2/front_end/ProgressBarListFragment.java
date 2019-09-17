@@ -50,7 +50,7 @@ public class ProgressBarListFragment extends Fragment {
 
     }
 
-    public void addProgressBar(ProgressBarFragment progressBarFragment) {
+    void addProgressBar(ProgressBarFragment progressBarFragment) {
         progressBarList_.add(progressBarFragment);
 
         FrameLayout frameLayout = new FrameLayout(getContext());

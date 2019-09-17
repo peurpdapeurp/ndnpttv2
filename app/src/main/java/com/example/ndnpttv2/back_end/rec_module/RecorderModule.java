@@ -22,6 +22,10 @@ public class RecorderModule {
 
     private static final String TAG = "RecorderModule";
 
+    // Private constants
+    private static final int SAMPLING_RATE = 8000;
+    private static final int FRAMES_PER_SEGMENT = 1;
+
     // Messages
     private static final int MSG_RECORDING_COMPLETE = 0;
     private static final int MSG_RECORD_REQUEST_START = 1;
@@ -30,6 +34,7 @@ public class RecorderModule {
     // Events
     public Event<StreamInfo> eventRecordingStarted;
     public Event<Name> eventRecordingFinished;
+    public Event<StreamInfoAndStreamState> eventStreamStateCreated;
 
     private Handler progressEventHandler_;
     private Handler moduleMessageHandler_;
@@ -40,6 +45,15 @@ public class RecorderModule {
     private long lastStreamId_ = 0;
 
     private AppState appState_;
+
+    public static class StreamInfoAndStreamState {
+        StreamInfoAndStreamState(StreamInfo streamInfo, InternalStreamProductionState streamState) {
+            this.streamInfo = streamInfo;
+            this.streamState = streamState;
+        }
+        public StreamInfo streamInfo;
+        public InternalStreamProductionState streamState;
+    }
 
     public RecorderModule(Name applicationDataPrefix, NetworkThread.Info networkThreadInfo,
                           AppState appState) {
@@ -52,6 +66,7 @@ public class RecorderModule {
 
         eventRecordingStarted = new SimpleEvent<>();
         eventRecordingFinished = new SimpleEvent<>();
+        eventStreamStateCreated = new SimpleEvent<>();
 
         progressEventHandler_ = new Handler(networkThreadInfo_.looper) {
             @Override
@@ -103,25 +118,32 @@ public class RecorderModule {
 
                         lastStreamId_++;
 
+                        long recordingStartTime = System.currentTimeMillis();
+                        Name streamName = new Name(applicationDataPrefix_).appendSequenceNumber(lastStreamId_);
+                        StreamInfo streamInfo = new StreamInfo(
+                                streamName,
+                                FRAMES_PER_SEGMENT,
+                                SAMPLING_RATE,
+                                recordingStartTime
+                        );
+
                         currentStreamProducer_ = new StreamProducer(applicationDataPrefix_, lastStreamId_,
                                 networkThreadInfo_,
-                                new StreamProducer.Options(1, 8000, 5));
+                                new StreamProducer.Options(FRAMES_PER_SEGMENT, SAMPLING_RATE));
                         currentStreamProducer_.eventFinalSegmentPublished.addListener(progressEventInfo -> {
                             progressEventHandler_
                                     .obtainMessage(MSG_RECORDING_COMPLETE, progressEventInfo)
                                     .sendToTarget();
                         });
-                        pastStreamProducers_.put(new Name(applicationDataPrefix_).appendSequenceNumber(lastStreamId_),
-                                new InternalStreamProductionState(currentStreamProducer_));
+
+                        InternalStreamProductionState state = new InternalStreamProductionState(currentStreamProducer_);
+
+                        pastStreamProducers_.put(streamName, state);
+
+                        eventStreamStateCreated.trigger(new StreamInfoAndStreamState(streamInfo, state));
+
                         currentStreamProducer_.recordStart();
-                        eventRecordingStarted.trigger(
-                                new StreamInfo(
-                                        new Name(applicationDataPrefix_).appendSequenceNumber(lastStreamId_),
-                                        1,
-                                        8000,
-                                        System.currentTimeMillis()
-                                )
-                        );
+                        eventRecordingStarted.trigger(streamInfo);
 
                         appState_.startRecording();
                         break;

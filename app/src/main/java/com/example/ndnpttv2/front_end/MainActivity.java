@@ -39,6 +39,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int MSG_RECORDER_RECORD_FINISHED = 4;
     private static final int MSG_SYNC_NEW_STREAM_AVAILABLE = 5;
     private static final int MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED = 6;
+    private static final int MSG_RECORDER_STREAM_STATE_CREATED = 7;
 
     // Thread objects
     private boolean networkThreadInitialized_ = false;
@@ -142,6 +143,10 @@ public class MainActivity extends AppCompatActivity {
                                 handler_
                                 .obtainMessage(MSG_RECORDER_RECORD_FINISHED, streamName)
                                 .sendToTarget());
+                        recorderModule_.eventStreamStateCreated.addListener(streamInfoAndStreamState ->
+                                handler_
+                                .obtainMessage(MSG_RECORDER_STREAM_STATE_CREATED, streamInfoAndStreamState)
+                                .sendToTarget());
 
                         networkThreadInitialized_ = true;
                         break;
@@ -179,7 +184,15 @@ public class MainActivity extends AppCompatActivity {
                         PlaybackQueueModule.StreamInfoAndStreamState streamInfoAndStreamState =
                                 (PlaybackQueueModule.StreamInfoAndStreamState) msg.obj;
                         progressBarListFragment_.addProgressBar(
-                                new ProgressBarFragment(streamInfoAndStreamState, getMainLooper())
+                                new ProgressBarFragmentConsume(streamInfoAndStreamState, getMainLooper())
+                        );
+                        break;
+                    }
+                    case MSG_RECORDER_STREAM_STATE_CREATED: {
+                        RecorderModule.StreamInfoAndStreamState streamInfoAndStreamState =
+                                (RecorderModule.StreamInfoAndStreamState) msg.obj;
+                        progressBarListFragment_.addProgressBar(
+                                new ProgressBarFragmentProduce(streamInfoAndStreamState, getMainLooper())
                         );
                         break;
                     }

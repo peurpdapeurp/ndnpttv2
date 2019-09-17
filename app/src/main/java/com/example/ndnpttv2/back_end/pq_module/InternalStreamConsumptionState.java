@@ -5,7 +5,7 @@ import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
 
 public class InternalStreamConsumptionState {
 
-    InternalStreamConsumptionState(StreamConsumer streamConsumer, StreamPlayer streamPlayer) {
+    public InternalStreamConsumptionState(StreamConsumer streamConsumer, StreamPlayer streamPlayer) {
         this.streamConsumer = streamConsumer;
         this.streamPlayer = streamPlayer;
     }

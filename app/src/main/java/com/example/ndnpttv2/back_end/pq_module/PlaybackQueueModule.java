@@ -16,7 +16,6 @@ import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.InputStreamDataSource;
 import com.example.ndnpttv2.back_end.ProgressEventInfo;
-import com.google.protobuf.Internal;
 import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
 

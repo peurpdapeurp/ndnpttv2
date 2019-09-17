@@ -62,14 +62,12 @@ public class StreamProducer {
     private long finalBlockId_ = FINAL_BLOCK_ID_UNKNOWN;
 
     public static class Options {
-        public Options(long framesPerSegment, int producerSamplingRate, int bundleSize) {
+        public Options(long framesPerSegment, int producerSamplingRate) {
             this.framesPerSegment = framesPerSegment;
             this.producerSamplingRate = producerSamplingRate;
-            this.bundleSize = bundleSize;
         }
         long framesPerSegment;
         int producerSamplingRate;
-        int bundleSize;
     }
 
     public StreamProducer(Name applicationDataPrefix, long streamSeqNum, NetworkThread.Info networkThreadInfo, Options options) {

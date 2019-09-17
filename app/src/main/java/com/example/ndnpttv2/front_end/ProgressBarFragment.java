@@ -166,7 +166,7 @@ public class ProgressBarFragment extends Fragment {
         View view =  inflater.inflate(R.layout.fragment_progress_bar, container, false);
 
         nameDisplay_ = (TextView) view.findViewById(R.id.name_display);
-        String displayString = getString(R.string.progress_bar_name_label) + state_.streamName.toString();
+        String displayString = getString(R.string.progress_bar_name_label) + " " + state_.streamName.toString();
         nameDisplay_.setText(displayString);
 
         progressBar_ = (CustomProgressBar) view.findViewById(R.id.progress_bar);

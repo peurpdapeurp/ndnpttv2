@@ -15,8 +15,7 @@
             android:id="@+id/name_display"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#000000"
-            android:textStyle="bold" />
+            android:textColor="#000000" />
 
         <com.example.ndnpttv2.front_end.custom_progress_bar.CustomProgressBar
             android:id="@+id/progress_bar"

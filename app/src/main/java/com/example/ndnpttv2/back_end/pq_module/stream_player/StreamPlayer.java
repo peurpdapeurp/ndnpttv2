@@ -9,6 +9,7 @@ import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customiza
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.InputStreamDataSource;
 import com.example.ndnpttv2.back_end.ProgressEventInfo;
 import com.google.android.exoplayer2.DefaultLoadControl;
+import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayer;
 import com.google.android.exoplayer2.ExoPlayerFactory;
 import com.google.android.exoplayer2.Player;
@@ -27,6 +28,8 @@ public class StreamPlayer {
     private ExoPlayer player_;
     private Handler uiHandler_;
     private Name streamName_;
+    private boolean playingStarted_ = false;
+    private boolean closed_ = false;
 
     // Events
     public Event<ProgressEventInfo> eventPlayingCompleted;
@@ -78,6 +81,13 @@ public class StreamPlayer {
                     eventPlayingCompleted.trigger(new ProgressEventInfo(streamName_, 0));
                 }
             }
+
+            @Override
+            public void onPlayerError(ExoPlaybackException error) {
+                Log.e(TAG, "ExoPlayer had error: " + error.getMessage());
+                close();
+                eventPlayingCompleted.trigger(new ProgressEventInfo(streamName_, 0));
+            }
         });
 
         player_.prepare(audioSource);
@@ -86,6 +96,8 @@ public class StreamPlayer {
     }
 
     public void close() {
+        if (closed_) return;
+        closed_ = true;
         player_.release();
     }
 

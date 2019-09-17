@@ -2,7 +2,8 @@
     <string name="app_name">NDNPTTv2</string>
     <string name="data_prefix">/pscr/NDN-PTT</string>
     <string name="broadcast_prefix">/pscr/NDN-PTT/sync</string>
-    <string name="progress_bar_name_label">Stream name: </string>
-    <string name="channel_name_label">Channel name: </string>
-    <string name="user_name_label">User name: </string>
+    <string name="progress_bar_name_label">Stream name:</string>
+    <string name="channel_name_label">Channel name:</string>
+    <string name="user_name_label">User name:</string>
+    <string name="streams_display_label">Stream info:</string>
 </resources>

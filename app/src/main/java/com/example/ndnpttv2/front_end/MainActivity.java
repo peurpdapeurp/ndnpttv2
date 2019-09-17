@@ -206,8 +206,8 @@ public class MainActivity extends AppCompatActivity {
         String channelName = configInfo[IntentInfo.CHANNEL];
         String userName = configInfo[IntentInfo.USER_NAME];
 
-        channelNameDisplay_.setText(getString(R.string.channel_name_label) + channelName);
-        userNameDisplay_.setText(getString(R.string.user_name_label) + userName);
+        channelNameDisplay_.setText(getString(R.string.channel_name_label) + " " + channelName);
+        userNameDisplay_.setText(getString(R.string.user_name_label) + " " + userName);
 
         syncSessionId_ = System.currentTimeMillis();
 

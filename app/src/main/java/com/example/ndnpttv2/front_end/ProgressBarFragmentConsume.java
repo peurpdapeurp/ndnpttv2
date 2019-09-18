@@ -13,6 +13,7 @@ import com.example.ndnpttv2.back_end.ProgressEventInfo;
 import com.example.ndnpttv2.back_end.StreamInfo;
 import com.example.ndnpttv2.back_end.pq_module.PlaybackQueueModule;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
+import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
 
 import net.named_data.jndn.Name;
 
@@ -33,6 +34,7 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
     private static final int MSG_STREAM_BUFFER_FRAME_BUFFERED = 5;
     private static final int MSG_STREAM_BUFFER_FRAME_SKIPPED = 6;
     private static final int MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED = 7;
+    private static final int MSG_STREAM_PLAYER_PLAYING_FINISHED = 8;
 
     StreamState state_;
 
@@ -114,6 +116,11 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
         streamConsumer.eventFinalFrameNumLearned.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED, progressEventInfo)
         );
+
+        StreamPlayer streamPlayer = streamInfoAndStreamState.streamState.streamPlayer;
+        streamPlayer.eventPlayingCompleted.addListener(progressEventInfo ->
+                processProgressEvent(MSG_STREAM_PLAYER_PLAYING_FINISHED, progressEventInfo)
+        );
     }
 
     void handleMessageInternal(Message msg) {
@@ -158,6 +165,10 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 updateProgressBar(msg.what, 0, state_);
                 break;
             }
+            case MSG_STREAM_PLAYER_PLAYING_FINISHED: {
+                enableStreamInfoPopUp();
+                break;
+            }
             default: {
                 throw new IllegalStateException("unexpected msg.what " + msg.what);
             }
@@ -171,7 +182,7 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
 
     // https://stackoverflow.com/questions/18461990/pop-up-window-to-display-some-stuff-in-a-fragment
     @Override
-    void showPopUp(View anchorView) {
+    void showStreamInfoPopUp(View anchorView) {
         View popupView = getLayoutInflater().inflate(R.layout.popup_layout, null);
 
         PopupWindow popupWindow = new PopupWindow(popupView,

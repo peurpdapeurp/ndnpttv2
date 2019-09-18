@@ -11,7 +11,6 @@ import android.os.Message;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.TextView;
 
 import com.example.ndnpttv2.R;
@@ -63,10 +62,11 @@ public abstract class ProgressBarFragment extends Fragment {
         nameDisplay_.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
             public boolean onLongClick(View view) {
-                showPopUp(view);
+                showStreamInfoPopUp(view);
                 return true;
             }
         });
+        nameDisplay_.setEnabled(false);
 
         progressBar_ = (CustomProgressBar) view.findViewById(R.id.progress_bar);
         progressBar_.getThumb().setAlpha(0);
@@ -98,7 +98,11 @@ public abstract class ProgressBarFragment extends Fragment {
 
     abstract Name getStreamName();
 
-    abstract void showPopUp(View anchorView);
+    abstract void showStreamInfoPopUp(View anchorView);
+
+    void enableStreamInfoPopUp() {
+        nameDisplay_.setEnabled(true);
+    }
 
     long getNumFrames(long finalBlockId, long framesPerSegment) {
         return finalBlockId * framesPerSegment + framesPerSegment - 1;

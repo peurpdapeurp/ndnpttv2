@@ -99,6 +99,7 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
             case MSG_STREAM_PRODUCER_FINAL_SEGMENT_PUBLISHED: {
                 state_.finalBlockId = progressEventInfo.arg1;
                 updateProgressBar(msg.what, 0, state_);
+                enableStreamInfoPopUp();
                 break;
             }
             default: {
@@ -114,7 +115,7 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
 
     // https://stackoverflow.com/questions/18461990/pop-up-window-to-display-some-stuff-in-a-fragment
     @Override
-    void showPopUp(View anchorView) {
+    void showStreamInfoPopUp(View anchorView) {
         View popupView = getLayoutInflater().inflate(R.layout.popup_layout, null);
 
         PopupWindow popupWindow = new PopupWindow(popupView,

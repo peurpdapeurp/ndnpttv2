@@ -37,8 +37,9 @@ public class PlaybackQueueModule {
     // Messages
     private static final int MSG_DO_SOME_WORK = 0;
     private static final int MSG_STREAM_CONSUMER_FETCHING_COMPLETE = 1;
-    private static final int MSG_STREAM_PLAYER_PLAYING_COMPLETE = 2;
-    private static final int MSG_NEW_STREAM_AVAILABLE = 3;
+    private static final int MSG_STREAM_CONSUMER_META_DATA_FETCH_FAILED = 2;
+    private static final int MSG_STREAM_PLAYER_PLAYING_COMPLETE = 3;
+    private static final int MSG_NEW_STREAM_AVAILABLE = 4;
 
     // Events
     public Event<StreamNameAndStreamState> eventStreamStateCreated;
@@ -50,7 +51,7 @@ public class PlaybackQueueModule {
 
     private Name networkDataPrefix_;
     private LinkedTransferQueue<SyncStreamInfo> fetchingQueue_;
-    private LinkedTransferQueue<SyncStreamInfo> playbackQueue_;
+    private LinkedTransferQueue<Name> playbackQueue_;
     private HashMap<Name, InternalStreamConsumptionState> streamStates_;
     private NetworkThread.Info networkThreadInfo_;
     private PeerStateTable peerStateTable_;
@@ -102,9 +103,16 @@ public class PlaybackQueueModule {
                         Log.d(TAG, "fetching of stream " + streamName.toString() + " finished");
                         break;
                     }
+                    case MSG_STREAM_CONSUMER_META_DATA_FETCH_FAILED: {
+                        Log.d(TAG, "playing of stream " + streamName.toString() + " finished (meta data fetch fail)");
+                        streamState.streamPlayer.close();
+                        playbackQueue_.remove(streamName);
+                        streamStates_.remove(streamName);
+                        appState_.stopPlaying();
+                        break;
+                    }
                     case MSG_STREAM_PLAYER_PLAYING_COMPLETE: {
                         Log.d(TAG, "playing of stream " + streamName.toString() + " finished");
-                        streamState.streamConsumer.close();
                         streamState.streamPlayer.close();
                         streamStates_.remove(streamName);
                         appState_.stopPlaying();
@@ -130,7 +138,8 @@ public class PlaybackQueueModule {
                                 syncStreamInfo.toString() +
                                 ")");
                         fetchingQueue_.add(syncStreamInfo);
-                        playbackQueue_.add(syncStreamInfo);
+                        Name streamName = Helpers.getStreamName(networkDataPrefix_, syncStreamInfo);
+                        playbackQueue_.add(streamName);
                         break;
                     }
                     default: {
@@ -198,6 +207,11 @@ public class PlaybackQueueModule {
                         .obtainMessage(MSG_STREAM_CONSUMER_FETCHING_COMPLETE, progressEventInfo)
                         .sendToTarget();
             });
+            streamConsumer.eventMetaDataFetchFailed.addListener(progressEventInfo ->
+                    progressEventHandler_
+                        .obtainMessage(MSG_STREAM_CONSUMER_META_DATA_FETCH_FAILED, progressEventInfo)
+                        .sendToTarget()
+            );
 
             eventStreamStateCreated.trigger(new StreamNameAndStreamState(streamName, internalStreamConsumptionState));
 
@@ -208,8 +222,7 @@ public class PlaybackQueueModule {
         // initiate the playback of streams ready for playback
         if (playbackQueue_.size() != 0 && !appState_.isRecording() && !appState_.isPlaying()) {
 
-            SyncStreamInfo syncStreamInfo = playbackQueue_.poll();
-            Name streamName = Helpers.getStreamName(networkDataPrefix_, syncStreamInfo);
+            Name streamName = playbackQueue_.poll();
 
             Log.d(TAG, "playback queue was non empty, playing stream " + streamName.toString());
 

@@ -34,6 +34,8 @@ import net.named_data.jndn.security.KeyChain;
 import net.named_data.jndn.util.Blob;
 import net.named_data.jndn.util.MemoryContentCache;
 
+import static com.example.ndnpttv2.back_end.Constants.META_DATA_MARKER;
+
 public class StreamProducer {
 
     private final static String TAG = "StreamProducer";
@@ -153,12 +155,12 @@ public class StreamProducer {
     }
 
     private void publishStreamMetaData() {
-        metaData_ = new StreamMetaData(options_.framesPerSegment, options_.producerSamplingRate, options_.recordingStartTime);
-        String streamMetaDataString = jsonSerializer_.toJson(metaData_);
-        Log.d(TAG, "serialized stream meta data into json string: " + streamMetaDataString);
-        Data metaDataPacket = new Data(new Name(streamName_).append(Constants.META_DATA_MARKER));
-        metaDataPacket.setContent(new Blob(streamMetaDataString));
-        network_.sendMetaDataPacket(metaDataPacket);
+//        metaData_ = new StreamMetaData(options_.framesPerSegment, options_.producerSamplingRate, options_.recordingStartTime);
+//        String streamMetaDataString = jsonSerializer_.toJson(metaData_);
+//        Log.d(TAG, "serialized stream meta data into json string: " + streamMetaDataString);
+//        Data metaDataPacket = new Data(new Name(streamName_).append(Constants.META_DATA_MARKER));
+//        metaDataPacket.setContent(new Blob(streamMetaDataString));
+//        network_.sendMetaDataPacket(metaDataPacket);
     }
 
     private class FrameProcessor {
@@ -484,28 +486,33 @@ public class StreamProducer {
                         Log.d(TAG, "No data in MCC found for interest " + interest.getName().toUri());
                         Name streamPrefix = interest.getName().getPrefix(-1);
 
+                        if (interest.getName().get(-1).toEscapedString().equals(META_DATA_MARKER)) {
+                            Log.d(TAG, "Got interest for meta data " + interest.getName().toString());
+                            mcc_.storePendingInterest(interest, face1);
+                            return;
+                        }
+
                         if (finalBlockId_ == FINAL_BLOCK_ID_UNKNOWN) {
                             Log.d(TAG, "Final block id unknown for stream " + streamPrefix.toUri());
                             mcc_.storePendingInterest(interest, face1);
-                        }
-                        else {
-                            Log.d(TAG, "Final block id " + finalBlockId_ + " known for stream " + streamPrefix.toUri());
-                            Data appNack = new Data();
-                            appNack.setName(interest.getName());
-                            MetaInfo metaInfo = new MetaInfo();
-                            metaInfo.setType(ContentType.NACK);
-                            metaInfo.setFreshnessPeriod(1.0);
-                            appNack.setMetaInfo(metaInfo);
-                            appNack.setContent(new Blob(Helpers.longToBytes(finalBlockId_)));
-                            Log.d(TAG, "Putting application nack with name " + interest.getName().toUri() + " in mcc.");
-                            mcc_.add(appNack);
-                            try {
-                                face1.putData(appNack);
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
+                            return;
                         }
 
+                        Log.d(TAG, "Final block id " + finalBlockId_ + " known for stream " + streamPrefix.toUri());
+                        Data appNack = new Data();
+                        appNack.setName(interest.getName());
+                        MetaInfo metaInfo = new MetaInfo();
+                        metaInfo.setType(ContentType.NACK);
+                        metaInfo.setFreshnessPeriod(1.0);
+                        appNack.setMetaInfo(metaInfo);
+                        appNack.setContent(new Blob(Helpers.longToBytes(finalBlockId_)));
+                        Log.d(TAG, "Putting application nack with name " + interest.getName().toUri() + " in mcc.");
+                        mcc_.add(appNack);
+                        try {
+                            face1.putData(appNack);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                     }
             );
 

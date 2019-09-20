@@ -34,13 +34,14 @@ public class MainActivity extends AppCompatActivity {
 
     // Messages
     private static final int MSG_NETWORK_THREAD_INITIALIZED = 0;
-    private static final int MSG_BUTTON_RECORD_REQUEST_START = 1;
-    private static final int MSG_BUTTON_RECORD_REQUEST_STOP = 2;
-    private static final int MSG_RECORDER_RECORD_STARTED = 3;
-    private static final int MSG_RECORDER_RECORD_FINISHED = 4;
-    private static final int MSG_SYNC_NEW_STREAMS_AVAILABLE = 5;
-    private static final int MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED = 6;
-    private static final int MSG_RECORDER_STREAM_STATE_CREATED = 7;
+    private static final int MSG_SYNC_MODULE_INITIALIZED = 1;
+    private static final int MSG_BUTTON_RECORD_REQUEST_START = 2;
+    private static final int MSG_BUTTON_RECORD_REQUEST_STOP = 3;
+    private static final int MSG_RECORDER_RECORD_STARTED = 4;
+    private static final int MSG_RECORDER_RECORD_FINISHED = 5;
+    private static final int MSG_SYNC_NEW_STREAMS_AVAILABLE = 6;
+    private static final int MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED = 7;
+    private static final int MSG_RECORDER_STREAM_STATE_CREATED = 8;
 
     // Thread objects
     private boolean networkThreadInitialized_ = false;
@@ -49,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
     private PlaybackQueueModule playbackQueueModule_;
     private RecorderModule recorderModule_;
     private SyncModule syncModule_;
+    private boolean syncModuleInitialized_ = false; // ignore button presses until sync module is initialized
     private AppState appState_;
     private PeerStateTable peerStateTable_;
 
@@ -83,16 +85,18 @@ public class MainActivity extends AppCompatActivity {
         pttButtonPressReceiverListener_ = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_DOWN)) {
-                    if (networkThreadInitialized_) {
-                        handler_.obtainMessage(MSG_BUTTON_RECORD_REQUEST_START).sendToTarget();
+                if (syncModuleInitialized_) {
+                    if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_DOWN)) {
+                        if (networkThreadInitialized_) {
+                            handler_.obtainMessage(MSG_BUTTON_RECORD_REQUEST_START).sendToTarget();
+                        }
+                    } else if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_UP)) {
+                        if (networkThreadInitialized_) {
+                            handler_.obtainMessage(MSG_BUTTON_RECORD_REQUEST_STOP).sendToTarget();
+                        }
+                    } else {
+                        Log.e(TAG, "pttButtonPressReceiverListener_ unexpected intent: " + intent.getAction());
                     }
-                } else if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_UP)) {
-                    if (networkThreadInitialized_) {
-                        handler_.obtainMessage(MSG_BUTTON_RECORD_REQUEST_STOP).sendToTarget();
-                    }
-                } else {
-                    Log.e(TAG, "pttButtonPressReceiverListener_ unexpected intent: " + intent.getAction());
                 }
             }
         };
@@ -117,10 +121,15 @@ public class MainActivity extends AppCompatActivity {
                                 networkThreadInfo.looper,
                                 peerStateTable_
                         );
+                        syncModule_.eventInitialized.addListener(object -> {
+                            handler_
+                                    .obtainMessage(MSG_SYNC_MODULE_INITIALIZED)
+                                    .sendToTarget();
+                        });
                         syncModule_.eventNewStreamAvailable.addListener(syncStreamInfos ->
-                                    handler_
-                                    .obtainMessage(MSG_SYNC_NEW_STREAMS_AVAILABLE, syncStreamInfos)
-                                    .sendToTarget()
+                            handler_
+                                .obtainMessage(MSG_SYNC_NEW_STREAMS_AVAILABLE, syncStreamInfos)
+                                .sendToTarget()
                         );
 
                         playbackQueueModule_ = new PlaybackQueueModule(
@@ -132,7 +141,7 @@ public class MainActivity extends AppCompatActivity {
                                 peerStateTable_
                         );
                         playbackQueueModule_.eventStreamStateCreated.addListener(streamNameAndStreamState ->
-                                handler_
+                            handler_
                                 .obtainMessage(MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED, streamNameAndStreamState)
                                 .sendToTarget());
 
@@ -142,19 +151,23 @@ public class MainActivity extends AppCompatActivity {
                                 appState_
                         );
                         recorderModule_.eventRecordingStarted.addListener(streamInfo ->
-                                handler_
+                            handler_
                                 .obtainMessage(MSG_RECORDER_RECORD_STARTED, streamInfo)
                                 .sendToTarget());
                         recorderModule_.eventRecordingFinished.addListener(streamName ->
-                                handler_
+                            handler_
                                 .obtainMessage(MSG_RECORDER_RECORD_FINISHED, streamName)
                                 .sendToTarget());
                         recorderModule_.eventStreamStateCreated.addListener(streamInfoAndStreamState ->
-                                handler_
+                            handler_
                                 .obtainMessage(MSG_RECORDER_STREAM_STATE_CREATED, streamInfoAndStreamState)
                                 .sendToTarget());
 
                         networkThreadInitialized_ = true;
+                        break;
+                    }
+                    case MSG_SYNC_MODULE_INITIALIZED: {
+                        syncModuleInitialized_ = true;
                         break;
                     }
                     case MSG_BUTTON_RECORD_REQUEST_START: {

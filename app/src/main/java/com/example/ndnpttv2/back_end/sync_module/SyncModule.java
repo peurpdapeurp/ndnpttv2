@@ -47,6 +47,7 @@ public class SyncModule {
     private static final int MSG_NEW_STREAM_PRODUCING = 2;
 
     // Events
+    public Event<Object> eventInitialized;
     public Event<SyncStreamInfo> eventNewStreamAvailable;
 
     private Network network_;
@@ -68,6 +69,7 @@ public class SyncModule {
 
         sessionId_ = sessionId;
 
+        eventInitialized = new SimpleEvent<>();
         eventNewStreamAvailable = new SimpleEvent<>();
 
         handler_ = new Handler(networkThreadLooper) {
@@ -278,6 +280,7 @@ public class SyncModule {
             @Override
             public void onInitialized() {
                 Log.d(TAG, "sync initialized, initial seq num " + sync_.getSequenceNo());
+                eventInitialized.trigger();
             }
         };
 

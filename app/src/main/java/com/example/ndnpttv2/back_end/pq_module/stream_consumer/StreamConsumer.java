@@ -52,7 +52,8 @@ public class StreamConsumer {
     private static final int MSG_DO_SOME_WORK = 0;
     private static final int MSG_FETCH_START = 1;
     private static final int MSG_BUFFER_START = 2;
-    private static final int MSG_CLOSE = 3;
+    private static final int MSG_CLOSE_SUCCESS = 3;
+    private static final int MSG_CLOSE_META_DATA_FETCH_FAILED = 4;
 
     private Network network_;
     private StreamFetcher streamFetcher_;
@@ -82,6 +83,7 @@ public class StreamConsumer {
     public Event<ProgressEventInfo> eventFrameSkipped;
     public Event<ProgressEventInfo> eventFinalFrameNumLearned;
     public Event<ProgressEventInfo> eventBufferingCompleted;
+    public Event<ProgressEventInfo> eventMetaDataFetchFailed;
 
     public static class Options {
         public Options(long jitterBufferSize) {
@@ -121,6 +123,7 @@ public class StreamConsumer {
         eventFrameSkipped = new SimpleEvent<>();
         eventFinalFrameNumLearned = new SimpleEvent<>();
         eventBufferingCompleted = new SimpleEvent<>();
+        eventMetaDataFetchFailed = new SimpleEvent<>();
 
         handler_ = new Handler(networkThreadInfo.looper) {
             @Override
@@ -144,8 +147,12 @@ public class StreamConsumer {
                         streamPlayStartCalled_ = true;
                         break;
                     }
-                    case MSG_CLOSE: {
-                        close();
+                    case MSG_CLOSE_SUCCESS: {
+                        close(false);
+                        break;
+                    }
+                    case MSG_CLOSE_META_DATA_FETCH_FAILED: {
+                        close(true);
                         break;
                     }
                     default: {
@@ -173,12 +180,17 @@ public class StreamConsumer {
         handler_.obtainMessage(MSG_BUFFER_START).sendToTarget();
     }
 
-    public void close() {
+    public void close(boolean metaDataFetchFailed) {
         Log.d(TAG, streamName_.toString() + ": " + "close called");
         streamFetcher_.close();
         streamPlayerBuffer_.close();
         handler_.removeCallbacksAndMessages(null);
-        eventBufferingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
+        if (metaDataFetchFailed) {
+            eventMetaDataFetchFailed.trigger(new ProgressEventInfo(streamName_, 0, null));
+        }
+        else {
+            eventBufferingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
+        }
         streamConsumerClosed_ = true;
     }
 
@@ -386,7 +398,7 @@ public class StreamConsumer {
                     internalHandler_.postAtTime(
                             () -> {
                                 Log.d(TAG, "closing stream consumer");
-                                streamConsumerHandler_.obtainMessage(MSG_CLOSE).sendToTarget();
+                                streamConsumerHandler_.obtainMessage(MSG_CLOSE_META_DATA_FETCH_FAILED).sendToTarget();
                             },
                             SystemClock.uptimeMillis() + METADATA_FETCH_TIME_LIMIT_MS
                     );
@@ -401,7 +413,12 @@ public class StreamConsumer {
         private void close() {
             if (closed_) return;
             Log.d(TAG, streamName_.toString() + ": " + "close called, state of fetcher: " + state_.toString());
-            internalHandler_.removeCallbacksAndMessages(null);
+            for (Object rtoToken : rtoTokens_.values()) {
+                internalHandler_.removeCallbacksAndMessages(rtoToken);
+            }
+            if (metaDataRtoToken_ != null) {
+                internalHandler_.removeCallbacksAndMessages(metaDataRtoToken_);
+            }
             eventFetchingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
             closed_ = true;
         }
@@ -532,10 +549,16 @@ public class StreamConsumer {
             Log.d(TAG, "got meta data " + metaDataPacket.getName().toString() + ", " +
                     "content " + metaDataPacket.getContent().toString());
             internalHandler_.removeCallbacksAndMessages(metaDataRtoToken_);
-            StreamMetaData streamMetaData = jsonSerializer_.fromJson(
-                    metaDataPacket.getContent().toString(), StreamMetaData.class);
-            if (streamMetaData == null) {
-                throw new IllegalStateException("stream meta data was null in meta data packet " + metaDataPacket.getName().toString());
+            if (metaDataPacket.getMetaInfo().getType() == ContentType.NACK) {
+                Log.d(TAG, "got an application nack as response to meta data interest");
+            }
+            StreamMetaData streamMetaData;
+            try {
+                streamMetaData = jsonSerializer_.fromJson(
+                        metaDataPacket.getContent().toString(), StreamMetaData.class);
+            }
+            catch (Exception e) {
+                throw new IllegalStateException("meta data parsing failed for " + metaDataPacket.getName().toString());
             }
 
             streamMetaData_ = streamMetaData;
@@ -854,7 +877,7 @@ public class StreamConsumer {
                 printState();
                 // close the entire stream consumer, now that playback is done
                 Log.d(TAG, "closing stream consumer");
-                streamConsumerHandler_.obtainMessage(MSG_CLOSE).sendToTarget();
+                streamConsumerHandler_.obtainMessage(MSG_CLOSE_SUCCESS).sendToTarget();
             }
         }
 

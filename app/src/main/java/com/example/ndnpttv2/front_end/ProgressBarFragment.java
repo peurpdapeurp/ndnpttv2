@@ -81,7 +81,9 @@ public abstract class ProgressBarFragment extends Fragment {
     void processProgressEvent(int msg_what, ProgressEventInfo progressEventInfo) {
         Message msg = handler_.obtainMessage(msg_what, progressEventInfo);
 
-        if (!readyForRendering_ && msg.what != ProgressBarFragmentConsume.MSG_STREAM_BUFFER_BUFFERING_STARTED) {
+        if (!readyForRendering_ &&
+                msg.what != ProgressBarFragmentConsume.MSG_STREAM_BUFFER_BUFFERING_STARTED &&
+                msg.what != ProgressBarFragmentConsume.MSG_STREAM_FETCHER_META_DATA_FETCH_FAILED) {
             prematureMessages_.put(msg);
         }
         else {

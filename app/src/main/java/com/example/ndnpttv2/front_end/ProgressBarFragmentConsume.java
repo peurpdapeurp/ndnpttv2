@@ -40,6 +40,7 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
     private static final int MSG_STREAM_BUFFER_FRAME_SKIPPED = 7;
     private static final int MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED = 8;
     private static final int MSG_STREAM_PLAYER_PLAYING_FINISHED = 9;
+    public static final int MSG_STREAM_FETCHER_META_DATA_FETCH_FAILED = 10;
 
     StreamState state_;
     boolean bufferingStarted_;
@@ -49,15 +50,18 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
         static final int FINAL_BLOCK_ID_UNKNOWN = -1;
         static final int FINAL_FRAME_NUM_UNKNOWN = -1;
         static final int NO_SEGMENTS_ANTICIPATED = -1;
+        static final int FRAMES_PER_SEGMENT_UNKNOWN = -1;
+        static final int PRODUCER_SAMPLING_RATE_UNKNOWN = -1;
+        static final int RECORDING_START_TIME_UNKNOWN = -1;
 
         StreamState(Name streamName) {
             this.streamName = streamName;
         }
 
         Name streamName;
-        long framesPerSegment;
-        long producerSamplingRate;
-        long recordingStartTime;
+        long framesPerSegment = FRAMES_PER_SEGMENT_UNKNOWN;
+        long producerSamplingRate = PRODUCER_SAMPLING_RATE_UNKNOWN;
+        long recordingStartTime = RECORDING_START_TIME_UNKNOWN;
         long finalBlockId = FINAL_BLOCK_ID_UNKNOWN;
         long highestSegAnticipated = NO_SEGMENTS_ANTICIPATED;
         long finalFrameNum = FINAL_FRAME_NUM_UNKNOWN;
@@ -70,16 +74,25 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
         @Override
         public String toString() {
             java.util.Date d = new java.util.Date(recordingStartTime);
-            String itemDateStr = new SimpleDateFormat("dd-MMM HH:mm:ss.SSS").format(d);
+            String itemDateStr = "";
+            if (recordingStartTime != RECORDING_START_TIME_UNKNOWN) {
+                itemDateStr = new SimpleDateFormat("dd-MMM HH:mm:ss.SSS").format(d);
+            }
+            else {
+                itemDateStr = "?";
+            }
+
             return
-                    "Frames per segment: " + framesPerSegment + "\n" +
-                    "Sampling rate: " + producerSamplingRate + "\n" +
+                    "Frames per segment: " +
+                        ((framesPerSegment == FRAMES_PER_SEGMENT_UNKNOWN) ? "?" : framesPerSegment) + "\n" +
+                    "Sampling rate: " +
+                        ((producerSamplingRate == PRODUCER_SAMPLING_RATE_UNKNOWN) ? "?" : producerSamplingRate) + "\n" +
                     "Recording start time: " + itemDateStr + "\n" +
                     "Final block id: " +
-                        ((finalBlockId == FINAL_BLOCK_ID_UNKNOWN) ? "unknown" : finalBlockId) + "\n" +
+                        ((finalBlockId == FINAL_BLOCK_ID_UNKNOWN) ? "?" : finalBlockId) + "\n" +
                     "Final frame number: " +
-                        ((finalFrameNum == FINAL_FRAME_NUM_UNKNOWN) ? "unknown" : finalFrameNum) + "\n" +
-                    "Segments anticipated: " +
+                        ((finalFrameNum == FINAL_FRAME_NUM_UNKNOWN) ? "?" : finalFrameNum) + "\n" +
+                    "Highest segment anticipated: " +
                         ((highestSegAnticipated == NO_SEGMENTS_ANTICIPATED) ? "none" : highestSegAnticipated) + "\n" +
                     "Segments fetched: " + segmentsFetched + "\n" +
                     "Segments skipped: " + segmentsSkipped + "\n" +
@@ -122,6 +135,9 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
         );
         streamConsumer.eventFinalFrameNumLearned.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED, progressEventInfo)
+        );
+        streamConsumer.eventMetaDataFetchFailed.addListener(progressEventInfo ->
+                processProgressEvent(MSG_STREAM_FETCHER_META_DATA_FETCH_FAILED, progressEventInfo)
         );
 
         StreamPlayer streamPlayer = streamNameAndStreamState.streamState.streamPlayer;
@@ -185,6 +201,11 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 break;
             }
             case MSG_STREAM_PLAYER_PLAYING_FINISHED: {
+                enableStreamInfoPopUp();
+                break;
+            }
+            case MSG_STREAM_FETCHER_META_DATA_FETCH_FAILED: {
+                Log.d(TAG, "got signal that stream meta data fetch failed");
                 enableStreamInfoPopUp();
                 break;
             }

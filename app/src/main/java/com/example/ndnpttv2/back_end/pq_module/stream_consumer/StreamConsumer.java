@@ -337,6 +337,7 @@ public class StreamConsumer {
         private long metaDataFetchDeadline_;
         private boolean metaDataFetched_ = false;
         private Object metaDataRtoToken_;
+        private Object metaDataFetchDeadlineToken_;
         private Gson jsonSerializer_;
         private Handler streamConsumerHandler_;
 
@@ -393,6 +394,7 @@ public class StreamConsumer {
             internalHandler_.post(new Runnable() {
                 @Override
                 public void run() {
+                    metaDataFetchDeadlineToken_ = new Object();
                     metaDataFetchDeadline_ = System.currentTimeMillis() + METADATA_FETCH_TIME_LIMIT_MS;
                     transmitMetaDataInterest(false);
                     internalHandler_.postAtTime(
@@ -400,6 +402,7 @@ public class StreamConsumer {
                                 Log.d(TAG, "closing stream consumer");
                                 streamConsumerHandler_.obtainMessage(MSG_CLOSE_META_DATA_FETCH_FAILED).sendToTarget();
                             },
+                            metaDataFetchDeadlineToken_,
                             SystemClock.uptimeMillis() + METADATA_FETCH_TIME_LIMIT_MS
                     );
                 }
@@ -548,7 +551,7 @@ public class StreamConsumer {
         private void processMetaData(Data metaDataPacket) {
             Log.d(TAG, "got meta data " + metaDataPacket.getName().toString() + ", " +
                     "content " + metaDataPacket.getContent().toString());
-            internalHandler_.removeCallbacksAndMessages(metaDataRtoToken_);
+            internalHandler_.removeCallbacksAndMessages(metaDataFetchDeadlineToken_);
             if (metaDataPacket.getMetaInfo().getType() == ContentType.NACK) {
                 Log.d(TAG, "got an application nack as response to meta data interest");
             }
@@ -790,11 +793,9 @@ public class StreamConsumer {
 
         private void doSomeWork() {
             if (streamPlayStartTime_ == STREAM_PLAY_START_TIME_UNKNOWN) {
-                Log.d(TAG, "skipping doSomeWork because stream play start time unknown");
                 return;
             }
             if (!streamFetcher_.metaDataFetched_) {
-                Log.d(TAG, "skipping doSomeWork because meta data not yet fetched");
                 return; // do not start playback until meta data for stream fetched successfully
             }
 

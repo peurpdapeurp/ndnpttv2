@@ -155,12 +155,12 @@ public class StreamProducer {
     }
 
     private void publishStreamMetaData() {
-//        metaData_ = new StreamMetaData(options_.framesPerSegment, options_.producerSamplingRate, options_.recordingStartTime);
-//        String streamMetaDataString = jsonSerializer_.toJson(metaData_);
-//        Log.d(TAG, "serialized stream meta data into json string: " + streamMetaDataString);
-//        Data metaDataPacket = new Data(new Name(streamName_).append(Constants.META_DATA_MARKER));
-//        metaDataPacket.setContent(new Blob(streamMetaDataString));
-//        network_.sendMetaDataPacket(metaDataPacket);
+        metaData_ = new StreamMetaData(options_.framesPerSegment, options_.producerSamplingRate, options_.recordingStartTime);
+        String streamMetaDataString = jsonSerializer_.toJson(metaData_);
+        Log.d(TAG, "serialized stream meta data into json string: " + streamMetaDataString);
+        Data metaDataPacket = new Data(new Name(streamName_).append(Constants.META_DATA_MARKER));
+        metaDataPacket.setContent(new Blob(streamMetaDataString));
+        network_.sendMetaDataPacket(metaDataPacket);
     }
 
     private class FrameProcessor {

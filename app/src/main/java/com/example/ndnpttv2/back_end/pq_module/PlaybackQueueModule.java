@@ -9,13 +9,15 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.example.ndnpttv2.back_end.AppState;
-import com.example.ndnpttv2.back_end.StreamInfo;
+import com.example.ndnpttv2.back_end.shared_state.AppState;
+import com.example.ndnpttv2.back_end.shared_state.PeerStateTable;
+import com.example.ndnpttv2.back_end.structs.SyncStreamInfo;
 import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.InputStreamDataSource;
-import com.example.ndnpttv2.back_end.ProgressEventInfo;
+import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
+import com.example.ndnpttv2.util.Helpers;
 import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
 
@@ -39,32 +41,38 @@ public class PlaybackQueueModule {
     private static final int MSG_NEW_STREAM_AVAILABLE = 3;
 
     // Events
-    public Event<StreamInfoAndStreamState> eventStreamStateCreated;
+    public Event<StreamNameAndStreamState> eventStreamStateCreated;
 
     private Context ctx_;
     private Handler progressEventHandler_;
     private Handler moduleMessageHandler_;
     private Handler workHandler_;
-    private LinkedTransferQueue<StreamInfo> fetchingQueue_;
-    private LinkedTransferQueue<StreamInfo> playbackQueue_;
+
+    private Name networkDataPrefix_;
+    private LinkedTransferQueue<SyncStreamInfo> fetchingQueue_;
+    private LinkedTransferQueue<SyncStreamInfo> playbackQueue_;
     private HashMap<Name, InternalStreamConsumptionState> streamStates_;
     private NetworkThread.Info networkThreadInfo_;
+    private PeerStateTable peerStateTable_;
 
     private AppState appState_;
 
-    public static class StreamInfoAndStreamState {
-        StreamInfoAndStreamState(StreamInfo streamInfo, InternalStreamConsumptionState streamState) {
-            this.streamInfo = streamInfo;
+    public static class StreamNameAndStreamState {
+        StreamNameAndStreamState(Name streamName, InternalStreamConsumptionState streamState) {
+            this.streamName = streamName;
             this.streamState = streamState;
         }
-        public StreamInfo streamInfo;
+        public Name streamName;
         public InternalStreamConsumptionState streamState;
     }
 
     public PlaybackQueueModule(Context ctx, Looper mainThreadLooper, NetworkThread.Info networkThreadInfo,
-                               AppState appState) {
+                               AppState appState, Name networkDataPrefix, PeerStateTable peerStateTable) {
 
         appState_ = appState;
+
+        networkDataPrefix_ = networkDataPrefix;
+        peerStateTable_ = peerStateTable;
 
         ctx_ = ctx;
         fetchingQueue_ = new LinkedTransferQueue<>();
@@ -115,15 +123,14 @@ public class PlaybackQueueModule {
 
                 Log.d(TAG, "got message " + msg.what);
 
-                StreamInfo streamInfo = (StreamInfo) msg.obj;
-
                 switch (msg.what) {
                     case MSG_NEW_STREAM_AVAILABLE: {
+                        SyncStreamInfo syncStreamInfo = (SyncStreamInfo) msg.obj;
                         Log.d(TAG, "Notified of new stream " + "(" +
-                                streamInfo.toString() +
+                                syncStreamInfo.toString() +
                                 ")");
-                        fetchingQueue_.add(streamInfo);
-                        playbackQueue_.add(streamInfo);
+                        fetchingQueue_.add(syncStreamInfo);
+                        playbackQueue_.add(syncStreamInfo);
                         break;
                     }
                     default: {
@@ -152,9 +159,9 @@ public class PlaybackQueueModule {
 
     }
 
-    public void notifyNewStreamAvailable(StreamInfo streamInfo) {
-        Log.d(TAG, "notifyNewStreamAvailable called for stream " + streamInfo.streamName.toString());
-        moduleMessageHandler_.obtainMessage(MSG_NEW_STREAM_AVAILABLE, streamInfo).sendToTarget();
+    public void notifyNewStreamAvailable(SyncStreamInfo syncStreamInfo) {
+        Log.d(TAG, "notifyNewStreamAvailable called for stream " + syncStreamInfo);
+        moduleMessageHandler_.obtainMessage(MSG_NEW_STREAM_AVAILABLE, syncStreamInfo).sendToTarget();
     }
 
     private void doSomeWork() {
@@ -162,13 +169,14 @@ public class PlaybackQueueModule {
         // initiate the fetching of streams ready for fetching
         if (fetchingQueue_.size() != 0) {
 
-            StreamInfo streamInfo = fetchingQueue_.poll();
-            Log.d(TAG, "fetching queue was non empty, fetching stream " + streamInfo.streamName.toString());
+            SyncStreamInfo syncStreamInfo = fetchingQueue_.poll();
+            Name streamName = Helpers.getStreamName(networkDataPrefix_, syncStreamInfo);
+            Log.d(TAG, "fetching queue was non empty, fetching stream " + streamName.toString());
 
             InputStreamDataSource transferSource = new InputStreamDataSource();
 
             StreamPlayer streamPlayer = new StreamPlayer(ctx_, transferSource,
-                    streamInfo.streamName, progressEventHandler_);
+                    streamName, progressEventHandler_);
             streamPlayer.eventPlayingCompleted.addListener(progressEventInfo -> {
                 progressEventHandler_
                         .obtainMessage(MSG_STREAM_PLAYER_PLAYING_COMPLETE, progressEventInfo)
@@ -176,20 +184,22 @@ public class PlaybackQueueModule {
             });
 
             StreamConsumer streamConsumer = new StreamConsumer(
-                    streamInfo,
+                    networkDataPrefix_,
+                    syncStreamInfo,
                     transferSource,
                     networkThreadInfo_,
+                    peerStateTable_,
                     new StreamConsumer.Options(DEFAULT_JITTER_BUFFER_SIZE)
             );
             InternalStreamConsumptionState internalStreamConsumptionState = new InternalStreamConsumptionState(streamConsumer, streamPlayer);
-            streamStates_.put(streamInfo.streamName, internalStreamConsumptionState);
+            streamStates_.put(streamName, internalStreamConsumptionState);
             streamConsumer.eventFetchingCompleted.addListener(progressEventInfo -> {
                 progressEventHandler_
                         .obtainMessage(MSG_STREAM_CONSUMER_FETCHING_COMPLETE, progressEventInfo)
                         .sendToTarget();
             });
 
-            eventStreamStateCreated.trigger(new StreamInfoAndStreamState(streamInfo, internalStreamConsumptionState));
+            eventStreamStateCreated.trigger(new StreamNameAndStreamState(streamName, internalStreamConsumptionState));
 
             streamConsumer.streamFetchStart();
 
@@ -198,10 +208,12 @@ public class PlaybackQueueModule {
         // initiate the playback of streams ready for playback
         if (playbackQueue_.size() != 0 && !appState_.isRecording() && !appState_.isPlaying()) {
 
-            StreamInfo streamInfo = playbackQueue_.poll();
-            Log.d(TAG, "playback queue was non empty, playing stream " + streamInfo.streamName.toString());
+            SyncStreamInfo syncStreamInfo = playbackQueue_.poll();
+            Name streamName = Helpers.getStreamName(networkDataPrefix_, syncStreamInfo);
 
-            InternalStreamConsumptionState streamState = streamStates_.get(streamInfo.streamName);
+            Log.d(TAG, "playback queue was non empty, playing stream " + streamName.toString());
+
+            InternalStreamConsumptionState streamState = streamStates_.get(streamName);
             streamState.streamConsumer.streamBufferStart();
 
             appState_.startPlaying();

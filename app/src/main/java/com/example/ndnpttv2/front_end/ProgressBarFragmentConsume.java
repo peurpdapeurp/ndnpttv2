@@ -3,23 +3,27 @@ package com.example.ndnpttv2.front_end;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Looper;
 import android.os.Message;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.PopupWindow;
 import android.widget.TextView;
 
 import com.example.ndnpttv2.R;
-import com.example.ndnpttv2.back_end.ProgressEventInfo;
-import com.example.ndnpttv2.back_end.StreamInfo;
+import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
+import com.example.ndnpttv2.back_end.structs.StreamInfo;
 import com.example.ndnpttv2.back_end.pq_module.PlaybackQueueModule;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
+import com.example.ndnpttv2.back_end.structs.StreamMetaData;
 
 import net.named_data.jndn.Name;
 
 import java.text.SimpleDateFormat;
 
 public class ProgressBarFragmentConsume extends ProgressBarFragment {
+
+    private static final String TAG = "PBFConsume";
 
     // Private constants
     private static final int POPUP_WINDOW_WIDTH = 900;
@@ -31,23 +35,23 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
     private static final int MSG_STREAM_FETCHER_AUDIO_RETRIEVED = 2;
     private static final int MSG_STREAM_FETCHER_NACK_RETRIEVED = 3;
     private static final int MSG_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED = 4;
-    private static final int MSG_STREAM_BUFFER_FRAME_BUFFERED = 5;
-    private static final int MSG_STREAM_BUFFER_FRAME_SKIPPED = 6;
-    private static final int MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED = 7;
-    private static final int MSG_STREAM_PLAYER_PLAYING_FINISHED = 8;
+    public static final int MSG_STREAM_BUFFER_BUFFERING_STARTED = 5;
+    private static final int MSG_STREAM_BUFFER_FRAME_BUFFERED = 6;
+    private static final int MSG_STREAM_BUFFER_FRAME_SKIPPED = 7;
+    private static final int MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED = 8;
+    private static final int MSG_STREAM_PLAYER_PLAYING_FINISHED = 9;
 
     StreamState state_;
+    boolean bufferingStarted_;
+    boolean viewInitialized_;
 
     public class StreamState {
         static final int FINAL_BLOCK_ID_UNKNOWN = -1;
         static final int FINAL_FRAME_NUM_UNKNOWN = -1;
         static final int NO_SEGMENTS_ANTICIPATED = -1;
 
-        StreamState(StreamInfo streamInfo) {
-            this.streamName = streamInfo.streamName;
-            this.framesPerSegment = streamInfo.framesPerSegment;
-            this.producerSamplingRate = streamInfo.producerSamplingRate;
-            this.recordingStartTime = streamInfo.recordingStartTime;
+        StreamState(Name streamName) {
+            this.streamName = streamName;
         }
 
         Name streamName;
@@ -85,13 +89,13 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
         }
     }
 
-    ProgressBarFragmentConsume(PlaybackQueueModule.StreamInfoAndStreamState streamInfoAndStreamState,
-                                      Looper mainThreadLooper) {
-        super(streamInfoAndStreamState.streamInfo.streamName, mainThreadLooper);
+    ProgressBarFragmentConsume(PlaybackQueueModule.StreamNameAndStreamState streamNameAndStreamState,
+                               Looper mainThreadLooper) {
+        super(streamNameAndStreamState.streamName, mainThreadLooper);
 
-        state_ = new StreamState(streamInfoAndStreamState.streamInfo);
+        state_ = new StreamState(streamNameAndStreamState.streamName);
 
-        StreamConsumer streamConsumer = streamInfoAndStreamState.streamState.streamConsumer;
+        StreamConsumer streamConsumer = streamNameAndStreamState.streamState.streamConsumer;
         streamConsumer.eventProductionWindowGrowth.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_FETCHER_PRODUCTION_WINDOW_GROW, progressEventInfo)
         );
@@ -107,6 +111,9 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
         streamConsumer.eventFinalBlockIdLearned.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED, progressEventInfo)
         );
+        streamConsumer.eventBufferingStarted.addListener(progressEventInfo ->
+                processProgressEvent(MSG_STREAM_BUFFER_BUFFERING_STARTED, progressEventInfo)
+        );
         streamConsumer.eventFrameBuffered.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_BUFFER_FRAME_BUFFERED, progressEventInfo)
         );
@@ -117,13 +124,14 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 processProgressEvent(MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED, progressEventInfo)
         );
 
-        StreamPlayer streamPlayer = streamInfoAndStreamState.streamState.streamPlayer;
+        StreamPlayer streamPlayer = streamNameAndStreamState.streamState.streamPlayer;
         streamPlayer.eventPlayingCompleted.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_PLAYER_PLAYING_FINISHED, progressEventInfo)
         );
     }
 
     void handleMessageInternal(Message msg) {
+
         ProgressEventInfo progressEventInfo = (ProgressEventInfo) msg.obj;
 
         switch (msg.what) {
@@ -148,6 +156,17 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
             case MSG_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED: {
                 state_.finalBlockId = progressEventInfo.arg1;
                 updateProgressBar(msg.what, 0, state_);
+                break;
+            }
+            case MSG_STREAM_BUFFER_BUFFERING_STARTED: {
+                Log.d(TAG, "got signal that buffering started");
+                StreamMetaData metaData = (StreamMetaData) progressEventInfo.obj;
+                state_.framesPerSegment = metaData.framesPerSegment;
+                state_.producerSamplingRate = metaData.producerSamplingRate;
+                state_.recordingStartTime = metaData.recordingStartTime;
+                bufferingStarted_ = true;
+                if (viewInitialized_)
+                    startRendering();
                 break;
             }
             case MSG_STREAM_BUFFER_FRAME_BUFFERED: {
@@ -206,6 +225,13 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
         // Using location, the PopupWindow will be displayed right under anchorView
         popupWindow.showAtLocation(anchorView, Gravity.NO_GRAVITY,
                 location[0], location[1] + anchorView.getHeight());
+    }
+
+    @Override
+    void onViewInitialized() {
+        viewInitialized_ = true;
+        if (bufferingStarted_)
+            startRendering();
     }
 
     void updateProgressBar(int msg_what, long arg1, StreamState streamState) {

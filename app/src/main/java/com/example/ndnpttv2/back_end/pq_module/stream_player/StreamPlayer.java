@@ -7,7 +7,7 @@ import android.util.Log;
 
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.AdtsExtractorFactory;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.InputStreamDataSource;
-import com.example.ndnpttv2.back_end.ProgressEventInfo;
+import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
 import com.google.android.exoplayer2.DefaultLoadControl;
 import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayer;
@@ -78,7 +78,7 @@ public class StreamPlayer {
                         "Exoplayer state changed to: " + playbackStateString);
 
                 if (playbackState == Player.STATE_ENDED) {
-                    eventPlayingCompleted.trigger(new ProgressEventInfo(streamName_, 0));
+                    eventPlayingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
                 }
             }
 
@@ -86,7 +86,7 @@ public class StreamPlayer {
             public void onPlayerError(ExoPlaybackException error) {
                 Log.e(TAG, "ExoPlayer had error: " + error.getMessage());
                 close();
-                eventPlayingCompleted.trigger(new ProgressEventInfo(streamName_, 0));
+                eventPlayingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
             }
         });
 

@@ -8,8 +8,9 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.example.ndnpttv2.back_end.StreamInfo;
-import com.google.gson.Gson;
+import com.example.ndnpttv2.back_end.structs.ChannelUserSession;
+import com.example.ndnpttv2.back_end.shared_state.PeerStateTable;
+import com.example.ndnpttv2.back_end.structs.SyncStreamInfo;
 import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
 
@@ -24,13 +25,13 @@ import net.named_data.jndn.security.identity.MemoryIdentityStorage;
 import net.named_data.jndn.security.identity.MemoryPrivateKeyStorage;
 import net.named_data.jndn.security.policy.SelfVerifyPolicyManager;
 import net.named_data.jndn.sync.ChronoSync2013;
-import net.named_data.jndn.util.Blob;
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.LinkedTransferQueue;
+
+import static com.example.ndnpttv2.back_end.shared_state.PeerStateTable.NO_SEQ_NUMS;
 
 public class SyncModule {
 
@@ -43,10 +44,10 @@ public class SyncModule {
     // Messages
     private static final int MSG_DO_SOME_WORK = 0;
     private static final int MSG_INITIALIZE_SYNC = 1;
-    public static final int MSG_NEW_STREAM_PRODUCING = 2;
+    private static final int MSG_NEW_STREAM_PRODUCING = 2;
 
     // Events
-    public Event<StreamInfo> eventNewStreamAvailable;
+    public Event<SyncStreamInfo> eventNewStreamAvailable;
 
     private Network network_;
     private Name applicationBroadcastPrefix_;
@@ -54,24 +55,9 @@ public class SyncModule {
     private long sessionId_;
     private Handler handler_;
 
-    private class StreamSeqNumAndMetaData {
-        public StreamSeqNumAndMetaData(long seqNum, StreamMetaData metaData) {
-            this.seqNum = seqNum;
-            this.metaData = metaData;
-        }
-        long seqNum;
-        StreamMetaData metaData;
-
-        @Override
-        public String toString() {
-            return "seqNum " + seqNum + ", " +
-                    "framesPerSegment " + metaData.framesPerSegment + ", " +
-                    "producerSamplingRate " + metaData.producerSamplingRate;
-        }
-    }
-
     public SyncModule(Name applicationBroadcastPrefix, Name applicationDataPrefix,
-                      long sessionId, Looper networkThreadLooper) {
+                      long sessionId, Looper networkThreadLooper,
+                      PeerStateTable peerStateTable) {
 
         applicationBroadcastPrefix_ = applicationBroadcastPrefix;
         applicationDataPrefix_ = applicationDataPrefix;
@@ -99,9 +85,9 @@ public class SyncModule {
                         break;
                     }
                     case MSG_NEW_STREAM_PRODUCING: {
-                        StreamSeqNumAndMetaData info = (StreamSeqNumAndMetaData) msg.obj;
-                        Log.d(TAG, "new stream being produced: " + info.toString());
-                        network_.newStreamProductionNotifications_.add(info);
+                        Long seqNum = (Long) msg.obj;
+                        Log.d(TAG, "new stream being produced, seq num " + seqNum);
+                        network_.newStreamProductionNotifications_.add(seqNum);
                         break;
                     }
                     default:
@@ -110,7 +96,7 @@ public class SyncModule {
             }
         };
 
-        network_ = new Network();
+        network_ = new Network(peerStateTable);
 
         handler_.obtainMessage(MSG_INITIALIZE_SYNC).sendToTarget();
     }
@@ -130,9 +116,9 @@ public class SyncModule {
         handler_.sendEmptyMessageAtTime(MSG_DO_SOME_WORK, thisOperationStartTimeMs + PROCESSING_INTERVAL_MS);
     }
 
-    public void notifyNewStreamProducing(long seqNum, StreamMetaData metaData) {
+    public void notifyNewStreamProducing(long seqNum) {
         handler_
-                .obtainMessage(MSG_NEW_STREAM_PRODUCING, new StreamSeqNumAndMetaData(seqNum, metaData))
+                .obtainMessage(MSG_NEW_STREAM_PRODUCING, Long.valueOf(seqNum))
                 .sendToTarget();
     }
 
@@ -140,21 +126,19 @@ public class SyncModule {
 
         private final static String TAG = "SyncModule_Network";
 
-        private LinkedTransferQueue<StreamSeqNumAndMetaData> newStreamProductionNotifications_;
+        private LinkedTransferQueue<Long> newStreamProductionNotifications_;
         private Face face_;
         private KeyChain keyChain_;
         private boolean closed_ = false;
         private ChronoSync2013 sync_;
-        private Gson jsonSerializer_;
-        private HashMap<String, HashSet<Long>> recvdSeqNums_;
+        private HashMap<ChannelUserSession, HashSet<Long>> recvdSeqNums_;
+        private PeerStateTable peerStateTable_;
 
-        private Network() {
+        private Network(PeerStateTable peerStateTable) {
 
+            peerStateTable_ = peerStateTable;
             newStreamProductionNotifications_ = new LinkedTransferQueue<>();
-
             recvdSeqNums_ = new HashMap<>();
-
-            jsonSerializer_ = new Gson();
 
             // set up keychain
             keyChain_ = configureKeyChain();
@@ -192,16 +176,14 @@ public class SyncModule {
             if (closed_) return;
 
             while (newStreamProductionNotifications_.size() != 0) {
-                StreamSeqNumAndMetaData info = newStreamProductionNotifications_.poll();
-                if (info == null) continue;
+                Long seqNum = newStreamProductionNotifications_.poll();
+                if (seqNum == null) continue;
                 try {
-                    String streamMetaDataString = jsonSerializer_.toJson(info.metaData);
-                    Log.d(TAG, "serialized stream meta data into json string: " + streamMetaDataString);
-                    if (info.seqNum != sync_.getSequenceNo() + 1) {
+                    if (seqNum != sync_.getSequenceNo() + 1) {
                         throw new IllegalStateException("got unexpected stream seq num (expected " +
-                                (sync_.getSequenceNo() + 1) + ", got " + info.seqNum + ")");
+                                (sync_.getSequenceNo() + 1) + ", got " + seqNum + ")");
                     }
-                    sync_.publishNextSequenceNo(new Blob(streamMetaDataString));
+                    sync_.publishNextSequenceNo();
                 } catch (IOException e) {
                     e.printStackTrace();
                 } catch (SecurityException e) {
@@ -225,58 +207,72 @@ public class SyncModule {
                 for (Object o : syncStates) {
 
                     ChronoSync2013.SyncState syncState = (ChronoSync2013.SyncState) o;
-                    long session = syncState.getSessionNo();
+                    Name dataPrefixName = new Name(syncState.getDataPrefix());
+                    long sessionId = syncState.getSessionNo();
                     long seqNum = syncState.getSequenceNo();
-                    String dataPrefix = syncState.getDataPrefix();
-                    String userId = dataPrefix.substring(dataPrefix.lastIndexOf("/") + 1);
+                    String userName = dataPrefixName.get(-2).toEscapedString();
+                    String channelName = dataPrefixName.get(-3).toEscapedString();
+                    ChannelUserSession channelUserSessionKey = new ChannelUserSession(channelName, userName, sessionId);
 
-                    if (dataPrefix.equals(applicationDataPrefix_.toString())) {
+                    Log.d(TAG, "sync state data prefix: " + dataPrefixName.toString() + ", " +
+                            "our appDataPrefix; " + applicationDataPrefix_.toString());
+
+                    if (dataPrefixName.equals(applicationDataPrefix_)) {
                         Log.d(TAG, "got sync state for own user");
                         continue;
                     }
 
-                    if (!recvdSeqNums_.containsKey(userId)) {
-                        recvdSeqNums_.put(userId, new HashSet<Long>());
-                        recvdSeqNums_.get(userId).add(seqNum);
-                    }
-                    else {
-                        HashSet<Long> seqNums = recvdSeqNums_.get(userId);
-                        if (seqNums.contains(seqNum)) {
-                            Log.d(TAG, "duplicate seq num " + seqNum + " from " + userId);
-                            continue;
-                        }
-                        seqNums.add(seqNum);
-                    }
-
-                    Log.d(TAG, "app info from sync state: " + syncState.getApplicationInfo().toString());
-                    StreamMetaData metaData = jsonSerializer_.fromJson(syncState.getApplicationInfo().toString(), StreamMetaData.class);
-                    if (metaData == null) {
+                    if (isDuplicateSeqNum(channelUserSessionKey, seqNum))
                         continue;
-                    }
+
                     Log.d(TAG, "\n" + "got sync state (" +
-                            "session " + session + ", " +
+                            "sessionId " + sessionId + ", " +
                             "seqNum " + seqNum + ", " +
-                            "dataPrefix " + dataPrefix + ", " +
-                            "userId " + userId + ", " +
+                            "dataPrefix " + dataPrefixName.toString() + ", " +
+                            "userName " + userName + ", " +
                             "isRecovery " + isRecovery +
-                            ")" + "\n" +
-                            "stream meta data (" +
-                            metaData.toString() +
                             ")");
 
-                    eventNewStreamAvailable.trigger(
-                            new StreamInfo(
-                                    new Name(dataPrefix).appendSequenceNumber(seqNum),
-                                    metaData.framesPerSegment,
-                                    metaData.producerSamplingRate,
-                                    metaData.recordingStartTimestamp
-                            )
-                    );
+                    PeerStateTable.PeerState peerState = peerStateTable_.getPeerState(channelUserSessionKey);
+                    if (peerState.highestSeqNum == NO_SEQ_NUMS) {
+                        peerState.highestSeqNum = seqNum;
+                    }
+                    long lastSeqNum = peerState.highestSeqNum;
+
+                    if (lastSeqNum < seqNum) {
+                        for (int i = 0; i < seqNum - lastSeqNum; i++) {
+                            eventNewStreamAvailable.trigger(
+                                    new SyncStreamInfo(
+                                            channelName,
+                                            userName,
+                                            sessionId,
+                                            lastSeqNum + i + 1));
+                        }
+                    }
+
+                    peerState.highestSeqNum = seqNum;
 
                 }
 
             }
         };
+
+        // returns true if seq num was duplicate, false if seq num was not duplicate
+        private boolean isDuplicateSeqNum(ChannelUserSession channelUserSessionKey, long seqNum) {
+            if (!recvdSeqNums_.containsKey(channelUserSessionKey)) {
+                recvdSeqNums_.put(channelUserSessionKey, new HashSet<Long>());
+                recvdSeqNums_.get(channelUserSessionKey).add(seqNum);
+                return false;
+            }
+
+            HashSet<Long> seqNums = recvdSeqNums_.get(channelUserSessionKey);
+            if (seqNums.contains(seqNum)) {
+                Log.d(TAG, "duplicate seq num " + seqNum + " from " + channelUserSessionKey);
+                return true;
+            }
+            seqNums.add(seqNum);
+            return false;
+        }
 
         ChronoSync2013.OnInitialized onInitialized = new ChronoSync2013.OnInitialized() {
             @Override

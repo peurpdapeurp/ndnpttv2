@@ -1,4 +1,4 @@
-package com.example.ndnpttv2.back_end;
+package com.example.ndnpttv2.back_end.shared_state;
 
 public class AppState {
 

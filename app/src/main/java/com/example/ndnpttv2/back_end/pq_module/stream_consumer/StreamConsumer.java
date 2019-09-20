@@ -8,13 +8,17 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.example.ndnpttv2.back_end.StreamInfo;
+import com.example.ndnpttv2.back_end.shared_state.PeerStateTable;
+import com.example.ndnpttv2.back_end.structs.StreamMetaData;
+import com.example.ndnpttv2.back_end.structs.ChannelUserSession;
+import com.example.ndnpttv2.back_end.structs.SyncStreamInfo;
 import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.util.Helpers;
 import com.example.ndnpttv2.back_end.Constants;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.jndn_utils.RttEstimator;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.InputStreamDataSource;
-import com.example.ndnpttv2.back_end.ProgressEventInfo;
+import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
+import com.google.gson.Gson;
 import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
 
@@ -32,6 +36,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.PriorityQueue;
 
+import static com.example.ndnpttv2.back_end.Constants.DEFAULT_FRAMES_PER_SEGMENT;
+import static com.example.ndnpttv2.back_end.Constants.DEFAULT_SAMPLING_RATE;
+import static com.example.ndnpttv2.back_end.Constants.META_DATA_MARKER;
+import static com.example.ndnpttv2.back_end.shared_state.PeerStateTable.NO_META_DATA_SEQ_NUM;
+
 public class StreamConsumer {
 
     private static final String TAG = "StreamConsumer";
@@ -43,18 +52,23 @@ public class StreamConsumer {
     private static final int MSG_DO_SOME_WORK = 0;
     private static final int MSG_FETCH_START = 1;
     private static final int MSG_BUFFER_START = 2;
+    private static final int MSG_CLOSE = 3;
 
     private Network network_;
     private StreamFetcher streamFetcher_;
     private StreamPlayerBuffer streamPlayerBuffer_;
     private boolean streamFetchStartCalled_ = false;
     private boolean streamPlayStartCalled_ = false;
+    private ChannelUserSession channelUserSession_;
+    private Name streamMetaDataName_;
     private Name streamName_;
+    private long streamSeqNum_;
     private InputStreamDataSource audioOutputSource_;
     private Handler handler_;
     private boolean streamConsumerClosed_ = false;
     private Options options_;
-    private StreamInfo streamInfo_;
+    private StreamMetaData streamMetaData_;
+    private PeerStateTable peerStateTable_;
 
     // Events
     public Event<ProgressEventInfo> eventProductionWindowGrowth;
@@ -63,6 +77,7 @@ public class StreamConsumer {
     public Event<ProgressEventInfo> eventInterestSkipped;
     public Event<ProgressEventInfo> eventFinalBlockIdLearned;
     public Event<ProgressEventInfo> eventFetchingCompleted;
+    public Event<ProgressEventInfo> eventBufferingStarted;
     public Event<ProgressEventInfo> eventFrameBuffered;
     public Event<ProgressEventInfo> eventFrameSkipped;
     public Event<ProgressEventInfo> eventFinalFrameNumLearned;
@@ -80,20 +95,28 @@ public class StreamConsumer {
         }
     }
 
-    public StreamConsumer(StreamInfo streamInfo, InputStreamDataSource audioOutputSource, NetworkThread.Info networkThreadInfo,
-                          Options options) {
+    public StreamConsumer(Name networkDataPrefix, SyncStreamInfo syncStreamInfo, InputStreamDataSource audioOutputSource,
+                          NetworkThread.Info networkThreadInfo, PeerStateTable peerStateTable, Options options) {
 
-        streamName_ = streamInfo.streamName;
+        channelUserSession_ = syncStreamInfo.channelUserSession;
+        streamSeqNum_ = syncStreamInfo.seqNum;
+
+        streamName_ = Helpers.getStreamName(networkDataPrefix, syncStreamInfo);
+        streamMetaDataName_ = Helpers.getStreamMetaDataName(networkDataPrefix, syncStreamInfo);
         options_ = options;
-        streamInfo_ = streamInfo;
         audioOutputSource_ = audioOutputSource;
-
+        peerStateTable_ = peerStateTable;
+        PeerStateTable.PeerState peerState = peerStateTable_.getPeerState(channelUserSession_);
+        streamMetaData_ = (peerState.lastKnownMetaData != null ?
+                            peerState.lastKnownMetaData :
+                            new StreamMetaData(DEFAULT_FRAMES_PER_SEGMENT, DEFAULT_SAMPLING_RATE, System.currentTimeMillis()));
         eventProductionWindowGrowth = new SimpleEvent<>();
         eventAudioRetrieved = new SimpleEvent<>();
         eventNackRetrieved = new SimpleEvent<>();
         eventInterestSkipped = new SimpleEvent<>();
         eventFinalBlockIdLearned = new SimpleEvent<>();
         eventFetchingCompleted = new SimpleEvent<>();
+        eventBufferingStarted = new SimpleEvent<>();
         eventFrameBuffered = new SimpleEvent<>();
         eventFrameSkipped = new SimpleEvent<>();
         eventFinalFrameNumLearned = new SimpleEvent<>();
@@ -118,9 +141,11 @@ public class StreamConsumer {
                     case MSG_BUFFER_START: {
                         if (streamPlayStartCalled_) return;
                         streamPlayerBuffer_.setStreamPlayStartTime(System.currentTimeMillis());
-                        Log.d(TAG, streamPlayerBuffer_.getStreamPlayStartTime() + ": " +
-                                "stream buffering started");
                         streamPlayStartCalled_ = true;
+                        break;
+                    }
+                    case MSG_CLOSE: {
+                        close();
                         break;
                     }
                     default: {
@@ -131,11 +156,11 @@ public class StreamConsumer {
         };
 
         network_ = new Network(networkThreadInfo.face);
-        streamFetcher_ = new StreamFetcher(Looper.getMainLooper());
-        streamPlayerBuffer_ = new StreamPlayerBuffer(this);
+        streamFetcher_ = new StreamFetcher(networkThreadInfo.looper, handler_);
+        streamPlayerBuffer_ = new StreamPlayerBuffer(handler_);
 
         Log.d(TAG, streamName_.toString() + ": " + "Initialized (" +
-                "streamInfo " + streamInfo_.toString() + ", " +
+                "stream meta data " + streamMetaData_.toString() + ", " +
                 "options " + options_.toString() +
                 ")");
     }
@@ -153,7 +178,7 @@ public class StreamConsumer {
         streamFetcher_.close();
         streamPlayerBuffer_.close();
         handler_.removeCallbacksAndMessages(null);
-        eventBufferingCompleted.trigger(new ProgressEventInfo(streamName_, 0));
+        eventBufferingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
         streamConsumerClosed_ = true;
     }
 
@@ -184,7 +209,42 @@ public class StreamConsumer {
             retransmits = new HashSet<>();
         }
 
-        private void sendInterest(Interest interest) {
+        private void sendMetaDataInterest(Interest interest) {
+            boolean retransmit = false;
+            if (!retransmits.contains(interest.getName())) {
+                retransmits.add(interest.getName());
+            }
+            else {
+                retransmit = true;
+            }
+            Log.d(TAG, streamName_.toString() + ": " + "send meta data interest (" +
+                    "retx " + retransmit + ", " +
+                    "name " + interest.getName().toString() +
+                    ")");
+            try {
+                face_.expressInterest(interest, (Interest callbackInterest, Data callbackData) -> {
+                    long satisfiedTime = System.currentTimeMillis();
+
+                    if (!recvDatas.contains(callbackData.getName())) {
+                        recvDatas.add(callbackData.getName());
+                    }
+                    else {
+                        return;
+                    }
+
+                    Log.d(TAG, streamName_.toString() + ": " + "meta data received (" +
+                            "time " + satisfiedTime + ", " +
+                            "retx " + retransmits.contains(interest.getName()) +
+                            ")");
+
+                    streamFetcher_.processMetaData(callbackData);
+                });
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        private void sendMediaDataInterest(Interest interest) {
             Long segNum = null;
             try {
                 segNum = interest.getName().get(-1).toSegment();
@@ -198,7 +258,7 @@ public class StreamConsumer {
             else {
                 retransmit = true;
             }
-            Log.d(TAG, streamName_.toString() + ": " + "send interest (" +
+            Log.d(TAG, streamName_.toString() + ": " + "send media data interest (" +
                     "retx " + retransmit + ", " +
                     "seg num " + segNum + ", " +
                     "name " + interest.getName().toString() +
@@ -221,13 +281,13 @@ public class StreamConsumer {
                         e.printStackTrace();
                     }
 
-                    Log.d(TAG, streamName_.toString() + ": " + "data received (" +
+                    Log.d(TAG, streamName_.toString() + ": " + "media data received (" +
                             "seg num " + callbackSegNum + ", " +
                             "time " + satisfiedTime + ", " +
                             "retx " + retransmits.contains(interest.getName()) +
                             ")");
 
-                    streamFetcher_.processData(callbackData, satisfiedTime);
+                    streamFetcher_.processMediaData(callbackData, satisfiedTime);
                 });
             } catch (IOException e) {
                 e.printStackTrace();
@@ -244,6 +304,7 @@ public class StreamConsumer {
         private static final int NO_SEGS_SENT = -1;
         private static final int DEFAULT_INTEREST_LIFETIME_MS = 4000;
         private static final int N_EXPECTED_SAMPLES = 1;
+        private static final int METADATA_FETCH_TIME_LIMIT_MS = 5000;
 
         // Packet events
         private static final int PACKET_EVENT_AUDIO_RETRIEVED = 0;
@@ -259,8 +320,13 @@ public class StreamConsumer {
         private CwndCalculator cwndCalculator_;
         private RttEstimator rttEstimator_;
         private boolean closed_ = false;
-        private Handler rtoHandler_;
+        private Handler internalHandler_;
         private StreamFetcherState state_;
+        private long metaDataFetchDeadline_;
+        private boolean metaDataFetched_ = false;
+        private Object metaDataRtoToken_;
+        private Gson jsonSerializer_;
+        private Handler streamConsumerHandler_;
 
         public class StreamFetcherState {
             long msPerSegNum_;
@@ -299,17 +365,33 @@ public class StreamConsumer {
             return System.currentTimeMillis() - state_.recordingStartTime;
         }
 
-        private StreamFetcher(Looper networkThreadLooper) {
+        private StreamFetcher(Looper networkThreadLooper, Handler streamConsumerHandler) {
+            streamConsumerHandler_ = streamConsumerHandler;
+            jsonSerializer_ = new Gson();
             cwndCalculator_ = new CwndCalculator();
             retransmissionQueue_ = new PriorityQueue<>();
             segSendTimes_ = new HashMap<>();
             rtoTokens_ = new HashMap<>();
-            long streamPlayerBufferJitterDelay = options_.jitterBufferSize * calculateMsPerFrame(streamInfo_.producerSamplingRate);
+            long streamPlayerBufferJitterDelay = options_.jitterBufferSize * calculateMsPerFrame(streamMetaData_.producerSamplingRate);
             rttEstimator_ = new RttEstimator(new RttEstimator.Options(streamPlayerBufferJitterDelay, streamPlayerBufferJitterDelay));
             state_ = new StreamFetcherState();
-            state_.msPerSegNum_ = calculateMsPerSeg(streamInfo_.producerSamplingRate, streamInfo_.framesPerSegment);
-            state_.recordingStartTime = streamInfo_.recordingStartTime;
-            rtoHandler_ = new Handler(networkThreadLooper);
+            state_.msPerSegNum_ = calculateMsPerSeg(streamMetaData_.producerSamplingRate, streamMetaData_.framesPerSegment);
+            state_.recordingStartTime = streamMetaData_.recordingStartTime;
+            internalHandler_ = new Handler(networkThreadLooper);
+            internalHandler_.post(new Runnable() {
+                @Override
+                public void run() {
+                    metaDataFetchDeadline_ = System.currentTimeMillis() + METADATA_FETCH_TIME_LIMIT_MS;
+                    transmitMetaDataInterest(false);
+                    internalHandler_.postAtTime(
+                            () -> {
+                                Log.d(TAG, "closing stream consumer");
+                                streamConsumerHandler_.obtainMessage(MSG_CLOSE).sendToTarget();
+                            },
+                            SystemClock.uptimeMillis() + METADATA_FETCH_TIME_LIMIT_MS
+                    );
+                }
+            });
             Log.d(TAG, streamName_.toString() + ": " + "Initialized (" +
                     "maxRto / initialRto " + streamPlayerBufferJitterDelay + ", " +
                     "ms per seg num " + state_.msPerSegNum_ +
@@ -319,13 +401,9 @@ public class StreamConsumer {
         private void close() {
             if (closed_) return;
             Log.d(TAG, streamName_.toString() + ": " + "close called, state of fetcher: " + state_.toString());
-            rtoHandler_.removeCallbacksAndMessages(null);
-            eventFetchingCompleted.trigger(new ProgressEventInfo(streamName_, 0));
+            internalHandler_.removeCallbacksAndMessages(null);
+            eventFetchingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
             closed_ = true;
-        }
-
-        private StreamFetcherState getState() {
-            return state_;
         }
 
         private void doSomeWork() {
@@ -336,7 +414,7 @@ public class StreamConsumer {
                 if (closed_) return;
                 Long segNum = retransmissionQueue_.poll();
                 if (segNum == null) continue;
-                transmitInterest(segNum, true);
+                transmitMediaDataInterest(segNum, true);
             }
 
             if (closed_) return;
@@ -346,8 +424,8 @@ public class StreamConsumer {
                 while (nextSegShouldBeSent() && withinCwnd()) {
                     if (closed_) return;
                     state_.highestSegAnticipated++;
-                    eventProductionWindowGrowth.trigger(new ProgressEventInfo(streamName_, state_.highestSegAnticipated));
-                    transmitInterest(state_.highestSegAnticipated, false);
+                    eventProductionWindowGrowth.trigger(new ProgressEventInfo(streamName_, state_.highestSegAnticipated, null));
+                    transmitMediaDataInterest(state_.highestSegAnticipated, false);
                 }
             }
 
@@ -367,14 +445,40 @@ public class StreamConsumer {
             return nextSegShouldBeSent;
         }
 
-        private void transmitInterest(final long segNum, boolean isRetransmission) {
+        private void transmitMetaDataInterest(boolean isRetransmission) {
+
+            Interest interestToSend = new Interest(streamMetaDataName_);
+            long rto = (long) rttEstimator_.getEstimatedRto();
+            long transmitTime = System.currentTimeMillis();
+            long lifetime =  metaDataFetchDeadline_ - transmitTime;
+
+            interestToSend.setInterestLifetimeMilliseconds(lifetime);
+            interestToSend.setCanBePrefix(false);
+            interestToSend.setMustBeFresh(false);
+
+            metaDataRtoToken_ = new Object();
+            internalHandler_.postAtTime(() -> {
+                Log.d(TAG, streamName_.toString() + ": " + getTimeSinceStreamRecordingStart() + ": " + "rto timeout (meta data)");
+                transmitMetaDataInterest(true);
+            }, metaDataRtoToken_, SystemClock.uptimeMillis() + rto);
+
+            network_.sendMetaDataInterest(interestToSend);
+            Log.d(TAG, streamName_.toString() + ": " + "meta data interest transmitted (" +
+                    "rto " + rto + ", " +
+                    "lifetime " + lifetime + ", " +
+                    "retx: " + isRetransmission +
+                    ")");
+
+        }
+
+        private void transmitMediaDataInterest(final long segNum, boolean isRetransmission) {
 
             Interest interestToSend = new Interest(streamName_);
             interestToSend.getName().appendSegment(segNum);
             long avgRtt = (long) rttEstimator_.getAvgRtt();
             long rto = (long) rttEstimator_.getEstimatedRto();
             // if playback deadline for first frame of segment is known, set interest lifetime to expire at playback deadline
-            long segFirstFrameNum = streamInfo_.framesPerSegment * segNum;
+            long segFirstFrameNum = streamMetaData_.framesPerSegment * segNum;
             long playbackDeadline = streamPlayerBuffer_.getPlaybackDeadline(segFirstFrameNum);
             long transmitTime = System.currentTimeMillis();
             if (playbackDeadline != StreamPlayerBuffer.PLAYBACK_DEADLINE_UNKNOWN && transmitTime + avgRtt > playbackDeadline) {
@@ -387,7 +491,7 @@ public class StreamConsumer {
                         "retx: " + isRetransmission +
                         ")");
                 recordPacketEvent(segNum, PACKET_EVENT_INTEREST_SKIP);
-                eventInterestSkipped.trigger(new ProgressEventInfo(streamName_, segNum));
+                eventInterestSkipped.trigger(new ProgressEventInfo(streamName_, segNum, null));
                 return;
             }
 
@@ -399,7 +503,7 @@ public class StreamConsumer {
             interestToSend.setMustBeFresh(false);
 
             Object rtoToken = new Object();
-            rtoHandler_.postAtTime(() -> {
+            internalHandler_.postAtTime(() -> {
                 Log.d(TAG, streamName_.toString() + ": " + getTimeSinceStreamRecordingStart() + ": " + "rto timeout (seg num " + segNum + ")");
                 retransmissionQueue_.add(segNum);
                 rtoTokens_.remove(segNum);
@@ -412,7 +516,7 @@ public class StreamConsumer {
             } else {
                 segSendTimes_.put(segNum, System.currentTimeMillis());
             }
-            network_.sendInterest(interestToSend);
+            network_.sendMediaDataInterest(interestToSend);
             recordPacketEvent(segNum, PACKET_EVENT_INTEREST_TRANSMIT);
             Log.d(TAG, streamName_.toString() + ": " + "interest transmitted (" +
                     "seg num " + segNum + ", " +
@@ -424,7 +528,32 @@ public class StreamConsumer {
                     ")");
         }
 
-        private void processData(Data audioPacket, long receiveTime) {
+        private void processMetaData(Data metaDataPacket) {
+            Log.d(TAG, "got meta data " + metaDataPacket.getName().toString() + ", " +
+                    "content " + metaDataPacket.getContent().toString());
+            internalHandler_.removeCallbacksAndMessages(metaDataRtoToken_);
+            StreamMetaData streamMetaData = jsonSerializer_.fromJson(
+                    metaDataPacket.getContent().toString(), StreamMetaData.class);
+            if (streamMetaData == null) {
+                throw new IllegalStateException("stream meta data was null in meta data packet " + metaDataPacket.getName().toString());
+            }
+
+            streamMetaData_ = streamMetaData;
+            metaDataFetched_ = true;
+
+            PeerStateTable.PeerState peerState = peerStateTable_.getPeerState(channelUserSession_);
+            if (peerState.lastKnownMetaDataSeqNum == NO_META_DATA_SEQ_NUM || peerState.lastKnownMetaDataSeqNum < streamSeqNum_) {
+                peerState.lastKnownMetaData = streamMetaData_;
+                peerState.lastKnownMetaDataSeqNum = streamSeqNum_;
+            }
+
+            // recalibrate production window growth rate
+            state_.msPerSegNum_ = calculateMsPerSeg(streamMetaData_.producerSamplingRate, streamMetaData_.framesPerSegment);
+            state_.recordingStartTime = streamMetaData_.recordingStartTime;
+
+        }
+
+        private void processMediaData(Data audioPacket, long receiveTime) {
             long segNum;
             try {
                 segNum = audioPacket.getName().get(-1).toSegment();
@@ -469,7 +598,7 @@ public class StreamConsumer {
                 }
             }
             if (state_.finalBlockId != FINAL_BLOCK_ID_UNKNOWN) {
-                eventFinalBlockIdLearned.trigger(new ProgressEventInfo(streamName_, state_.finalBlockId));
+                eventFinalBlockIdLearned.trigger(new ProgressEventInfo(streamName_, state_.finalBlockId, null));
             }
 
             Log.d(TAG, streamName_.toString() + ": " + "receive data (" +
@@ -482,16 +611,15 @@ public class StreamConsumer {
 
             if (audioPacketWasAppNack) {
                 recordPacketEvent(segNum, PACKET_EVENT_NACK_RETRIEVED);
-                eventNackRetrieved.trigger(new ProgressEventInfo(streamName_, segNum));
+                eventNackRetrieved.trigger(new ProgressEventInfo(streamName_, segNum, null));
             }
             else {
                 recordPacketEvent(segNum, PACKET_EVENT_AUDIO_RETRIEVED);
-                eventAudioRetrieved.trigger(new ProgressEventInfo(streamName_, segNum));
+                eventAudioRetrieved.trigger(new ProgressEventInfo(streamName_, segNum, null));
             }
             retransmissionQueue_.remove(segNum);
-            rtoHandler_.removeCallbacksAndMessages(rtoTokens_.get(segNum));
+            internalHandler_.removeCallbacksAndMessages(rtoTokens_.get(segNum));
             rtoTokens_.remove(segNum);
-
         }
 
         private class CwndCalculator {
@@ -584,7 +712,7 @@ public class StreamConsumer {
         private PriorityQueue<Frame> jitterBuffer_;
         private long jitterBufferDelay_;
         private boolean closed_ = false;
-        private StreamConsumer streamConsumer_;
+        private Handler streamConsumerHandler_;
         private long highestFrameNumPlayed_ = 0;
         private long highestFrameNumPlayedDeadline_;
         private long finalSegNum_ = FINAL_SEG_NUM_UNKNOWN;
@@ -613,11 +741,11 @@ public class StreamConsumer {
                     "jitterBuffer_ " + jitterBuffer_);
         }
 
-        private StreamPlayerBuffer(StreamConsumer streamConsumer) {
+        private StreamPlayerBuffer(Handler streamConsumerHandler) {
             jitterBuffer_ = new PriorityQueue<>();
-            streamConsumer_ = streamConsumer;
-            jitterBufferDelay_ = options_.jitterBufferSize * calculateMsPerFrame(streamInfo_.producerSamplingRate);
-            msPerFrame_ = calculateMsPerFrame(streamInfo_.producerSamplingRate);
+            streamConsumerHandler_ = streamConsumerHandler;
+            jitterBufferDelay_ = options_.jitterBufferSize * calculateMsPerFrame(streamMetaData_.producerSamplingRate);
+            msPerFrame_ = calculateMsPerFrame(streamMetaData_.producerSamplingRate);
             Log.d(TAG, streamName_.toString() + ": " + "Initialized (" +
                     "jitterBufferDelay_ " + jitterBufferDelay_ + ", " +
                     "ms per frame " + msPerFrame_ +
@@ -638,9 +766,20 @@ public class StreamConsumer {
         }
 
         private void doSomeWork() {
-            if (streamPlayStartTime_ == STREAM_PLAY_START_TIME_UNKNOWN) return;
+            if (streamPlayStartTime_ == STREAM_PLAY_START_TIME_UNKNOWN) {
+                Log.d(TAG, "skipping doSomeWork because stream play start time unknown");
+                return;
+            }
+            if (!streamFetcher_.metaDataFetched_) {
+                Log.d(TAG, "skipping doSomeWork because meta data not yet fetched");
+                return; // do not start playback until meta data for stream fetched successfully
+            }
 
             if (firstRealDoSomeWork_) {
+
+                Log.d(TAG, "buffering started");
+                eventBufferingStarted.trigger(new ProgressEventInfo(streamName_, 0, streamMetaData_));
+
                 highestFrameNumPlayedDeadline_ = streamPlayStartTime_ + jitterBufferDelay_;
 
                 // try to calculate the final frame number's playback deadline, in the case that
@@ -652,8 +791,8 @@ public class StreamConsumer {
                     // calculate the finalFrameNumDeadline_ based on the assumption that the last segment
                     // had framesPerSegment_ frames in it
                     finalFrameNumDeadline_ = getPlaybackDeadline(
-                            (finalSegNum_ * streamInfo_.framesPerSegment) +
-                                    streamInfo_.framesPerSegment);
+                            (finalSegNum_ * streamMetaData_.framesPerSegment) +
+                                    streamMetaData_.framesPerSegment);
                 }
 
                 firstRealDoSomeWork_ = false;
@@ -680,7 +819,7 @@ public class StreamConsumer {
                             (finalFrameNumDeadline_ != PLAYBACK_DEADLINE_UNKNOWN &&
                                     currentTime > finalFrameNumDeadline_));
                     jitterBuffer_.poll();
-                    eventFrameBuffered.trigger(new ProgressEventInfo(streamName_, highestFrameNumPlayed_));
+                    eventFrameBuffered.trigger(new ProgressEventInfo(streamName_, highestFrameNumPlayed_, null));
                 }
                 else {
                     if (nextFrame == null || nextFrame.frameNum > highestFrameNumPlayed_) {
@@ -688,7 +827,7 @@ public class StreamConsumer {
                         audioOutputSource_.write(getSilentFrame(),
                                 (finalFrameNumDeadline_ != PLAYBACK_DEADLINE_UNKNOWN &&
                                         currentTime > finalFrameNumDeadline_));
-                        eventFrameSkipped.trigger(new ProgressEventInfo(streamName_, highestFrameNumPlayed_));
+                        eventFrameSkipped.trigger(new ProgressEventInfo(streamName_, highestFrameNumPlayed_, null));
                     }
                 }
 
@@ -713,7 +852,9 @@ public class StreamConsumer {
                         ")");
                 audioOutputSource_.write(getSilentFrame(), true);
                 printState();
-                streamConsumer_.close(); // close the entire stream consumer, now that playback is done
+                // close the entire stream consumer, now that playback is done
+                Log.d(TAG, "closing stream consumer");
+                streamConsumerHandler_.obtainMessage(MSG_CLOSE).sendToTarget();
             }
         }
 
@@ -726,16 +867,16 @@ public class StreamConsumer {
             int parsedFramesLength = parsedFrames.size();
             for (int i = 0; i < parsedFramesLength; i++) {
                 byte[] frameData = parsedFrames.get(i);
-                long frameNum = (segNum * streamInfo_.framesPerSegment) + i;
+                long frameNum = (segNum * streamMetaData_.framesPerSegment) + i;
                 Log.d(TAG, streamName_.toString() + ": " + "got frame " + frameNum);
                 jitterBuffer_.add(new Frame(frameNum, frameData));
             }
             // to detect end of stream, assume that every batch of frames besides the batch of
             // frames associated with the final segment of a stream will have exactly framesPerSegment_
             // frames in it
-            if (parsedFrames.size() < streamInfo_.framesPerSegment) {
-                finalFrameNum_ = (segNum * streamInfo_.framesPerSegment) + parsedFrames.size() - 1;
-                eventFinalFrameNumLearned.trigger(new ProgressEventInfo(streamName_, finalFrameNum_));
+            if (parsedFrames.size() < streamMetaData_.framesPerSegment) {
+                finalFrameNum_ = (segNum * streamMetaData_.framesPerSegment) + parsedFrames.size() - 1;
+                eventFinalFrameNumLearned.trigger(new ProgressEventInfo(streamName_, finalFrameNum_, null));
                 Log.d(TAG, streamName_.toString() + ": " + "detected end of stream (" +
                         "final seg num " + segNum + ", " +
                         "final frame num " + finalFrameNum_ +
@@ -754,8 +895,8 @@ public class StreamConsumer {
             // calculate the finalFrameNumDeadline_ based on the assumption that the last segment
             // had framesPerSegment_ frames in it
             finalFrameNumDeadline_ = getPlaybackDeadline(
-                    (finalSegNum * streamInfo_.framesPerSegment) +
-                            streamInfo_.framesPerSegment);
+                    (finalSegNum * streamMetaData_.framesPerSegment) +
+                            streamMetaData_.framesPerSegment);
         }
 
         private ArrayList<byte[]> parseAdtsFrames(byte[] frames) {
@@ -777,7 +918,7 @@ public class StreamConsumer {
             }
             long framePlayTimeOffset =
                     (Constants.SAMPLES_PER_ADTS_FRAME * Constants.MILLISECONDS_PER_SECOND * frameNum) /
-                            streamInfo_.producerSamplingRate;
+                            streamMetaData_.producerSamplingRate;
             long deadline = streamPlayStartTime_ + jitterBufferDelay_ + framePlayTimeOffset;
             Log.d(TAG, streamName_.toString() + ": " + "calculated deadline (" +
                     "frame num " + frameNum + ", " +

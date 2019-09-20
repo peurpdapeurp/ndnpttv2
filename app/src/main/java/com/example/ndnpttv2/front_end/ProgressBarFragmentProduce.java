@@ -5,13 +5,12 @@ import android.os.Looper;
 import android.os.Message;
 import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.PopupWindow;
 import android.widget.TextView;
 
 import com.example.ndnpttv2.R;
-import com.example.ndnpttv2.back_end.ProgressEventInfo;
-import com.example.ndnpttv2.back_end.StreamInfo;
+import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
+import com.example.ndnpttv2.back_end.structs.StreamInfo;
 import com.example.ndnpttv2.back_end.rec_module.RecorderModule;
 import com.example.ndnpttv2.back_end.rec_module.stream_producer.StreamProducer;
 
@@ -37,9 +36,9 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
 
         StreamState(StreamInfo streamInfo) {
             this.streamName = streamInfo.streamName;
-            this.framesPerSegment = streamInfo.framesPerSegment;
-            this.producerSamplingRate = streamInfo.producerSamplingRate;
-            this.recordingStartTime = streamInfo.recordingStartTime;
+            this.framesPerSegment = streamInfo.metaData.framesPerSegment;
+            this.producerSamplingRate = streamInfo.metaData.producerSamplingRate;
+            this.recordingStartTime = streamInfo.metaData.recordingStartTime;
         }
 
         Name streamName;
@@ -106,6 +105,11 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
                 throw new IllegalStateException("unexpected msg.what " + msg.what);
             }
         }
+    }
+
+    @Override
+    void onViewInitialized() {
+        startRendering();
     }
 
     @Override

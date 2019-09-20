@@ -13,12 +13,13 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
-import android.widget.EditText;
 import android.widget.TextView;
 
 import com.example.ndnpttv2.R;
-import com.example.ndnpttv2.back_end.AppState;
-import com.example.ndnpttv2.back_end.StreamInfo;
+import com.example.ndnpttv2.back_end.shared_state.AppState;
+import com.example.ndnpttv2.back_end.shared_state.PeerStateTable;
+import com.example.ndnpttv2.back_end.structs.StreamInfo;
+import com.example.ndnpttv2.back_end.structs.SyncStreamInfo;
 import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.back_end.pq_module.PlaybackQueueModule;
 import com.example.ndnpttv2.back_end.rec_module.RecorderModule;
@@ -37,7 +38,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int MSG_BUTTON_RECORD_REQUEST_STOP = 2;
     private static final int MSG_RECORDER_RECORD_STARTED = 3;
     private static final int MSG_RECORDER_RECORD_FINISHED = 4;
-    private static final int MSG_SYNC_NEW_STREAM_AVAILABLE = 5;
+    private static final int MSG_SYNC_NEW_STREAMS_AVAILABLE = 5;
     private static final int MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED = 6;
     private static final int MSG_RECORDER_STREAM_STATE_CREATED = 7;
 
@@ -49,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
     private RecorderModule recorderModule_;
     private SyncModule syncModule_;
     private AppState appState_;
+    private PeerStateTable peerStateTable_;
 
     // Configuration parameters
     private Name applicationBroadcastPrefix_;
@@ -105,29 +107,33 @@ public class MainActivity extends AppCompatActivity {
                         Log.d(TAG, "Network thread eventInitialized");
                         NetworkThread.Info networkThreadInfo = (NetworkThread.Info) msg.obj;
 
+                        appState_ = new AppState();
+                        peerStateTable_ = new PeerStateTable();
+
                         syncModule_ = new SyncModule(
                                 applicationBroadcastPrefix_,
                                 applicationDataPrefix_,
                                 syncSessionId_,
-                                networkThreadInfo.looper
+                                networkThreadInfo.looper,
+                                peerStateTable_
                         );
-                        syncModule_.eventNewStreamAvailable.addListener(streamName ->
+                        syncModule_.eventNewStreamAvailable.addListener(syncStreamInfos ->
                                     handler_
-                                    .obtainMessage(MSG_SYNC_NEW_STREAM_AVAILABLE, streamName)
+                                    .obtainMessage(MSG_SYNC_NEW_STREAMS_AVAILABLE, syncStreamInfos)
                                     .sendToTarget()
                         );
-
-                        appState_ = new AppState();
 
                         playbackQueueModule_ = new PlaybackQueueModule(
                                 ctx_,
                                 getMainLooper(),
                                 networkThreadInfo,
-                                appState_
+                                appState_,
+                                new Name(getString(R.string.data_prefix)),
+                                peerStateTable_
                         );
-                        playbackQueueModule_.eventStreamStateCreated.addListener(streamInfoAndStreamState ->
+                        playbackQueueModule_.eventStreamStateCreated.addListener(streamNameAndStreamState ->
                                 handler_
-                                .obtainMessage(MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED, streamInfoAndStreamState)
+                                .obtainMessage(MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED, streamNameAndStreamState)
                                 .sendToTarget());
 
                         recorderModule_ = new RecorderModule(
@@ -162,10 +168,7 @@ public class MainActivity extends AppCompatActivity {
                     case MSG_RECORDER_RECORD_STARTED: {
                         StreamInfo streamInfo = (StreamInfo) msg.obj;
                         try {
-                            syncModule_.notifyNewStreamProducing(
-                                streamInfo.streamName.get(-1).toSequenceNumber(),
-                                    streamInfo.getMetaData()
-                            );
+                            syncModule_.notifyNewStreamProducing(streamInfo.streamName.get(-1).toSequenceNumber());
                         } catch (EncodingException e) {
                             e.printStackTrace();
                         }
@@ -175,16 +178,16 @@ public class MainActivity extends AppCompatActivity {
                         Log.d(TAG, "RecorderModule finished recording");
                         break;
                     }
-                    case MSG_SYNC_NEW_STREAM_AVAILABLE: {
-                        StreamInfo streamInfo = (StreamInfo) msg.obj;
-                        playbackQueueModule_.notifyNewStreamAvailable(streamInfo);
+                    case MSG_SYNC_NEW_STREAMS_AVAILABLE: {
+                        SyncStreamInfo syncStreamInfo = (SyncStreamInfo) msg.obj;
+                        playbackQueueModule_.notifyNewStreamAvailable(syncStreamInfo);
                         break;
                     }
                     case MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED: {
-                        PlaybackQueueModule.StreamInfoAndStreamState streamInfoAndStreamState =
-                                (PlaybackQueueModule.StreamInfoAndStreamState) msg.obj;
+                        PlaybackQueueModule.StreamNameAndStreamState streamNameAndStreamState =
+                                (PlaybackQueueModule.StreamNameAndStreamState) msg.obj;
                         progressBarListFragment_.addProgressBar(
-                                new ProgressBarFragmentConsume(streamInfoAndStreamState, getMainLooper())
+                                new ProgressBarFragmentConsume(streamNameAndStreamState, getMainLooper())
                         );
                         break;
                     }

@@ -6,9 +6,9 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.example.ndnpttv2.back_end.AppState;
-import com.example.ndnpttv2.back_end.ProgressEventInfo;
-import com.example.ndnpttv2.back_end.StreamInfo;
+import com.example.ndnpttv2.back_end.shared_state.AppState;
+import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
+import com.example.ndnpttv2.back_end.structs.StreamInfo;
 import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.back_end.rec_module.stream_producer.StreamProducer;
 import com.pploder.events.Event;
@@ -18,13 +18,12 @@ import net.named_data.jndn.Name;
 
 import java.util.HashMap;
 
+import static com.example.ndnpttv2.back_end.Constants.DEFAULT_FRAMES_PER_SEGMENT;
+import static com.example.ndnpttv2.back_end.Constants.DEFAULT_SAMPLING_RATE;
+
 public class RecorderModule {
 
     private static final String TAG = "RecorderModule";
-
-    // Private constants
-    private static final int SAMPLING_RATE = 8000;
-    private static final int FRAMES_PER_SEGMENT = 1;
 
     // Messages
     private static final int MSG_RECORDING_COMPLETE = 0;
@@ -122,14 +121,14 @@ public class RecorderModule {
                         Name streamName = new Name(applicationDataPrefix_).appendSequenceNumber(lastStreamId_);
                         StreamInfo streamInfo = new StreamInfo(
                                 streamName,
-                                FRAMES_PER_SEGMENT,
-                                SAMPLING_RATE,
+                                DEFAULT_FRAMES_PER_SEGMENT,
+                                DEFAULT_SAMPLING_RATE,
                                 recordingStartTime
                         );
 
                         currentStreamProducer_ = new StreamProducer(applicationDataPrefix_, lastStreamId_,
                                 networkThreadInfo_,
-                                new StreamProducer.Options(FRAMES_PER_SEGMENT, SAMPLING_RATE));
+                                new StreamProducer.Options(DEFAULT_FRAMES_PER_SEGMENT, DEFAULT_SAMPLING_RATE, recordingStartTime));
                         currentStreamProducer_.eventFinalSegmentPublished.addListener(progressEventInfo -> {
                             progressEventHandler_
                                     .obtainMessage(MSG_RECORDING_COMPLETE, progressEventInfo)

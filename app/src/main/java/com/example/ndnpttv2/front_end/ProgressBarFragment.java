@@ -14,7 +14,7 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.example.ndnpttv2.R;
-import com.example.ndnpttv2.back_end.ProgressEventInfo;
+import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
 import com.example.ndnpttv2.front_end.custom_progress_bar.CustomProgressBar;
 
 import net.named_data.jndn.Name;
@@ -28,7 +28,7 @@ public abstract class ProgressBarFragment extends Fragment {
 
     private Name streamName_;
     private Handler handler_;
-    private boolean viewInitialized_ = false;
+    private boolean readyForRendering_ = false;
     private LinkedTransferQueue<Message> prematureMessages_;
 
     ProgressBarFragment(Name streamName, Looper mainThreadLooper) {
@@ -73,20 +73,15 @@ public abstract class ProgressBarFragment extends Fragment {
         progressBar_.setEnabled(false);
         progressBar_.init();
 
-        viewInitialized_ = true;
-
-        while (prematureMessages_.size() != 0) {
-            Message msg = prematureMessages_.poll();
-            if (msg == null) continue;
-            msg.sendToTarget();
-        }
+        onViewInitialized();
 
         return view;
     }
 
     void processProgressEvent(int msg_what, ProgressEventInfo progressEventInfo) {
         Message msg = handler_.obtainMessage(msg_what, progressEventInfo);
-        if (!viewInitialized_) {
+
+        if (!readyForRendering_ && msg.what != ProgressBarFragmentConsume.MSG_STREAM_BUFFER_BUFFERING_STARTED) {
             prematureMessages_.put(msg);
         }
         else {
@@ -103,6 +98,21 @@ public abstract class ProgressBarFragment extends Fragment {
     void enableStreamInfoPopUp() {
         nameDisplay_.setEnabled(true);
     }
+
+    private void processPrematureMessages() {
+        while (prematureMessages_.size() != 0) {
+            Message msg = prematureMessages_.poll();
+            if (msg == null) continue;
+            msg.sendToTarget();
+        }
+    }
+
+    void startRendering() {
+        processPrematureMessages();
+        readyForRendering_ = true;
+    }
+
+    abstract void onViewInitialized();
 
     long getNumFrames(long finalBlockId, long framesPerSegment) {
         return finalBlockId * framesPerSegment + framesPerSegment - 1;

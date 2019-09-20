@@ -1,8 +1,31 @@
 package com.example.ndnpttv2.util;
 
+import com.example.ndnpttv2.back_end.structs.SyncStreamInfo;
+
+import net.named_data.jndn.Name;
+
 import java.nio.ByteBuffer;
 
+import static com.example.ndnpttv2.back_end.Constants.META_DATA_MARKER;
+
 public class Helpers {
+
+    public static Name getStreamName(Name networkDataPrefix, SyncStreamInfo syncStreamInfo) {
+        return new Name(networkDataPrefix)
+                .append(syncStreamInfo.channelUserSession.channelName)
+                .append(syncStreamInfo.channelUserSession.userName)
+                .append(Long.toString(syncStreamInfo.channelUserSession.sessionId))
+                .appendSequenceNumber(syncStreamInfo.seqNum);
+    }
+
+    public static Name getStreamMetaDataName(Name networkDataPrefix, SyncStreamInfo syncStreamInfo) {
+        return new Name(networkDataPrefix)
+                .append(syncStreamInfo.channelUserSession.channelName)
+                .append(syncStreamInfo.channelUserSession.userName)
+                .append(Long.toString(syncStreamInfo.channelUserSession.sessionId))
+                .appendSequenceNumber(syncStreamInfo.seqNum)
+                .append(META_DATA_MARKER);
+    }
 
     // https://stackoverflow.com/questions/4485128/how-do-i-convert-long-to-byte-and-back-in-java
     public static long bytesToLong(byte[] bytes) {

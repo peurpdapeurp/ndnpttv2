@@ -5,7 +5,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.concurrent.LinkedTransferQueue;
 
 import android.os.Handler;
 import android.os.Looper;
@@ -15,10 +14,13 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import com.example.ndnpttv2.back_end.ProgressEventInfo;
+import com.example.ndnpttv2.back_end.Constants;
+import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
+import com.example.ndnpttv2.back_end.structs.StreamMetaData;
 import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.util.Helpers;
 import com.example.ndnpttv2.util.Pipe;
+import com.google.gson.Gson;
 import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
 
@@ -60,17 +62,23 @@ public class StreamProducer {
     private boolean recordingFinished_ = false;
     private boolean frameProcessingFinished_ = false;
     private long finalBlockId_ = FINAL_BLOCK_ID_UNKNOWN;
+    private Gson jsonSerializer_;
+    private StreamMetaData metaData_;
 
     public static class Options {
-        public Options(long framesPerSegment, int producerSamplingRate) {
+        public Options(long framesPerSegment, int producerSamplingRate, long recordingStartTime) {
             this.framesPerSegment = framesPerSegment;
             this.producerSamplingRate = producerSamplingRate;
+            this.recordingStartTime = recordingStartTime;
         }
         long framesPerSegment;
         int producerSamplingRate;
+        long recordingStartTime;
     }
 
     public StreamProducer(Name applicationDataPrefix, long streamSeqNum, NetworkThread.Info networkThreadInfo, Options options) {
+
+        jsonSerializer_ = new Gson();
 
         streamName_ = new Name(applicationDataPrefix).appendSequenceNumber(streamSeqNum);
         options_ = options;
@@ -88,6 +96,7 @@ public class StreamProducer {
                         break;
                     }
                     case MSG_RECORD_START: {
+                        publishStreamMetaData();
                         mediaRecorder_.start();
                         doSomeWork();
                         break;
@@ -125,7 +134,6 @@ public class StreamProducer {
     }
 
     private void doSomeWork() {
-        Log.d(TAG, SystemClock.uptimeMillis() + ": " + "doSomeWork");
         network_.doSomeWork();
         frameProcessor_.doSomeWork();
         if (!streamProducerClosed_) {
@@ -142,6 +150,15 @@ public class StreamProducer {
         handler_.removeCallbacksAndMessages(null);
         streamProducerClosed_ = true;
         Log.d(TAG, "Closed.");
+    }
+
+    private void publishStreamMetaData() {
+        metaData_ = new StreamMetaData(options_.framesPerSegment, options_.producerSamplingRate, options_.recordingStartTime);
+        String streamMetaDataString = jsonSerializer_.toJson(metaData_);
+        Log.d(TAG, "serialized stream meta data into json string: " + streamMetaDataString);
+        Data metaDataPacket = new Data(new Name(streamName_).append(Constants.META_DATA_MARKER));
+        metaDataPacket.setContent(new Blob(streamMetaDataString));
+        network_.sendMetaDataPacket(metaDataPacket);
     }
 
     private class FrameProcessor {
@@ -245,7 +262,7 @@ public class StreamProducer {
 
                             currentSegmentNum_++;
 
-                            network_.sendDataPacket(audioPacket);
+                            network_.sendMediaDataPacket(audioPacket);
 
                         } else {
                             Log.d(TAG, "Bundler did not yet have full bundle, extracting next ADTS frame...");
@@ -289,7 +306,7 @@ public class StreamProducer {
 
                     Data endOfStreamPacket = packetizer_.generateAudioDataPacket(audioBundle, true, currentSegmentNum_);
 
-                    network_.sendDataPacket(endOfStreamPacket);
+                    network_.sendMediaDataPacket(endOfStreamPacket);
 
                 } else {
 
@@ -298,7 +315,7 @@ public class StreamProducer {
 
                     Data endOfStreamPacket = packetizer_.generateAudioDataPacket(new byte[]{}, true, currentSegmentNum_);
 
-                    network_.sendDataPacket(endOfStreamPacket);
+                    network_.sendMediaDataPacket(endOfStreamPacket);
 
                 }
 
@@ -455,11 +472,8 @@ public class StreamProducer {
         private final static String TAG = "StreamProducer_Network";
         private Face face_;
         private MemoryContentCache mcc_;
-        private LinkedTransferQueue<Data> audioPacketTransferQueue_;
 
         private Network(Face face) {
-
-            audioPacketTransferQueue_ = new LinkedTransferQueue<>();
 
             face_ = face;
 
@@ -498,33 +512,31 @@ public class StreamProducer {
         }
 
         private void doSomeWork() {
-            while (audioPacketTransferQueue_.size() != 0) {
-
-                Data data = audioPacketTransferQueue_.poll();
-                if (data == null) continue;
-                Log.d(TAG, "NetworkThread received data packet." + "\n" +
-                        "Name: " + data.getName() + "\n" +
-                        "FinalBlockId: " + data.getMetaInfo().getFinalBlockId().getValue().toHex());
-                try {
-                    eventSegmentPublished.trigger(new ProgressEventInfo(streamName_, data.getName().get(-1).toSegment()));
-                } catch (EncodingException e) {
-                    e.printStackTrace();
-                    throw new IllegalStateException("failed to get segment number from " + data.getName());
-                }
-                mcc_.add(data);
-
-            }
-
             // if frame processing is finished, that means we will get no more audio data packets to publish,
             // so just close the StreamProducer
             if (frameProcessingFinished_) {
                 close();
-                eventFinalSegmentPublished.trigger(new ProgressEventInfo(streamName_, finalBlockId_));
+                eventFinalSegmentPublished.trigger(new ProgressEventInfo(streamName_, finalBlockId_, null));
             }
         }
 
-        private void sendDataPacket(Data data) {
-            audioPacketTransferQueue_.put(data);
+        private void sendMetaDataPacket(Data data) {
+            Log.d(TAG, "Received meta data packet." + "\n" +
+                    "Name: " + data.getName());
+            mcc_.add(data);
+        }
+
+        private void sendMediaDataPacket(Data data) {
+            Log.d(TAG, "Received media data packet." + "\n" +
+                    "Name: " + data.getName() + "\n" +
+                    "FinalBlockId: " + data.getMetaInfo().getFinalBlockId().getValue().toHex());
+            try {
+                eventSegmentPublished.trigger(new ProgressEventInfo(streamName_, data.getName().get(-1).toSegment(), null));
+            } catch (EncodingException e) {
+                e.printStackTrace();
+                throw new IllegalStateException("failed to get segment number from " + data.getName());
+            }
+            mcc_.add(data);
         }
 
     }

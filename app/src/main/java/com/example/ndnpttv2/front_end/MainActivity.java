@@ -12,8 +12,10 @@ import android.content.pm.ActivityInfo;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.Vibrator;
 import android.util.Log;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.example.ndnpttv2.R;
 import com.example.ndnpttv2.back_end.shared_state.AppState;
@@ -42,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int MSG_SYNC_NEW_STREAMS_AVAILABLE = 6;
     private static final int MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED = 7;
     private static final int MSG_RECORDER_STREAM_STATE_CREATED = 8;
+    private static final int MSG_RECORDER_RECORD_START_REQUEST_IGNORED = 9;
 
     // Thread objects
     private boolean networkThreadInitialized_ = false;
@@ -67,6 +70,7 @@ public class MainActivity extends AppCompatActivity {
     private BroadcastReceiver pttButtonPressReceiverListener_;
     private Handler handler_;
     private Context ctx_;
+    private Vibrator v_;
 
     @SuppressLint("HandlerLeak")
     @Override
@@ -77,6 +81,8 @@ public class MainActivity extends AppCompatActivity {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
         ctx_ = this;
+
+        v_ = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
         channelNameDisplay_ = (TextView) findViewById(R.id.channel_name_display);
         userNameDisplay_ = (TextView) findViewById(R.id.user_name_display);
@@ -121,16 +127,14 @@ public class MainActivity extends AppCompatActivity {
                                 networkThreadInfo.looper,
                                 peerStateTable_
                         );
-                        syncModule_.eventInitialized.addListener(object -> {
+                        syncModule_.eventInitialized.addListener(object ->
                             handler_
                                     .obtainMessage(MSG_SYNC_MODULE_INITIALIZED)
-                                    .sendToTarget();
-                        });
+                                    .sendToTarget());
                         syncModule_.eventNewStreamAvailable.addListener(syncStreamInfos ->
                             handler_
                                 .obtainMessage(MSG_SYNC_NEW_STREAMS_AVAILABLE, syncStreamInfos)
-                                .sendToTarget()
-                        );
+                                .sendToTarget());
 
                         playbackQueueModule_ = new PlaybackQueueModule(
                                 ctx_,
@@ -161,6 +165,10 @@ public class MainActivity extends AppCompatActivity {
                         recorderModule_.eventStreamStateCreated.addListener(streamInfoAndStreamState ->
                             handler_
                                 .obtainMessage(MSG_RECORDER_STREAM_STATE_CREATED, streamInfoAndStreamState)
+                                .sendToTarget());
+                        recorderModule_.eventRecordingStartRequestIgnored.addListener(object ->
+                            handler_
+                                .obtainMessage(MSG_RECORDER_RECORD_START_REQUEST_IGNORED)
                                 .sendToTarget());
 
                         networkThreadInitialized_ = true;
@@ -210,6 +218,15 @@ public class MainActivity extends AppCompatActivity {
                         progressBarListFragment_.addProgressBar(
                                 new ProgressBarFragmentProduce(streamInfoAndStreamState, getMainLooper())
                         );
+                        break;
+                    }
+                    case MSG_RECORDER_RECORD_START_REQUEST_IGNORED: {
+                        // Vibrate for 300 milliseconds
+                        v_.vibrate(300);
+
+                        Toast
+                                .makeText(ctx_, "Recording start request ignored.", Toast.LENGTH_SHORT)
+                                .show();
                         break;
                     }
                     default:

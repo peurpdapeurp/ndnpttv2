@@ -186,11 +186,10 @@ public class PlaybackQueueModule {
 
             StreamPlayer streamPlayer = new StreamPlayer(ctx_, transferSource,
                     streamName, progressEventHandler_);
-            streamPlayer.eventPlayingCompleted.addListener(progressEventInfo -> {
+            streamPlayer.eventPlayingCompleted.addListener(progressEventInfo ->
                 progressEventHandler_
                         .obtainMessage(MSG_STREAM_PLAYER_PLAYING_COMPLETE, progressEventInfo)
-                        .sendToTarget();
-            });
+                        .sendToTarget());
 
             StreamConsumer streamConsumer = new StreamConsumer(
                     networkDataPrefix_,
@@ -202,16 +201,14 @@ public class PlaybackQueueModule {
             );
             InternalStreamConsumptionState internalStreamConsumptionState = new InternalStreamConsumptionState(streamConsumer, streamPlayer);
             streamStates_.put(streamName, internalStreamConsumptionState);
-            streamConsumer.eventFetchingCompleted.addListener(progressEventInfo -> {
+            streamConsumer.eventFetchingCompleted.addListener(progressEventInfo ->
                 progressEventHandler_
                         .obtainMessage(MSG_STREAM_CONSUMER_FETCHING_COMPLETE, progressEventInfo)
-                        .sendToTarget();
-            });
+                        .sendToTarget());
             streamConsumer.eventMetaDataFetchFailed.addListener(progressEventInfo ->
                     progressEventHandler_
                         .obtainMessage(MSG_STREAM_CONSUMER_META_DATA_FETCH_FAILED, progressEventInfo)
-                        .sendToTarget()
-            );
+                        .sendToTarget());
 
             eventStreamStateCreated.trigger(new StreamNameAndStreamState(streamName, internalStreamConsumptionState));
 

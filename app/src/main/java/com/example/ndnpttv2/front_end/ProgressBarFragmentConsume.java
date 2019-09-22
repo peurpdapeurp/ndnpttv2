@@ -110,40 +110,29 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
 
         StreamConsumer streamConsumer = streamNameAndStreamState.streamState.streamConsumer;
         streamConsumer.eventProductionWindowGrowth.addListener(progressEventInfo ->
-                processProgressEvent(MSG_STREAM_FETCHER_PRODUCTION_WINDOW_GROW, progressEventInfo)
-        );
+                processProgressEvent(MSG_STREAM_FETCHER_PRODUCTION_WINDOW_GROW, progressEventInfo));
         streamConsumer.eventInterestSkipped.addListener(progressEventInfo ->
-                processProgressEvent(MSG_STREAM_FETCHER_INTEREST_SKIPPED, progressEventInfo)
-        );
+                processProgressEvent(MSG_STREAM_FETCHER_INTEREST_SKIPPED, progressEventInfo));
         streamConsumer.eventAudioRetrieved.addListener(progressEventInfo ->
-                processProgressEvent(MSG_STREAM_FETCHER_AUDIO_RETRIEVED, progressEventInfo)
-        );
+                processProgressEvent(MSG_STREAM_FETCHER_AUDIO_RETRIEVED, progressEventInfo));
         streamConsumer.eventNackRetrieved.addListener(progressEventInfo ->
-                processProgressEvent(MSG_STREAM_FETCHER_NACK_RETRIEVED, progressEventInfo)
-        );
+                processProgressEvent(MSG_STREAM_FETCHER_NACK_RETRIEVED, progressEventInfo));
         streamConsumer.eventFinalBlockIdLearned.addListener(progressEventInfo ->
-                processProgressEvent(MSG_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED, progressEventInfo)
-        );
+                processProgressEvent(MSG_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED, progressEventInfo));
         streamConsumer.eventBufferingStarted.addListener(progressEventInfo ->
-                processProgressEvent(MSG_STREAM_BUFFER_BUFFERING_STARTED, progressEventInfo)
-        );
+                processProgressEvent(MSG_STREAM_BUFFER_BUFFERING_STARTED, progressEventInfo));
         streamConsumer.eventFrameBuffered.addListener(progressEventInfo ->
-                processProgressEvent(MSG_STREAM_BUFFER_FRAME_BUFFERED, progressEventInfo)
-        );
+                processProgressEvent(MSG_STREAM_BUFFER_FRAME_BUFFERED, progressEventInfo));
         streamConsumer.eventFrameSkipped.addListener(progressEventInfo ->
-                processProgressEvent(MSG_STREAM_BUFFER_FRAME_SKIPPED, progressEventInfo)
-        );
+                processProgressEvent(MSG_STREAM_BUFFER_FRAME_SKIPPED, progressEventInfo));
         streamConsumer.eventFinalFrameNumLearned.addListener(progressEventInfo ->
-                processProgressEvent(MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED, progressEventInfo)
-        );
+                processProgressEvent(MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED, progressEventInfo));
         streamConsumer.eventMetaDataFetchFailed.addListener(progressEventInfo ->
-                processProgressEvent(MSG_STREAM_FETCHER_META_DATA_FETCH_FAILED, progressEventInfo)
-        );
+                processProgressEvent(MSG_STREAM_FETCHER_META_DATA_FETCH_FAILED, progressEventInfo));
 
         StreamPlayer streamPlayer = streamNameAndStreamState.streamState.streamPlayer;
         streamPlayer.eventPlayingCompleted.addListener(progressEventInfo ->
-                processProgressEvent(MSG_STREAM_PLAYER_PLAYING_FINISHED, progressEventInfo)
-        );
+                processProgressEvent(MSG_STREAM_PLAYER_PLAYING_FINISHED, progressEventInfo));
     }
 
     void handleMessageInternal(Message msg) {

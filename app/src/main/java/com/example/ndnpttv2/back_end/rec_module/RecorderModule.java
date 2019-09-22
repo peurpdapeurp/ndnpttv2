@@ -34,6 +34,7 @@ public class RecorderModule {
     public Event<StreamInfo> eventRecordingStarted;
     public Event<Name> eventRecordingFinished;
     public Event<StreamInfoAndStreamState> eventStreamStateCreated;
+    public Event<Object> eventRecordingStartRequestIgnored;
 
     private Handler progressEventHandler_;
     private Handler moduleMessageHandler_;
@@ -66,6 +67,7 @@ public class RecorderModule {
         eventRecordingStarted = new SimpleEvent<>();
         eventRecordingFinished = new SimpleEvent<>();
         eventStreamStateCreated = new SimpleEvent<>();
+        eventRecordingStartRequestIgnored = new SimpleEvent<>();
 
         progressEventHandler_ = new Handler(networkThreadInfo_.looper) {
             @Override
@@ -106,10 +108,12 @@ public class RecorderModule {
                     case MSG_RECORD_REQUEST_START: {
                         if (appState_.isRecording()) {
                             Log.e(TAG, "Got request to record while already recording, ignoring request.");
+                            eventRecordingStartRequestIgnored.trigger();
                             return;
                         }
                         if (appState_.isPlaying()) {
                             Log.e(TAG, "Got request to record while PlaybackQueueModule was playing, ignoring request.");
+                            eventRecordingStartRequestIgnored.trigger();
                             return;
                         }
 
@@ -129,11 +133,10 @@ public class RecorderModule {
                         currentStreamProducer_ = new StreamProducer(applicationDataPrefix_, lastStreamId_,
                                 networkThreadInfo_,
                                 new StreamProducer.Options(DEFAULT_FRAMES_PER_SEGMENT, DEFAULT_SAMPLING_RATE, recordingStartTime));
-                        currentStreamProducer_.eventFinalSegmentPublished.addListener(progressEventInfo -> {
+                        currentStreamProducer_.eventFinalSegmentPublished.addListener(progressEventInfo ->
                             progressEventHandler_
                                     .obtainMessage(MSG_RECORDING_COMPLETE, progressEventInfo)
-                                    .sendToTarget();
-                        });
+                                    .sendToTarget());
 
                         InternalStreamProductionState state = new InternalStreamProductionState(currentStreamProducer_);
 

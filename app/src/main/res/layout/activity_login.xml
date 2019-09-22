@@ -12,36 +12,150 @@
         android:orientation="vertical">
 
         <TextView
-            android:id="@+id/channel_input_label"
+            android:id="@+id/channel_settings_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Channel Name:"
-            android:textColor="?attr/actionModeSplitBackground"
-            android:textSize="15sp"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="5dp"
+            android:text="Channel Settings"
+            android:textColor="#000000"
+            android:textSize="16sp"
             android:textStyle="bold" />
 
-        <EditText
-            android:id="@+id/channel_input"
-            android:layout_width="match_parent"
+        <LinearLayout
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:ems="10"
-            android:inputType="textPersonName" />
+            android:orientation="horizontal"
+            android:layout_marginBottom="0dp">
+
+            <TextView
+                android:id="@+id/channel_input_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Channel Name:"
+                android:textColor="?attr/actionModeSplitBackground"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/channel_input"
+                android:layout_width="259dp"
+                android:layout_height="wrap_content"
+                android:ems="10"
+                android:inputType="textPersonName"
+                android:paddingTop="0dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/user_name_input_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="User Name:"
+                android:textColor="?attr/actionModeSplitBackground"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/user_name_input"
+                android:layout_width="283dp"
+                android:layout_height="wrap_content"
+                android:ems="10"
+                android:inputType="textPersonName"
+                android:paddingTop="0dp" />
+        </LinearLayout>
 
         <TextView
-            android:id="@+id/user_name_input_label"
+            android:id="@+id/stream_production_settings_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="User Name:"
-            android:textColor="?attr/actionModeSplitBackground"
-            android:textSize="15sp"
+            android:text="Stream Production Settings"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="5dp"
+            android:textColor="#000000"
+            android:textSize="16sp"
             android:textStyle="bold" />
 
-        <EditText
-            android:id="@+id/user_name_input"
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/producer_sampling_rate_input_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sampling Rate (samples / second):"
+                android:textColor="?attr/actionModeSplitBackground"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <Spinner
+                android:id="@+id/producer_sampling_rate_input"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/producer_frames_per_segment_input_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Frames Per Segment:"
+                android:textColor="?attr/actionModeSplitBackground"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/producer_frames_per_segment_input"
+                android:layout_width="217dp"
+                android:layout_height="wrap_content"
+                android:ems="10"
+                android:inputType="textPersonName"
+                android:paddingTop="0dp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/stream_consumption_settings_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:ems="10"
-            android:inputType="textPersonName" />
+            android:text="Stream Consumption Settings"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="5dp"
+            android:textColor="#000000"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/consumer_jitter_buffer_size_input_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Jitter Buffer Size (frames):"
+                android:textColor="?attr/actionModeSplitBackground"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/consumer_jitter_buffer_size_input"
+                android:layout_width="181dp"
+                android:layout_height="wrap_content"
+                android:ems="10"
+                android:inputType="textPersonName"
+                android:paddingTop="0dp" />
+        </LinearLayout>
 
         <Button
             android:id="@+id/ok_button"

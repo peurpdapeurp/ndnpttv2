@@ -9,8 +9,4 @@ public class Constants {
     public static final String
             META_DATA_MARKER = "meta-data";
 
-    public static final int
-            DEFAULT_SAMPLING_RATE = 8000,
-            DEFAULT_FRAMES_PER_SEGMENT = 1;
-
 }

@@ -31,7 +31,6 @@ public class PlaybackQueueModule {
     private static final String TAG = "PlaybackQueueModule";
 
     // Private constants
-    private static final int DEFAULT_JITTER_BUFFER_SIZE = 5;
     private static final int PROCESSING_INTERVAL_MS = 50;
 
     // Messages
@@ -57,6 +56,14 @@ public class PlaybackQueueModule {
     private PeerStateTable peerStateTable_;
 
     private AppState appState_;
+    private Options options_;
+
+    public static class Options {
+        public Options(int jitterBufferSize) {
+            this.jitterBufferSize = jitterBufferSize;
+        }
+        int jitterBufferSize;
+    }
 
     public static class StreamNameAndStreamState {
         StreamNameAndStreamState(Name streamName, InternalStreamConsumptionState streamState) {
@@ -68,9 +75,11 @@ public class PlaybackQueueModule {
     }
 
     public PlaybackQueueModule(Context ctx, Looper mainThreadLooper, NetworkThread.Info networkThreadInfo,
-                               AppState appState, Name networkDataPrefix, PeerStateTable peerStateTable) {
+                               AppState appState, Name networkDataPrefix, PeerStateTable peerStateTable,
+                               Options options) {
 
         appState_ = appState;
+        options_ = options;
 
         networkDataPrefix_ = networkDataPrefix;
         peerStateTable_ = peerStateTable;
@@ -197,7 +206,7 @@ public class PlaybackQueueModule {
                     transferSource,
                     networkThreadInfo_,
                     peerStateTable_,
-                    new StreamConsumer.Options(DEFAULT_JITTER_BUFFER_SIZE)
+                    new StreamConsumer.Options(options_.jitterBufferSize)
             );
             InternalStreamConsumptionState internalStreamConsumptionState = new InternalStreamConsumptionState(streamConsumer, streamPlayer);
             streamStates_.put(streamName, internalStreamConsumptionState);

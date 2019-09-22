@@ -4,8 +4,11 @@ public class IntentInfo {
 
     // LoginActivity broadcast intent info
     public static int
-        CHANNEL = 0,
-        USER_NAME = 1;
+        CHANNEL_NAME = 0,
+        USER_NAME = 1,
+        PRODUCER_SAMPLING_RATE = 2,
+        PRODUCER_FRAMES_PER_SEGMENT = 3,
+        CONSUMER_JITTER_BUFFER_SIZE = 4;
     public static String
             LOGIN_CONFIG = "LOGIN_CONFIG";
 

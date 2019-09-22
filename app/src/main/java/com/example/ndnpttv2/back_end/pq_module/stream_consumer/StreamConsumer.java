@@ -36,9 +36,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.PriorityQueue;
 
-import static com.example.ndnpttv2.back_end.Constants.DEFAULT_FRAMES_PER_SEGMENT;
-import static com.example.ndnpttv2.back_end.Constants.DEFAULT_SAMPLING_RATE;
-import static com.example.ndnpttv2.back_end.Constants.META_DATA_MARKER;
 import static com.example.ndnpttv2.back_end.shared_state.PeerStateTable.NO_META_DATA_SEQ_NUM;
 
 public class StreamConsumer {
@@ -47,6 +44,8 @@ public class StreamConsumer {
 
     // Private constants
     private static final int PROCESSING_INTERVAL_MS = 50;
+    private static final int DEFAULT_META_DATA_FRAMES_PER_SEGMENT = 1;
+    private static final int DEFAULT_META_DATA_SAMPLING_RATE = 8000;
 
     // Messages
     private static final int MSG_DO_SOME_WORK = 0;
@@ -111,7 +110,10 @@ public class StreamConsumer {
         PeerStateTable.PeerState peerState = peerStateTable_.getPeerState(channelUserSession_);
         streamMetaData_ = (peerState.lastKnownMetaData != null ?
                             peerState.lastKnownMetaData :
-                            new StreamMetaData(DEFAULT_FRAMES_PER_SEGMENT, DEFAULT_SAMPLING_RATE, System.currentTimeMillis()));
+                            new StreamMetaData(
+                                    DEFAULT_META_DATA_FRAMES_PER_SEGMENT,
+                                    DEFAULT_META_DATA_SAMPLING_RATE,
+                                    System.currentTimeMillis()));
         eventProductionWindowGrowth = new SimpleEvent<>();
         eventAudioRetrieved = new SimpleEvent<>();
         eventNackRetrieved = new SimpleEvent<>();
@@ -180,7 +182,7 @@ public class StreamConsumer {
         handler_.obtainMessage(MSG_BUFFER_START).sendToTarget();
     }
 
-    public void close(boolean metaDataFetchFailed) {
+    private void close(boolean metaDataFetchFailed) {
         Log.d(TAG, streamName_.toString() + ": " + "close called");
         streamFetcher_.close();
         streamPlayerBuffer_.close();
@@ -780,10 +782,6 @@ public class StreamConsumer {
 
         private void setStreamPlayStartTime(long streamPlayStartTime) {
             streamPlayStartTime_ = streamPlayStartTime;
-        }
-
-        private long getStreamPlayStartTime() {
-            return streamPlayStartTime_;
         }
 
         private void close() {

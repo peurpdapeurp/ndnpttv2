@@ -5,6 +5,9 @@
     <string name="progress_bar_name_label">Stream name:</string>
     <string name="channel_name_label">Channel name:</string>
     <string name="user_name_label">User name:</string>
+    <string name="producer_sampling_rate_label">Producer sampling rate:</string>
+    <string name="producer_frames_per_segment_label">Producer frames per segment:</string>
+    <string name="consumer_jitter_buffer_size_label">Consumer jitter buffer size:</string>
     <string name="streams_display_label">Streams:</string>
     <string name="stream_info_display_label">Stream Info:</string>
 </resources>

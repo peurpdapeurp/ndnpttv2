@@ -63,14 +63,22 @@ public class MainActivity extends AppCompatActivity {
     private long syncSessionId_;
 
     // UI elements
-    private TextView channelNameDisplay_;
-    private TextView userNameDisplay_;
+    private TextView settingsDisplay_;
     private ProgressBarListFragment progressBarListFragment_;
 
     private BroadcastReceiver pttButtonPressReceiverListener_;
     private Handler handler_;
     private Context ctx_;
     private Vibrator v_;
+    private Settings settings_;
+
+    public static class Settings {
+        String channelName;
+        String userName;
+        int producerSamplingRate;
+        int producerFramesPerSegment;
+        int consumerJitterBufferSize;
+    }
 
     @SuppressLint("HandlerLeak")
     @Override
@@ -82,10 +90,11 @@ public class MainActivity extends AppCompatActivity {
 
         ctx_ = this;
 
+        settings_ = new Settings();
+
         v_ = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
-        channelNameDisplay_ = (TextView) findViewById(R.id.channel_name_display);
-        userNameDisplay_ = (TextView) findViewById(R.id.user_name_display);
+        settingsDisplay_ = (TextView) findViewById(R.id.settings_display);
         progressBarListFragment_ = (ProgressBarListFragment) getSupportFragmentManager().findFragmentById(R.id.progress_bar_list_fragment);
 
         pttButtonPressReceiverListener_ = new BroadcastReceiver() {
@@ -142,7 +151,8 @@ public class MainActivity extends AppCompatActivity {
                                 networkThreadInfo,
                                 appState_,
                                 new Name(getString(R.string.data_prefix)),
-                                peerStateTable_
+                                peerStateTable_,
+                                new PlaybackQueueModule.Options(settings_.consumerJitterBufferSize)
                         );
                         playbackQueueModule_.eventStreamStateCreated.addListener(streamNameAndStreamState ->
                             handler_
@@ -152,7 +162,8 @@ public class MainActivity extends AppCompatActivity {
                         recorderModule_ = new RecorderModule(
                                 applicationDataPrefix_,
                                 networkThreadInfo,
-                                appState_
+                                appState_,
+                                new RecorderModule.Options(settings_.producerSamplingRate, settings_.producerFramesPerSegment)
                         );
                         recorderModule_.eventRecordingStarted.addListener(streamInfo ->
                             handler_
@@ -249,19 +260,27 @@ public class MainActivity extends AppCompatActivity {
 
         String[] configInfo = data.getStringArrayExtra(IntentInfo.LOGIN_CONFIG);
 
-        String channelName = configInfo[IntentInfo.CHANNEL];
-        String userName = configInfo[IntentInfo.USER_NAME];
+        settings_.channelName = configInfo[IntentInfo.CHANNEL_NAME];
+        settings_.userName = configInfo[IntentInfo.USER_NAME];
+        settings_.producerSamplingRate = Integer.parseInt(configInfo[IntentInfo.PRODUCER_SAMPLING_RATE]);
+        settings_.producerFramesPerSegment = Integer.parseInt(configInfo[IntentInfo.PRODUCER_FRAMES_PER_SEGMENT]);
+        settings_.consumerJitterBufferSize = Integer.parseInt(configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE]);
 
-        channelNameDisplay_.setText(getString(R.string.channel_name_label) + " " + channelName);
-        userNameDisplay_.setText(getString(R.string.user_name_label) + " " + userName);
+        String settingsString =
+                getString(R.string.channel_name_label) + " " + settings_.channelName + "\n" +
+                getString(R.string.user_name_label) + " " + settings_.userName + "\n" +
+                getString(R.string.producer_sampling_rate_label) + " " + configInfo[IntentInfo.PRODUCER_SAMPLING_RATE] + "\n" +
+                getString(R.string.producer_frames_per_segment_label) + " " + configInfo[IntentInfo.PRODUCER_FRAMES_PER_SEGMENT] + "\n" +
+                getString(R.string.consumer_jitter_buffer_size_label) + " " + configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE];
+        settingsDisplay_.setText(settingsString);
 
         syncSessionId_ = System.currentTimeMillis();
 
         applicationBroadcastPrefix_ = new Name(getString(R.string.broadcast_prefix))
-                .append(channelName);
+                .append(settings_.channelName);
         applicationDataPrefix_ = new Name(getString(R.string.data_prefix))
-                .append(channelName)
-                .append(userName)
+                .append(settings_.channelName)
+                .append(settings_.userName)
                 .append(Long.toString(syncSessionId_));
 
         // Thread objects

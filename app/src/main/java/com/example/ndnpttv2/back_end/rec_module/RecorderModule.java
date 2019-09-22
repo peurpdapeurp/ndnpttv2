@@ -18,9 +18,6 @@ import net.named_data.jndn.Name;
 
 import java.util.HashMap;
 
-import static com.example.ndnpttv2.back_end.Constants.DEFAULT_FRAMES_PER_SEGMENT;
-import static com.example.ndnpttv2.back_end.Constants.DEFAULT_SAMPLING_RATE;
-
 public class RecorderModule {
 
     private static final String TAG = "RecorderModule";
@@ -45,6 +42,16 @@ public class RecorderModule {
     private long lastStreamId_ = 0;
 
     private AppState appState_;
+    private Options options_;
+
+    public static class Options {
+        public Options(int producerSamplingRate, int framesPerSegment) {
+            this.producerSamplingRate = producerSamplingRate;
+            this.framesPerSegment = framesPerSegment;
+        }
+        int producerSamplingRate;
+        int framesPerSegment;
+    }
 
     public static class StreamInfoAndStreamState {
         StreamInfoAndStreamState(StreamInfo streamInfo, InternalStreamProductionState streamState) {
@@ -56,9 +63,10 @@ public class RecorderModule {
     }
 
     public RecorderModule(Name applicationDataPrefix, NetworkThread.Info networkThreadInfo,
-                          AppState appState) {
+                          AppState appState, Options options) {
 
         appState_ = appState;
+        options_ = options;
 
         applicationDataPrefix_ = applicationDataPrefix;
         networkThreadInfo_ = networkThreadInfo;
@@ -125,14 +133,14 @@ public class RecorderModule {
                         Name streamName = new Name(applicationDataPrefix_).appendSequenceNumber(lastStreamId_);
                         StreamInfo streamInfo = new StreamInfo(
                                 streamName,
-                                DEFAULT_FRAMES_PER_SEGMENT,
-                                DEFAULT_SAMPLING_RATE,
+                                options_.framesPerSegment,
+                                options_.producerSamplingRate,
                                 recordingStartTime
                         );
 
                         currentStreamProducer_ = new StreamProducer(applicationDataPrefix_, lastStreamId_,
                                 networkThreadInfo_,
-                                new StreamProducer.Options(DEFAULT_FRAMES_PER_SEGMENT, DEFAULT_SAMPLING_RATE, recordingStartTime));
+                                new StreamProducer.Options(options_.framesPerSegment, options_.producerSamplingRate, recordingStartTime));
                         currentStreamProducer_.eventFinalSegmentPublished.addListener(progressEventInfo ->
                             progressEventHandler_
                                     .obtainMessage(MSG_RECORDING_COMPLETE, progressEventInfo)

@@ -20,18 +20,9 @@
         app:layout_constraintTop_toTopOf="parent">
 
         <TextView
-            android:id="@+id/channel_name_display"
+            android:id="@+id/settings_display"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/channel_name_label"
-            android:textColor="#000000"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/user_name_display"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/user_name_label"
             android:textColor="#000000"
             android:textStyle="bold" />
 

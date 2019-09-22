@@ -6,6 +6,7 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,6 +18,8 @@ import com.example.ndnpttv2.R;
 import java.util.ArrayList;
 
 public class ProgressBarListFragment extends Fragment {
+
+    private static final String TAG = "ProgressBarListFragment";
 
     private ArrayList<ProgressBarFragment> progressBarList_;
 
@@ -58,9 +61,14 @@ public class ProgressBarListFragment extends Fragment {
         int frameLayoutId = frameLayout.getId();
         progressBarsLayout_.addView(frameLayout, 0);
 
-        FragmentTransaction transaction = fragmentManager_.beginTransaction();
-        transaction.add(frameLayoutId, progressBarFragment, progressBarFragment.getStreamName().toString());
-        transaction.commit();
+        try {
+            FragmentTransaction transaction = fragmentManager_.beginTransaction();
+            transaction.add(frameLayoutId, progressBarFragment, progressBarFragment.getStreamName().toString());
+            transaction.commit();
+        }
+        catch (IllegalStateException e) {
+            Log.e(TAG, "Failed to add progress bar for " + progressBarFragment.getStreamName().toString() + " to UI.");
+        }
     }
 
 }

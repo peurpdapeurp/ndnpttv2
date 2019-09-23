@@ -579,6 +579,9 @@ public class StreamConsumer {
             state_.msPerSegNum_ = calculateMsPerSeg(streamMetaData_.producerSamplingRate, streamMetaData_.framesPerSegment);
             state_.recordingStartTime = streamMetaData_.recordingStartTime;
 
+            Log.d(TAG, "recalibrated ms per seg and recording start time: " + "\n" +
+                    "msPerSegNum " + state_.msPerSegNum_);
+
         }
 
         private void processMediaData(Data audioPacket, long receiveTime) {

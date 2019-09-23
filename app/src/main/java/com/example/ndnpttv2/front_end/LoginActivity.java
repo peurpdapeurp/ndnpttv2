@@ -26,7 +26,7 @@ import java.util.HashMap;
 public class LoginActivity extends AppCompatActivity {
 
     // Private constants
-    private final int[] SAMPLING_RATE_OPTIONS = {8000, 11025, 16000, 22050, 44100};
+    private final int[] SAMPLING_RATE_OPTIONS = {8000};
     private HashMap<Integer, Integer> spinnerIndexToSamplingRate_;
     private final String DEFAULT_CHANNEL_NAME = "DefaultChannelName";
     private final String DEFAULT_USER_NAME = "DefaultUserName";

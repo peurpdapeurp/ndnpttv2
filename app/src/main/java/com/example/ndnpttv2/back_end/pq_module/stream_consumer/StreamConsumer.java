@@ -53,6 +53,7 @@ public class StreamConsumer {
     private static final int MSG_BUFFER_START = 2;
     private static final int MSG_CLOSE_SUCCESS = 3;
     private static final int MSG_CLOSE_META_DATA_FETCH_FAILED = 4;
+    private static final int MSG_CLOSE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED = 5;
 
     private Network network_;
     private StreamFetcher streamFetcher_;
@@ -83,6 +84,7 @@ public class StreamConsumer {
     public Event<ProgressEventInfo> eventFinalFrameNumLearned;
     public Event<ProgressEventInfo> eventBufferingCompleted;
     public Event<ProgressEventInfo> eventMetaDataFetchFailed;
+    public Event<ProgressEventInfo> eventSuccessfulDataFetchTimeLimitReached;
 
     public static class Options {
         public Options(long jitterBufferSize) {
@@ -126,6 +128,7 @@ public class StreamConsumer {
         eventFinalFrameNumLearned = new SimpleEvent<>();
         eventBufferingCompleted = new SimpleEvent<>();
         eventMetaDataFetchFailed = new SimpleEvent<>();
+        eventSuccessfulDataFetchTimeLimitReached = new SimpleEvent<>();
 
         handler_ = new Handler(networkThreadInfo.looper) {
             @Override
@@ -150,11 +153,15 @@ public class StreamConsumer {
                         break;
                     }
                     case MSG_CLOSE_SUCCESS: {
-                        close(false);
+                        close(MSG_CLOSE_SUCCESS);
                         break;
                     }
                     case MSG_CLOSE_META_DATA_FETCH_FAILED: {
-                        close(true);
+                        close(MSG_CLOSE_META_DATA_FETCH_FAILED);
+                        break;
+                    }
+                    case MSG_CLOSE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED: {
+                        close(MSG_CLOSE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED);
                         break;
                     }
                     default: {
@@ -182,16 +189,27 @@ public class StreamConsumer {
         handler_.obtainMessage(MSG_BUFFER_START).sendToTarget();
     }
 
-    private void close(boolean metaDataFetchFailed) {
+    private void close(int close_msg_what) {
         Log.d(TAG, streamName_.toString() + ": " + "close called");
         streamFetcher_.close();
         streamPlayerBuffer_.close();
         handler_.removeCallbacksAndMessages(null);
-        if (metaDataFetchFailed) {
-            eventMetaDataFetchFailed.trigger(new ProgressEventInfo(streamName_, 0, null));
-        }
-        else {
-            eventBufferingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
+        switch (close_msg_what) {
+            case MSG_CLOSE_SUCCESS: {
+                eventBufferingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
+                break;
+            }
+            case MSG_CLOSE_META_DATA_FETCH_FAILED: {
+                eventMetaDataFetchFailed.trigger(new ProgressEventInfo(streamName_, 0, null));
+                break;
+            }
+            case MSG_CLOSE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED: {
+                eventSuccessfulDataFetchTimeLimitReached.trigger(new ProgressEventInfo(streamName_, 0, null));
+                break;
+            }
+            default: {
+                throw new IllegalStateException("unexpected close_msg_what " + close_msg_what);
+            }
         }
         streamConsumerClosed_ = true;
     }
@@ -319,6 +337,7 @@ public class StreamConsumer {
         private static final int DEFAULT_INTEREST_LIFETIME_MS = 4000;
         private static final int N_EXPECTED_SAMPLES = 1;
         private static final int METADATA_FETCH_TIME_LIMIT_MS = 5000;
+        private static final int SUCCESSFUL_DATA_FETCH_TIME_LIMIT_MS = 3000;
 
         // Packet events
         private static final int PACKET_EVENT_AUDIO_RETRIEVED = 0;
@@ -338,8 +357,10 @@ public class StreamConsumer {
         private StreamFetcherState state_;
         private long metaDataFetchDeadline_;
         private boolean metaDataFetched_ = false;
+        private boolean fetchingFinished_ = false;
         private Object metaDataRtoToken_;
         private Object metaDataFetchDeadlineToken_;
+        private Object successfulDataFetchTimerToken_;
         private Gson jsonSerializer_;
         private Handler streamConsumerHandler_;
 
@@ -393,15 +414,24 @@ public class StreamConsumer {
             state_.msPerSegNum_ = calculateMsPerSeg(streamMetaData_.producerSamplingRate, streamMetaData_.framesPerSegment);
             state_.recordingStartTime = streamMetaData_.recordingStartTime;
             internalHandler_ = new Handler(networkThreadLooper);
+            startMetaDataFetchDeadlineTimer();
+            resetAndStartSuccessfulDataFetchTimer();
+            Log.d(TAG, streamName_.toString() + ": " + "Initialized (" +
+                    "maxRto / initialRto " + streamPlayerBufferJitterDelay + ", " +
+                    "ms per seg num " + state_.msPerSegNum_ +
+                    ")");
+        }
+
+        private void startMetaDataFetchDeadlineTimer() {
+            metaDataFetchDeadlineToken_ = new Object();
             internalHandler_.post(new Runnable() {
                 @Override
                 public void run() {
-                    metaDataFetchDeadlineToken_ = new Object();
                     metaDataFetchDeadline_ = System.currentTimeMillis() + METADATA_FETCH_TIME_LIMIT_MS;
                     transmitMetaDataInterest(false);
                     internalHandler_.postAtTime(
                             () -> {
-                                Log.d(TAG, "closing stream consumer");
+                                Log.d(TAG, "closing stream consumer (meta data fetch failed)");
                                 streamConsumerHandler_.obtainMessage(MSG_CLOSE_META_DATA_FETCH_FAILED).sendToTarget();
                             },
                             metaDataFetchDeadlineToken_,
@@ -409,22 +439,43 @@ public class StreamConsumer {
                     );
                 }
             });
-            Log.d(TAG, streamName_.toString() + ": " + "Initialized (" +
-                    "maxRto / initialRto " + streamPlayerBufferJitterDelay + ", " +
-                    "ms per seg num " + state_.msPerSegNum_ +
-                    ")");
+        }
+
+        private void resetAndStartSuccessfulDataFetchTimer() {
+            Log.d(TAG, System.currentTimeMillis() + ": " + "resetting and starting successful data fetch timer");
+            if (successfulDataFetchTimerToken_ != null) {
+                Log.d(TAG, "found that successfulDataFetchTimerRunnable_ wasn't null, remove last data fetch timer from handler");
+                internalHandler_.removeCallbacksAndMessages(successfulDataFetchTimerToken_);
+            }
+            successfulDataFetchTimerToken_ = new Object();
+            internalHandler_.post(new Runnable() {
+                @Override
+                public void run() {
+                    internalHandler_.postAtTime(
+                            () -> {
+                                if (!fetchingFinished_) {
+                                    Log.d(TAG, System.currentTimeMillis() + ": " +
+                                            "closing stream consumer (successful data fetch time limit reached)");
+                                    streamConsumerHandler_.obtainMessage(MSG_CLOSE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED).sendToTarget();
+                                }
+                            },
+                            successfulDataFetchTimerToken_,
+                            SystemClock.uptimeMillis() + SUCCESSFUL_DATA_FETCH_TIME_LIMIT_MS
+                    );
+                }
+            });
         }
 
         private void close() {
             if (closed_) return;
             Log.d(TAG, streamName_.toString() + ": " + "close called, state of fetcher: " + state_.toString());
-            for (Object rtoToken : rtoTokens_.values()) {
-                internalHandler_.removeCallbacksAndMessages(rtoToken);
-            }
-            if (metaDataRtoToken_ != null) {
-                internalHandler_.removeCallbacksAndMessages(metaDataRtoToken_);
+            internalHandler_.removeCallbacksAndMessages(null);
+            if (successfulDataFetchTimerToken_ != null) {
+                Log.d(TAG, "found in close that there was an outstanding successful data fetch timer, removing it");
+                internalHandler_.removeCallbacksAndMessages(successfulDataFetchTimerToken_);
             }
             eventFetchingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
+            fetchingFinished_ = true;
             closed_ = true;
         }
 
@@ -452,7 +503,8 @@ public class StreamConsumer {
             }
 
             if (retransmissionQueue_.size() == 0 && rtoTokens_.size() == 0 &&
-                    state_.finalBlockId != FINAL_BLOCK_ID_UNKNOWN) {
+                    state_.finalBlockId != FINAL_BLOCK_ID_UNKNOWN &&
+                    metaDataFetched_) {
                 close();
             }
 
@@ -480,9 +532,11 @@ public class StreamConsumer {
 
             metaDataRtoToken_ = new Object();
             internalHandler_.postAtTime(() -> {
-                Log.d(TAG, streamName_.toString() + ": " + getTimeSinceStreamRecordingStart() + ": " + "rto timeout (meta data)");
-                transmitMetaDataInterest(true);
-            }, metaDataRtoToken_, SystemClock.uptimeMillis() + rto);
+                    Log.d(TAG, streamName_.toString() + ": " + getTimeSinceStreamRecordingStart() + ": " + "rto timeout (meta data)");
+                    transmitMetaDataInterest(true);
+                    },
+                    metaDataRtoToken_,
+                    SystemClock.uptimeMillis() + rto);
 
             network_.sendMetaDataInterest(interestToSend);
             Log.d(TAG, streamName_.toString() + ": " + "meta data interest transmitted (" +
@@ -551,9 +605,12 @@ public class StreamConsumer {
         }
 
         private void processMetaData(Data metaDataPacket) {
+            if (closed_) return;
+            resetAndStartSuccessfulDataFetchTimer();
             Log.d(TAG, "got meta data " + metaDataPacket.getName().toString() + ", " +
                     "content " + metaDataPacket.getContent().toString());
             internalHandler_.removeCallbacksAndMessages(metaDataFetchDeadlineToken_);
+            internalHandler_.removeCallbacksAndMessages(metaDataRtoToken_);
             if (metaDataPacket.getMetaInfo().getType() == ContentType.NACK) {
                 Log.d(TAG, "got an application nack as response to meta data interest");
             }
@@ -585,6 +642,8 @@ public class StreamConsumer {
         }
 
         private void processMediaData(Data audioPacket, long receiveTime) {
+            if (closed_) return;
+            resetAndStartSuccessfulDataFetchTimer();
             long segNum;
             try {
                 segNum = audioPacket.getName().get(-1).toSegment();

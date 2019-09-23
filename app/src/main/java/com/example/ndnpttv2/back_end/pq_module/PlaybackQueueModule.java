@@ -37,8 +37,9 @@ public class PlaybackQueueModule {
     private static final int MSG_DO_SOME_WORK = 0;
     private static final int MSG_STREAM_CONSUMER_FETCHING_COMPLETE = 1;
     private static final int MSG_STREAM_CONSUMER_META_DATA_FETCH_FAILED = 2;
-    private static final int MSG_STREAM_PLAYER_PLAYING_COMPLETE = 3;
-    private static final int MSG_NEW_STREAM_AVAILABLE = 4;
+    private static final int MSG_STREAM_CONSUMER_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED = 3;
+    private static final int MSG_STREAM_PLAYER_PLAYING_COMPLETE = 4;
+    private static final int MSG_NEW_STREAM_AVAILABLE = 5;
 
     // Events
     public Event<StreamNameAndStreamState> eventStreamStateCreated;
@@ -114,6 +115,14 @@ public class PlaybackQueueModule {
                     }
                     case MSG_STREAM_CONSUMER_META_DATA_FETCH_FAILED: {
                         Log.d(TAG, "playing of stream " + streamName.toString() + " finished (meta data fetch fail)");
+                        streamState.streamPlayer.close();
+                        playbackQueue_.remove(streamName);
+                        streamStates_.remove(streamName);
+                        appState_.stopPlaying();
+                        break;
+                    }
+                    case MSG_STREAM_CONSUMER_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED: {
+                        Log.d(TAG, "playing of stream " + streamName.toString() + " finished (successful data fetch time limit reached)");
                         streamState.streamPlayer.close();
                         playbackQueue_.remove(streamName);
                         streamStates_.remove(streamName);
@@ -217,6 +226,10 @@ public class PlaybackQueueModule {
             streamConsumer.eventMetaDataFetchFailed.addListener(progressEventInfo ->
                     progressEventHandler_
                         .obtainMessage(MSG_STREAM_CONSUMER_META_DATA_FETCH_FAILED, progressEventInfo)
+                        .sendToTarget());
+            streamConsumer.eventSuccessfulDataFetchTimeLimitReached.addListener(progressEventInfo ->
+                    progressEventHandler_
+                        .obtainMessage(MSG_STREAM_CONSUMER_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED, progressEventInfo)
                         .sendToTarget());
 
             eventStreamStateCreated.trigger(new StreamNameAndStreamState(streamName, internalStreamConsumptionState));

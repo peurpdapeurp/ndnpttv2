@@ -1,5 +1,6 @@
 package com.example.ndnpttv2.front_end;
 
+import android.content.Context;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Looper;
 import android.os.Message;
@@ -41,41 +42,38 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
     private static final int MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED = 8;
     private static final int MSG_STREAM_PLAYER_PLAYING_FINISHED = 9;
     public static final int MSG_STREAM_FETCHER_META_DATA_FETCH_FAILED = 10;
+    public static final int MSG_STREAM_FETCHER_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED = 11;
 
     StreamState state_;
     boolean bufferingStarted_;
     boolean viewInitialized_;
 
     public class StreamState {
-        static final int FINAL_BLOCK_ID_UNKNOWN = -1;
-        static final int FINAL_FRAME_NUM_UNKNOWN = -1;
+        static final int UNKNOWN = -1;
         static final int NO_SEGMENTS_ANTICIPATED = -1;
-        static final int FRAMES_PER_SEGMENT_UNKNOWN = -1;
-        static final int PRODUCER_SAMPLING_RATE_UNKNOWN = -1;
-        static final int RECORDING_START_TIME_UNKNOWN = -1;
 
         StreamState(Name streamName) {
             this.streamName = streamName;
         }
 
         Name streamName;
-        long framesPerSegment = FRAMES_PER_SEGMENT_UNKNOWN;
-        long producerSamplingRate = PRODUCER_SAMPLING_RATE_UNKNOWN;
-        long recordingStartTime = RECORDING_START_TIME_UNKNOWN;
-        long finalBlockId = FINAL_BLOCK_ID_UNKNOWN;
+        long framesPerSegment = UNKNOWN;
+        long producerSamplingRate = UNKNOWN;
+        long recordingStartTime = UNKNOWN;
+        long finalBlockId = UNKNOWN;
         long highestSegAnticipated = NO_SEGMENTS_ANTICIPATED;
-        long finalFrameNum = FINAL_FRAME_NUM_UNKNOWN;
-        long segmentsFetched = 0;
-        long segmentsSkipped = 0;
-        long nacksFetched = 0;
-        long framesBuffered = 0;
-        long framesSkipped = 0;
+        long finalFrameNum = UNKNOWN;
+        long segmentsFetched = UNKNOWN;
+        long segmentsSkipped = UNKNOWN;
+        long nacksFetched = UNKNOWN;
+        long framesBuffered = UNKNOWN;
+        long framesSkipped = UNKNOWN;
 
         @Override
         public String toString() {
             java.util.Date d = new java.util.Date(recordingStartTime);
             String itemDateStr = "";
-            if (recordingStartTime != RECORDING_START_TIME_UNKNOWN) {
+            if (recordingStartTime != UNKNOWN) {
                 itemDateStr = new SimpleDateFormat("dd-MMM HH:mm:ss.SSS").format(d);
             }
             else {
@@ -84,27 +82,32 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
 
             return
                     "Frames per segment: " +
-                        ((framesPerSegment == FRAMES_PER_SEGMENT_UNKNOWN) ? "?" : framesPerSegment) + "\n" +
+                        ((framesPerSegment == UNKNOWN) ? "?" : framesPerSegment) + "\n" +
                     "Sampling rate: " +
-                        ((producerSamplingRate == PRODUCER_SAMPLING_RATE_UNKNOWN) ? "?" : producerSamplingRate) + "\n" +
+                        ((producerSamplingRate == UNKNOWN) ? "?" : producerSamplingRate) + "\n" +
                     "Recording start time: " + itemDateStr + "\n" +
                     "Final block id: " +
-                        ((finalBlockId == FINAL_BLOCK_ID_UNKNOWN) ? "?" : finalBlockId) + "\n" +
+                        ((finalBlockId == UNKNOWN) ? "?" : finalBlockId) + "\n" +
                     "Final frame number: " +
-                        ((finalFrameNum == FINAL_FRAME_NUM_UNKNOWN) ? "?" : finalFrameNum) + "\n" +
+                        ((finalFrameNum == UNKNOWN) ? "?" : finalFrameNum) + "\n" +
                     "Highest segment anticipated: " +
                         ((highestSegAnticipated == NO_SEGMENTS_ANTICIPATED) ? "none" : highestSegAnticipated) + "\n" +
-                    "Segments fetched: " + segmentsFetched + "\n" +
-                    "Segments skipped: " + segmentsSkipped + "\n" +
-                    "Nacks fetched: " + nacksFetched + "\n" +
-                    "Frames buffered: " + framesBuffered + "\n" +
-                    "Frames skipped: " + framesSkipped;
+                    "Segments fetched: " +
+                            ((segmentsFetched == UNKNOWN) ? "?" : segmentsFetched) + "\n" +
+                    "Segments skipped: " +
+                            ((segmentsSkipped == UNKNOWN) ? "?" : segmentsSkipped) + "\n" +
+                    "Nacks fetched: " +
+                            ((nacksFetched == UNKNOWN) ? "?" : nacksFetched) + "\n" +
+                    "Frames buffered: " +
+                            ((framesBuffered == UNKNOWN) ? "?" : framesBuffered) + "\n" +
+                    "Frames skipped: " +
+                            ((framesSkipped == UNKNOWN) ? "?" : framesSkipped);
         }
     }
 
     ProgressBarFragmentConsume(PlaybackQueueModule.StreamNameAndStreamState streamNameAndStreamState,
-                               Looper mainThreadLooper) {
-        super(streamNameAndStreamState.streamName, mainThreadLooper);
+                               Looper mainThreadLooper, Context ctx) {
+        super(streamNameAndStreamState.streamName, mainThreadLooper, ctx);
 
         state_ = new StreamState(streamNameAndStreamState.streamName);
 
@@ -129,6 +132,8 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 processProgressEvent(MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED, progressEventInfo));
         streamConsumer.eventMetaDataFetchFailed.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_FETCHER_META_DATA_FETCH_FAILED, progressEventInfo));
+        streamConsumer.eventSuccessfulDataFetchTimeLimitReached.addListener(progressEventInfo ->
+                processProgressEvent(MSG_STREAM_FETCHER_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED, progressEventInfo));
 
         StreamPlayer streamPlayer = streamNameAndStreamState.streamState.streamPlayer;
         streamPlayer.eventPlayingCompleted.addListener(progressEventInfo ->
@@ -169,6 +174,11 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 state_.framesPerSegment = metaData.framesPerSegment;
                 state_.producerSamplingRate = metaData.producerSamplingRate;
                 state_.recordingStartTime = metaData.recordingStartTime;
+                state_.segmentsFetched = 0;
+                state_.segmentsSkipped = 0;
+                state_.nacksFetched = 0;
+                state_.framesBuffered = 0;
+                state_.framesSkipped = 0;
                 bufferingStarted_ = true;
                 if (viewInitialized_)
                     startRendering();
@@ -195,6 +205,11 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
             }
             case MSG_STREAM_FETCHER_META_DATA_FETCH_FAILED: {
                 Log.d(TAG, "got signal that stream meta data fetch failed");
+                enableStreamInfoPopUp();
+                break;
+            }
+            case MSG_STREAM_FETCHER_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED: {
+                Log.d(TAG, "got signal that stream successful data fetch time limit reached");
                 enableStreamInfoPopUp();
                 break;
             }
@@ -245,8 +260,8 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
     }
 
     void updateProgressBar(int msg_what, long arg1, StreamState streamState) {
-        boolean finalBlockIdKnown = streamState.finalBlockId != StreamState.FINAL_BLOCK_ID_UNKNOWN;
-        boolean finalFrameNumKnown = streamState.finalFrameNum != StreamState.FINAL_FRAME_NUM_UNKNOWN;
+        boolean finalBlockIdKnown = streamState.finalBlockId != StreamState.UNKNOWN;
+        boolean finalFrameNumKnown = streamState.finalFrameNum != StreamState.UNKNOWN;
 
         // rescaling logic
         if (!finalBlockIdKnown && finalFrameNumKnown) {

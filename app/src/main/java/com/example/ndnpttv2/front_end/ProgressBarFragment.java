@@ -1,8 +1,11 @@
 package com.example.ndnpttv2.front_end;
 
+import android.content.Context;
+import android.graphics.Color;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 
 import android.os.Handler;
@@ -30,11 +33,13 @@ public abstract class ProgressBarFragment extends Fragment {
     private Handler handler_;
     private boolean readyForRendering_ = false;
     private LinkedTransferQueue<Message> prematureMessages_;
+    private Context ctx_;
 
-    ProgressBarFragment(Name streamName, Looper mainThreadLooper) {
+    ProgressBarFragment(Name streamName, Looper mainThreadLooper, Context ctx) {
 
         streamName_ = streamName;
         prematureMessages_ = new LinkedTransferQueue<>();
+        ctx_ = ctx;
 
         handler_ = new Handler(mainThreadLooper) {
             @Override
@@ -67,6 +72,7 @@ public abstract class ProgressBarFragment extends Fragment {
             }
         });
         nameDisplay_.setEnabled(false);
+        nameDisplay_.setTextColor(ContextCompat.getColor(ctx_, R.color.light_grey));
 
         progressBar_ = (CustomProgressBar) view.findViewById(R.id.progress_bar);
         progressBar_.getThumb().setAlpha(0);
@@ -83,7 +89,8 @@ public abstract class ProgressBarFragment extends Fragment {
 
         if (!readyForRendering_ &&
                 msg.what != ProgressBarFragmentConsume.MSG_STREAM_BUFFER_BUFFERING_STARTED &&
-                msg.what != ProgressBarFragmentConsume.MSG_STREAM_FETCHER_META_DATA_FETCH_FAILED) {
+                msg.what != ProgressBarFragmentConsume.MSG_STREAM_FETCHER_META_DATA_FETCH_FAILED &&
+                msg.what != ProgressBarFragmentConsume.MSG_STREAM_FETCHER_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED) {
             prematureMessages_.put(msg);
         }
         else {
@@ -99,6 +106,7 @@ public abstract class ProgressBarFragment extends Fragment {
 
     void enableStreamInfoPopUp() {
         nameDisplay_.setEnabled(true);
+        nameDisplay_.setTextColor(ContextCompat.getColor(ctx_, R.color.black));
     }
 
     private void processPrematureMessages() {

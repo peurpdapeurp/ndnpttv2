@@ -1,5 +1,6 @@
 package com.example.ndnpttv2.front_end;
 
+import android.content.Context;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Looper;
 import android.os.Message;
@@ -66,8 +67,8 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
     }
 
     ProgressBarFragmentProduce(RecorderModule.StreamInfoAndStreamState streamInfoAndStreamState,
-                                      Looper mainThreadLooper) {
-        super(streamInfoAndStreamState.streamInfo.streamName, mainThreadLooper);
+                                      Looper mainThreadLooper, Context ctx) {
+        super(streamInfoAndStreamState.streamInfo.streamName, mainThreadLooper, ctx);
 
         state_ = new StreamState(streamInfoAndStreamState.streamInfo);
 

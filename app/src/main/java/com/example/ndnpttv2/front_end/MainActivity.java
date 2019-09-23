@@ -219,7 +219,7 @@ public class MainActivity extends AppCompatActivity {
                         PlaybackQueueModule.StreamNameAndStreamState streamNameAndStreamState =
                                 (PlaybackQueueModule.StreamNameAndStreamState) msg.obj;
                         progressBarListFragment_.addProgressBar(
-                                new ProgressBarFragmentConsume(streamNameAndStreamState, getMainLooper())
+                                new ProgressBarFragmentConsume(streamNameAndStreamState, getMainLooper(), ctx_)
                         );
                         break;
                     }
@@ -227,7 +227,7 @@ public class MainActivity extends AppCompatActivity {
                         RecorderModule.StreamInfoAndStreamState streamInfoAndStreamState =
                                 (RecorderModule.StreamInfoAndStreamState) msg.obj;
                         progressBarListFragment_.addProgressBar(
-                                new ProgressBarFragmentProduce(streamInfoAndStreamState, getMainLooper())
+                                new ProgressBarFragmentProduce(streamInfoAndStreamState, getMainLooper(), ctx_)
                         );
                         break;
                     }

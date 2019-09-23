@@ -1,6 +1,8 @@
 package com.example.ndnpttv2.back_end.pq_module;
 
 import android.content.Context;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -44,6 +46,9 @@ public class PlaybackQueueModule {
     // Events
     public Event<StreamNameAndStreamState> eventStreamStateCreated;
 
+    private PeerStateTable peerStateTable_;
+    private AppState appState_;
+
     private Context ctx_;
     private Handler progressEventHandler_;
     private Handler moduleMessageHandler_;
@@ -54,10 +59,9 @@ public class PlaybackQueueModule {
     private LinkedTransferQueue<Name> playbackQueue_;
     private HashMap<Name, InternalStreamConsumptionState> streamStates_;
     private NetworkThread.Info networkThreadInfo_;
-    private PeerStateTable peerStateTable_;
-
-    private AppState appState_;
     private Options options_;
+    private WifiManager wifiManager_;
+    private boolean wifiConnectionState_; // true if last state was connected, false if last state was disconnected
 
     public static class Options {
         public Options(int jitterBufferSize) {
@@ -81,6 +85,8 @@ public class PlaybackQueueModule {
 
         appState_ = appState;
         options_ = options;
+
+        wifiManager_ = (WifiManager) ctx.getSystemService(Context.WIFI_SERVICE);
 
         networkDataPrefix_ = networkDataPrefix;
         peerStateTable_ = peerStateTable;
@@ -252,11 +258,28 @@ public class PlaybackQueueModule {
 
         }
 
+        wifiConnectionState_ = checkWifiConnectionState();
+
         scheduleNextWork(SystemClock.uptimeMillis());
     }
 
     private void scheduleNextWork(long thisOperationStartTimeMs) {
         workHandler_.removeMessages(MSG_DO_SOME_WORK);
         workHandler_.sendEmptyMessageAtTime(MSG_DO_SOME_WORK, thisOperationStartTimeMs + PROCESSING_INTERVAL_MS);
+    }
+
+    // https://stackoverflow.com/questions/3841317/how-do-i-see-if-wi-fi-is-connected-on-android
+    private boolean checkWifiConnectionState() {
+        if (wifiManager_.isWifiEnabled()) { // Wi-Fi adapter is ON
+
+            WifiInfo wifiInfo = wifiManager_.getConnectionInfo();
+
+            if (wifiInfo.getNetworkId() == -1) {
+                return false; // Not connected to an access point
+            }
+            return true; // Connected to an access point
+        } else {
+            return false; // Wi-Fi adapter is OFF
+        }
     }
 }

@@ -17,6 +17,7 @@ import com.example.ndnpttv2.back_end.pq_module.PlaybackQueueModule;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
 import com.example.ndnpttv2.back_end.structs.StreamMetaData;
+import com.example.ndnpttv2.front_end.custom_progress_bar.CustomProgressBar;
 
 import net.named_data.jndn.Name;
 
@@ -41,8 +42,7 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
     private static final int MSG_STREAM_BUFFER_FRAME_SKIPPED = 7;
     private static final int MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED = 8;
     private static final int MSG_STREAM_PLAYER_PLAYING_FINISHED = 9;
-    public static final int MSG_STREAM_FETCHER_META_DATA_FETCH_FAILED = 10;
-    public static final int MSG_STREAM_FETCHER_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED = 11;
+    public static final int MSG_STREAM_FETCHER_FETCHING_FAILED = 10;
 
     StreamState state_;
     boolean bufferingStarted_;
@@ -130,10 +130,8 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 processProgressEvent(MSG_STREAM_BUFFER_FRAME_SKIPPED, progressEventInfo));
         streamConsumer.eventFinalFrameNumLearned.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED, progressEventInfo));
-        streamConsumer.eventMetaDataFetchFailed.addListener(progressEventInfo ->
-                processProgressEvent(MSG_STREAM_FETCHER_META_DATA_FETCH_FAILED, progressEventInfo));
-        streamConsumer.eventSuccessfulDataFetchTimeLimitReached.addListener(progressEventInfo ->
-                processProgressEvent(MSG_STREAM_FETCHER_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED, progressEventInfo));
+        streamConsumer.eventStreamFetchingFailure.addListener(progressEventInfo ->
+                processProgressEvent(MSG_STREAM_FETCHER_FETCHING_FAILED, progressEventInfo));
 
         StreamPlayer streamPlayer = streamNameAndStreamState.streamState.streamPlayer;
         streamPlayer.eventPlayingCompleted.addListener(progressEventInfo ->
@@ -203,13 +201,8 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 enableStreamInfoPopUp();
                 break;
             }
-            case MSG_STREAM_FETCHER_META_DATA_FETCH_FAILED: {
-                Log.d(TAG, "got signal that stream meta data fetch failed");
-                enableStreamInfoPopUp();
-                break;
-            }
-            case MSG_STREAM_FETCHER_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED: {
-                Log.d(TAG, "got signal that stream successful data fetch time limit reached");
+            case MSG_STREAM_FETCHER_FETCHING_FAILED: {
+                Log.d(TAG, "got signal that stream meta data fetching failed");
                 enableStreamInfoPopUp();
                 break;
             }

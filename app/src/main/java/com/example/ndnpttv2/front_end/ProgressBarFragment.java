@@ -89,8 +89,7 @@ public abstract class ProgressBarFragment extends Fragment {
 
         if (!readyForRendering_ &&
                 msg.what != ProgressBarFragmentConsume.MSG_STREAM_BUFFER_BUFFERING_STARTED &&
-                msg.what != ProgressBarFragmentConsume.MSG_STREAM_FETCHER_META_DATA_FETCH_FAILED &&
-                msg.what != ProgressBarFragmentConsume.MSG_STREAM_FETCHER_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED) {
+                msg.what != ProgressBarFragmentConsume.MSG_STREAM_FETCHER_FETCHING_FAILED) {
             prematureMessages_.put(msg);
         }
         else {

@@ -8,7 +8,9 @@ public class IntentInfo {
         USER_NAME = 1,
         PRODUCER_SAMPLING_RATE = 2,
         PRODUCER_FRAMES_PER_SEGMENT = 3,
-        CONSUMER_JITTER_BUFFER_SIZE = 4;
+        CONSUMER_JITTER_BUFFER_SIZE = 4,
+        CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS = 5,
+        ACCESS_POINT_IP_ADDRESS = 6;
     public static String
             LOGIN_CONFIG = "LOGIN_CONFIG";
 

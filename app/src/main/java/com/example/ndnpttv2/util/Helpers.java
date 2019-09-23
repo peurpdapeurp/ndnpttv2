@@ -1,5 +1,6 @@
 package com.example.ndnpttv2.util;
 
+import com.example.ndnpttv2.back_end.structs.ChannelUserSession;
 import com.example.ndnpttv2.back_end.structs.SyncStreamInfo;
 
 import net.named_data.jndn.Name;
@@ -9,6 +10,14 @@ import java.nio.ByteBuffer;
 import static com.example.ndnpttv2.back_end.Constants.META_DATA_MARKER;
 
 public class Helpers {
+
+    public static ChannelUserSession getChannelUserSession(Name streamName) {
+        return new ChannelUserSession(
+                streamName.get(-4).toEscapedString(),
+                streamName.get(-3).toEscapedString(),
+                Long.parseLong(streamName.get(-2).toEscapedString())
+        );
+    }
 
     public static Name getStreamName(Name networkDataPrefix, SyncStreamInfo syncStreamInfo) {
         return new Name(networkDataPrefix)

@@ -6,8 +6,14 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
+
+import com.example.ndnpttv2.back_end.wifi_module.WifiModule;
+import com.intel.jndn.management.ManagementException;
+import com.intel.jndn.management.Nfdc;
+import com.intel.jndn.management.types.FaceStatus;
 
 import net.named_data.jndn.Face;
 import net.named_data.jndn.Interest;
@@ -34,12 +40,22 @@ public class NetworkThread extends HandlerThread {
 
     // Messages
     private static final int MSG_DO_SOME_WORK = 0;
+    private static final int MSG_NEW_WIFI_STATE = 1;
 
     private Face face_;
     private KeyChain keyChain_;
     private Callbacks callbacks_;
     private Handler handler_;
     private Name applicationDataPrefix_;
+    private Options options_;
+    private int wifiConnectionState_;
+
+    public static class Options {
+        public Options(String accessPointIpAddress) {
+            this.accessPointIpAddress = accessPointIpAddress;
+        }
+        public String accessPointIpAddress;
+    }
 
     public static class Info {
         public Info(Looper looper, Face face) {
@@ -54,10 +70,11 @@ public class NetworkThread extends HandlerThread {
         void onInitialized(Info info);
     }
 
-    public NetworkThread(Name applicationDataPrefix, Callbacks callbacks) {
+    public NetworkThread(Name applicationDataPrefix, Callbacks callbacks, Options options) {
         super(TAG);
         applicationDataPrefix_ = applicationDataPrefix;
         callbacks_ = callbacks;
+        options_ = options;
     }
 
     @SuppressLint("HandlerLeak")
@@ -102,6 +119,16 @@ public class NetworkThread extends HandlerThread {
                         doSomeWork();
                         break;
                     }
+                    case MSG_NEW_WIFI_STATE: {
+                        int newWifiState = msg.arg1;
+                        wifiConnectionState_ = newWifiState;
+                        Log.d(TAG, "notified of new wifi state " + newWifiState);
+                        if (newWifiState == WifiModule.CONNECTED) {
+                            Log.d(TAG, "new wifi state was connected, registering / prefix");
+                            registerSlashPrefix();
+                        }
+                        break;
+                    }
                     default: {
                         throw new IllegalStateException("unexpected msg.what " + msg.what);
                     }
@@ -112,6 +139,21 @@ public class NetworkThread extends HandlerThread {
         handler_.obtainMessage(MSG_DO_SOME_WORK).sendToTarget();
 
         callbacks_.onInitialized(new Info(getLooper(), face_));
+    }
+
+    public void notifyNewWifiState(int newWifiState) {
+        handler_.obtainMessage(MSG_NEW_WIFI_STATE, newWifiState, 0).sendToTarget();
+    }
+
+    private void registerSlashPrefix() {
+        String accessPointUri = "udp4://" + options_.accessPointIpAddress + ":6363";
+        try {
+            Nfdc.register(face_, accessPointUri, new Name("/"), 0);
+
+        } catch (ManagementException e) {
+            e.printStackTrace();
+
+        }
     }
 
     private void doSomeWork() {

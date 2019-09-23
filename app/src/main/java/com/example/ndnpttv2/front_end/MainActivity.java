@@ -18,6 +18,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.ndnpttv2.R;
+import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.shared_state.AppState;
 import com.example.ndnpttv2.back_end.shared_state.PeerStateTable;
 import com.example.ndnpttv2.back_end.structs.StreamInfo;
@@ -26,6 +27,7 @@ import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.back_end.pq_module.PlaybackQueueModule;
 import com.example.ndnpttv2.back_end.rec_module.RecorderModule;
 import com.example.ndnpttv2.back_end.sync_module.SyncModule;
+import com.example.ndnpttv2.back_end.wifi_module.WifiModule;
 
 import net.named_data.jndn.Name;
 import net.named_data.jndn.encoding.EncodingException;
@@ -45,8 +47,10 @@ public class MainActivity extends AppCompatActivity {
     private static final int MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED = 7;
     private static final int MSG_RECORDER_STREAM_STATE_CREATED = 8;
     private static final int MSG_RECORDER_RECORD_START_REQUEST_IGNORED = 9;
+    private static final int MSG_WIFI_STATE_CHANGED = 10;
 
     // Thread objects
+    private NetworkThread networkThread_;
     private boolean networkThreadInitialized_ = false;
 
     // Back-end modules
@@ -54,6 +58,7 @@ public class MainActivity extends AppCompatActivity {
     private RecorderModule recorderModule_;
     private SyncModule syncModule_;
     private boolean syncModuleInitialized_ = false; // ignore button presses until sync module is initialized
+    private WifiModule wifiModule_;
     private AppState appState_;
     private PeerStateTable peerStateTable_;
 
@@ -78,6 +83,8 @@ public class MainActivity extends AppCompatActivity {
         int producerSamplingRate;
         int producerFramesPerSegment;
         int consumerJitterBufferSize;
+        int maxHistoricalStreamFetchTimeMs;
+        String accessPointIpAddress;
     }
 
     @SuppressLint("HandlerLeak")
@@ -152,7 +159,7 @@ public class MainActivity extends AppCompatActivity {
                                 appState_,
                                 new Name(getString(R.string.data_prefix)),
                                 peerStateTable_,
-                                new PlaybackQueueModule.Options(settings_.consumerJitterBufferSize)
+                                new StreamConsumer.Options(settings_.consumerJitterBufferSize, settings_.maxHistoricalStreamFetchTimeMs)
                         );
                         playbackQueueModule_.eventStreamStateCreated.addListener(streamNameAndStreamState ->
                             handler_
@@ -181,6 +188,13 @@ public class MainActivity extends AppCompatActivity {
                             handler_
                                 .obtainMessage(MSG_RECORDER_RECORD_START_REQUEST_IGNORED)
                                 .sendToTarget());
+
+                        wifiModule_ = new WifiModule(ctx_, getMainLooper(),
+                                newWifiState ->
+                                    handler_
+                                            .obtainMessage(MSG_WIFI_STATE_CHANGED, newWifiState, 0)
+                                            .sendToTarget()
+                        );
 
                         networkThreadInitialized_ = true;
                         break;
@@ -240,6 +254,12 @@ public class MainActivity extends AppCompatActivity {
                                 .show();
                         break;
                     }
+                    case MSG_WIFI_STATE_CHANGED: {
+                        int newWifiState = msg.arg1;
+                        playbackQueueModule_.notifyNewWifiState(newWifiState);
+                        networkThread_.notifyNewWifiState(newWifiState);
+                        break;
+                    }
                     default:
                         throw new IllegalStateException("unexpected msg.what " + msg.what);
                 }
@@ -265,13 +285,16 @@ public class MainActivity extends AppCompatActivity {
         settings_.producerSamplingRate = Integer.parseInt(configInfo[IntentInfo.PRODUCER_SAMPLING_RATE]);
         settings_.producerFramesPerSegment = Integer.parseInt(configInfo[IntentInfo.PRODUCER_FRAMES_PER_SEGMENT]);
         settings_.consumerJitterBufferSize = Integer.parseInt(configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE]);
+        settings_.maxHistoricalStreamFetchTimeMs = Integer.parseInt(configInfo[IntentInfo.CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS]);
+        settings_.accessPointIpAddress = configInfo[IntentInfo.ACCESS_POINT_IP_ADDRESS];
 
         String settingsString =
                 getString(R.string.channel_name_label) + " " + settings_.channelName + "\n" +
                 getString(R.string.user_name_label) + " " + settings_.userName + "\n" +
                 getString(R.string.producer_sampling_rate_label) + " " + configInfo[IntentInfo.PRODUCER_SAMPLING_RATE] + "\n" +
                 getString(R.string.producer_frames_per_segment_label) + " " + configInfo[IntentInfo.PRODUCER_FRAMES_PER_SEGMENT] + "\n" +
-                getString(R.string.consumer_jitter_buffer_size_label) + " " + configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE];
+                getString(R.string.consumer_jitter_buffer_size_label) + " " + configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE] + "\n" +
+                "Consumer max historical stream fetch time ms:" + " " + configInfo[IntentInfo.CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS];
         settingsDisplay_.setText(settingsString);
 
         syncSessionId_ = System.currentTimeMillis();
@@ -284,13 +307,14 @@ public class MainActivity extends AppCompatActivity {
                 .append(Long.toString(syncSessionId_));
 
         // Thread objects
-        NetworkThread networkThread = new NetworkThread(
+        networkThread_ = new NetworkThread(
                 applicationDataPrefix_,
                 info -> handler_
                         .obtainMessage(MSG_NETWORK_THREAD_INITIALIZED, info)
-                        .sendToTarget());
+                        .sendToTarget(),
+                new NetworkThread.Options(settings_.accessPointIpAddress));
 
-        networkThread.start();
+        networkThread_.start();
 
     }
 

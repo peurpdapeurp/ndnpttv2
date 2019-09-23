@@ -20,6 +20,9 @@ public class CustomProgressBar extends AppCompatSeekBar {
 
     private static final String TAG = "CustomSeekBar";
 
+    // Public constants
+    public static final int SEGMENT_COLOR_UNKNOWN = -1;
+
     // Private constants
     public static final int DEFAULT_TOTAL_SEGMENTS = 30;
 
@@ -61,6 +64,13 @@ public class CustomProgressBar extends AppCompatSeekBar {
         if (segNum >= totalSegments_) return;
         progressItemsList_.get(segNum).color = color;
         invalidate();
+    }
+
+    public int getSegmentColor(int segNum) {
+        if (!segmentColors_.containsKey(segNum)) {
+            return SEGMENT_COLOR_UNKNOWN;
+        }
+        return segmentColors_.get(segNum);
     }
 
     private void updateMultipleSegmentColors(ArrayList<Integer> segColors) {

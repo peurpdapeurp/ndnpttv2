@@ -42,6 +42,11 @@ public class StreamConsumer {
 
     private static final String TAG = "StreamConsumer";
 
+    // Public constants
+    public static final int FAILURE_CODE_META_DATA_FETCH_FAILED = 0;
+    public static final int FAILURE_CODE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED = 1;
+    public static final int FAILURE_CODE_STREAM_RECORDED_TOO_FAR_IN_PAST = 2;
+
     // Private constants
     private static final int PROCESSING_INTERVAL_MS = 50;
     private static final int DEFAULT_META_DATA_FRAMES_PER_SEGMENT = 1;
@@ -54,6 +59,7 @@ public class StreamConsumer {
     private static final int MSG_CLOSE_SUCCESS = 3;
     private static final int MSG_CLOSE_META_DATA_FETCH_FAILED = 4;
     private static final int MSG_CLOSE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED = 5;
+    private static final int MSG_CLOSE_STREAM_RECORDED_TOO_FAR_IN_PAST = 6;
 
     private Network network_;
     private StreamFetcher streamFetcher_;
@@ -83,18 +89,20 @@ public class StreamConsumer {
     public Event<ProgressEventInfo> eventFrameSkipped;
     public Event<ProgressEventInfo> eventFinalFrameNumLearned;
     public Event<ProgressEventInfo> eventBufferingCompleted;
-    public Event<ProgressEventInfo> eventMetaDataFetchFailed;
-    public Event<ProgressEventInfo> eventSuccessfulDataFetchTimeLimitReached;
+    public Event<ProgressEventInfo> eventStreamFetchingFailure;
 
     public static class Options {
-        public Options(long jitterBufferSize) {
+        public Options(long jitterBufferSize, long maxHistoricalStreamFetchTimeMs) {
             this.jitterBufferSize = jitterBufferSize;
+            this.maxHistoricalStreamFetchTimeMs = maxHistoricalStreamFetchTimeMs;
         }
         long jitterBufferSize; // # of initial frames in StreamPlayerBuffer's jitter buffer before playback begins
+        long maxHistoricalStreamFetchTimeMs; // maximum amount of ms in the past the stream was recorded to still fetch stream
 
         @Override
         public String toString() {
-            return "jitterBufferSize " + jitterBufferSize;
+            return "jitterBufferSize " + jitterBufferSize + ", " +
+                    "maxHistoricalStreamFetchTimeMs " + maxHistoricalStreamFetchTimeMs;
         }
     }
 
@@ -127,8 +135,7 @@ public class StreamConsumer {
         eventFrameSkipped = new SimpleEvent<>();
         eventFinalFrameNumLearned = new SimpleEvent<>();
         eventBufferingCompleted = new SimpleEvent<>();
-        eventMetaDataFetchFailed = new SimpleEvent<>();
-        eventSuccessfulDataFetchTimeLimitReached = new SimpleEvent<>();
+        eventStreamFetchingFailure = new SimpleEvent<>();
 
         handler_ = new Handler(networkThreadInfo.looper) {
             @Override
@@ -162,6 +169,10 @@ public class StreamConsumer {
                     }
                     case MSG_CLOSE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED: {
                         close(MSG_CLOSE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED);
+                        break;
+                    }
+                    case MSG_CLOSE_STREAM_RECORDED_TOO_FAR_IN_PAST: {
+                        close (MSG_CLOSE_STREAM_RECORDED_TOO_FAR_IN_PAST);
                         break;
                     }
                     default: {
@@ -200,11 +211,27 @@ public class StreamConsumer {
                 break;
             }
             case MSG_CLOSE_META_DATA_FETCH_FAILED: {
-                eventMetaDataFetchFailed.trigger(new ProgressEventInfo(streamName_, 0, null));
+                eventStreamFetchingFailure.trigger(
+                        new ProgressEventInfo(
+                                streamName_,
+                                FAILURE_CODE_META_DATA_FETCH_FAILED,
+                                null));
                 break;
             }
             case MSG_CLOSE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED: {
-                eventSuccessfulDataFetchTimeLimitReached.trigger(new ProgressEventInfo(streamName_, 0, null));
+                eventStreamFetchingFailure.trigger(
+                        new ProgressEventInfo(
+                                streamName_,
+                                FAILURE_CODE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED,
+                                null));
+                break;
+            }
+            case MSG_CLOSE_STREAM_RECORDED_TOO_FAR_IN_PAST: {
+                eventStreamFetchingFailure.trigger(
+                        new ProgressEventInfo(
+                                streamName_,
+                                FAILURE_CODE_STREAM_RECORDED_TOO_FAR_IN_PAST,
+                                null));
                 break;
             }
             default: {
@@ -630,6 +657,11 @@ public class StreamConsumer {
             if (peerState.lastKnownMetaDataSeqNum == NO_META_DATA_SEQ_NUM || peerState.lastKnownMetaDataSeqNum < streamSeqNum_) {
                 peerState.lastKnownMetaData = streamMetaData_;
                 peerState.lastKnownMetaDataSeqNum = streamSeqNum_;
+            }
+
+            if (System.currentTimeMillis() > streamMetaData_.recordingStartTime + options_.maxHistoricalStreamFetchTimeMs) {
+                Log.d(TAG, streamName_.toString() + ": " + "stream recorded too far in the past, cancelling stream fetch");
+                streamConsumerHandler_.obtainMessage(MSG_CLOSE_STREAM_RECORDED_TOO_FAR_IN_PAST).sendToTarget();
             }
 
             // recalibrate production window growth rate

@@ -2,6 +2,7 @@ package com.example.ndnpttv2.front_end;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.net.InetAddresses;
 import android.os.Bundle;
 
 import com.example.ndnpttv2.R;
@@ -11,6 +12,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
+import android.util.Patterns;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
@@ -33,12 +35,16 @@ public class LoginActivity extends AppCompatActivity {
     private final int DEFAULT_PRODUCER_SAMPLING_RATE_INDEX = 0;
     private final int DEFAULT_PRODUCER_FRAMES_PER_SEGMENT = 1;
     private final int DEFAULT_CONSUMER_JITTER_BUFFER_SIZE = 5;
+    private final int DEFAULT_CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS = 300000; // 5 minutes
+    private final String DEFAULT_ACCESS_POINT_IP_ADDRESS = "1.1.1.1";
 
     private EditText channelInput_;
     private EditText nameInput_;
     private Spinner producerSamplingRateInput_;
     private EditText producerFramesPerSegmentInput_;
     private EditText consumerJitterBufferSizeInput_;
+    private EditText consumerMaxHistoricalStreamFetchTimeMsInput_;
+    private EditText accessPointIpAddressInput_;
     private Button okButton_;
 
     // shared preferences object to store login parameters between sessions
@@ -49,6 +55,8 @@ public class LoginActivity extends AppCompatActivity {
     private static String PRODUCER_SAMPLING_RATE_INDEX = "PRODUCER_SAMPLING_RATE_INDEX";
     private static String PRODUCER_FRAMES_PER_SEGMENT = "PRODUCER_FRAMES_PER_SEGMENT";
     private static String CONSUMER_JITTER_BUFFER_SIZE = "CONSUMER_JITTER_BUFFER_SIZE";
+    private static String CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS = "CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS";
+    private static String ACCESS_POINT_IP_ADDRESS = "ACCESS_POINT_IP_ADDRESS";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,6 +77,8 @@ public class LoginActivity extends AppCompatActivity {
         producerSamplingRateInput_ = (Spinner) findViewById(R.id.producer_sampling_rate_input);
         producerFramesPerSegmentInput_ = (EditText) findViewById(R.id.producer_frames_per_segment_input);
         consumerJitterBufferSizeInput_ = (EditText) findViewById(R.id.consumer_jitter_buffer_size_input);
+        consumerMaxHistoricalStreamFetchTimeMsInput_ = (EditText) findViewById(R.id.consumer_max_historical_stream_fetch_time_ms_input);
+        accessPointIpAddressInput_ = (EditText) findViewById(R.id.access_point_ip_address_input);
 
         okButton_ = (Button) findViewById(R.id.ok_button);
 
@@ -85,6 +95,10 @@ public class LoginActivity extends AppCompatActivity {
                 Integer.toString(mPreferences.getInt(PRODUCER_FRAMES_PER_SEGMENT, DEFAULT_PRODUCER_FRAMES_PER_SEGMENT)));
         consumerJitterBufferSizeInput_.setText(
                 Integer.toString(mPreferences.getInt(CONSUMER_JITTER_BUFFER_SIZE, DEFAULT_CONSUMER_JITTER_BUFFER_SIZE)));
+        consumerMaxHistoricalStreamFetchTimeMsInput_.setText(
+                Integer.toString(mPreferences.getInt(CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS,
+                        DEFAULT_CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS)));
+        accessPointIpAddressInput_.setText(mPreferences.getString(ACCESS_POINT_IP_ADDRESS, DEFAULT_ACCESS_POINT_IP_ADDRESS));
 
         okButton_.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -108,6 +122,16 @@ public class LoginActivity extends AppCompatActivity {
                     showErrorToast("Please enter a valid consumer jitter buffer size.");
                     return;
                 }
+                int consumerMaxHistoricalStreamFetchTimeMs;
+                try {
+                    consumerMaxHistoricalStreamFetchTimeMs = Integer.parseInt(
+                            consumerMaxHistoricalStreamFetchTimeMsInput_.getText().toString().trim());
+                }
+                catch (Exception e) {
+                    showErrorToast("Please enter a valid max historical stream fetch time.");
+                    return;
+                }
+                String accessPointIpAddress = accessPointIpAddressInput_.getText().toString().trim();
 
                 if (channel.equals("")) {
                     showErrorToast("Please enter a valid channel name.");
@@ -125,6 +149,14 @@ public class LoginActivity extends AppCompatActivity {
                     showErrorToast("Please enter a valid consumer jitter buffer size.");
                     return;
                 }
+                else if (consumerMaxHistoricalStreamFetchTimeMs < 1) {
+                    showErrorToast("Please enter a valid consumer max historical stream fetch time.");
+                    return;
+                }
+                else if (!Patterns.IP_ADDRESS.matcher(accessPointIpAddress).matches()) {
+                    showErrorToast("Please enter a valid access point ip address.");
+                    return;
+                }
 
                 // all the inputs are good, save them for next time
                 mPreferencesEditor.putString(CHANNEL_NAME, channel).commit();
@@ -132,15 +164,19 @@ public class LoginActivity extends AppCompatActivity {
                 mPreferencesEditor.putInt(PRODUCER_SAMPLING_RATE_INDEX, producerSamplingRateIndex).commit();
                 mPreferencesEditor.putInt(PRODUCER_FRAMES_PER_SEGMENT, producerFramesPerSegment).commit();
                 mPreferencesEditor.putInt(CONSUMER_JITTER_BUFFER_SIZE, consumerJitterBufferSize).commit();
+                mPreferencesEditor.putInt(CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS, consumerMaxHistoricalStreamFetchTimeMs).commit();
+                mPreferencesEditor.putString(ACCESS_POINT_IP_ADDRESS, accessPointIpAddress).commit();
 
                 Intent intent = new Intent(LoginActivity.this, MainActivity.class);
 
-                String[] configInfo = new String[5];
+                String[] configInfo = new String[7];
                 configInfo[IntentInfo.CHANNEL_NAME] = channel;
                 configInfo[IntentInfo.USER_NAME] = name;
                 configInfo[IntentInfo.PRODUCER_SAMPLING_RATE] = Integer.toString(SAMPLING_RATE_OPTIONS[producerSamplingRateIndex]);
                 configInfo[IntentInfo.PRODUCER_FRAMES_PER_SEGMENT] = Integer.toString(producerFramesPerSegment);
                 configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE] = Integer.toString(consumerJitterBufferSize);
+                configInfo[IntentInfo.CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS] = Integer.toString(consumerMaxHistoricalStreamFetchTimeMs);
+                configInfo[IntentInfo.ACCESS_POINT_IP_ADDRESS] = accessPointIpAddress;
                 intent.putExtra(IntentInfo.LOGIN_CONFIG, configInfo);
 
                 setResult(RESULT_OK, intent);

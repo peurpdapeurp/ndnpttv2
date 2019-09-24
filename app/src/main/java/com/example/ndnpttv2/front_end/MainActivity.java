@@ -2,13 +2,16 @@ package com.example.ndnpttv2.front_end;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
@@ -33,9 +36,15 @@ import com.example.ndnpttv2.util.Logger;
 import net.named_data.jndn.Name;
 import net.named_data.jndn.encoding.EncodingException;
 
+import static android.widget.Toast.LENGTH_LONG;
+import static android.widget.Toast.LENGTH_SHORT;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
+
+    // Private constants
+    private static final int REQUEST_RECORD_AUDIO_PERMISSION = 200;
 
     // Messages
     private static final int MSG_NETWORK_THREAD_INITIALIZED = 0;
@@ -77,6 +86,13 @@ public class MainActivity extends AppCompatActivity {
     private Context ctx_;
     private Vibrator v_;
     private Settings settings_;
+    private Toast syncUninitializedErrorToast_;
+    private Toast recordingRequestIgnoredToast_;
+    private Toast recordingPermissionUnenabledToast_;
+
+    // Requesting permission to RECORD_AUDIO
+    private boolean permissionToRecordAccepted_ = false;
+    private String[] permissions_ = {Manifest.permission.RECORD_AUDIO};
 
     public static class Settings {
         public String channelName;
@@ -96,6 +112,8 @@ public class MainActivity extends AppCompatActivity {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
+        ActivityCompat.requestPermissions(this, permissions_, REQUEST_RECORD_AUDIO_PERMISSION);
+
         ctx_ = this;
 
         settings_ = new Settings();
@@ -108,18 +126,43 @@ public class MainActivity extends AppCompatActivity {
         pttButtonPressReceiverListener_ = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if (syncModuleInitialized_) {
-                    if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_DOWN)) {
-                        if (networkThreadInitialized_) {
-                            handler_.obtainMessage(MSG_BUTTON_RECORD_REQUEST_START).sendToTarget();
-                        }
-                    } else if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_UP)) {
-                        if (networkThreadInitialized_) {
-                            handler_.obtainMessage(MSG_BUTTON_RECORD_REQUEST_STOP).sendToTarget();
-                        }
-                    } else {
-                        Log.e(TAG, "pttButtonPressReceiverListener_ unexpected intent: " + intent.getAction());
+
+                if (!syncModuleInitialized_) {
+                    // Vibrate for 300 milliseconds
+                    v_.vibrate(300);
+                    if (syncUninitializedErrorToast_ != null) {
+                        syncUninitializedErrorToast_.cancel();
                     }
+                    syncUninitializedErrorToast_ = Toast.makeText(ctx_,
+                            "Sync Module not yet initialized (did you start NFD-Android?).",
+                            LENGTH_SHORT);
+                    syncUninitializedErrorToast_.show();
+                    return;
+                }
+
+                if (!permissionToRecordAccepted_) {
+                    // Vibrate for 300 milliseconds
+                    v_.vibrate(300);
+                    if (recordingPermissionUnenabledToast_ != null) {
+                        recordingPermissionUnenabledToast_.cancel();
+                    }
+                    recordingPermissionUnenabledToast_ = Toast.makeText(ctx_,
+                            "Please enable recording permission to record.",
+                            LENGTH_SHORT);
+                    recordingPermissionUnenabledToast_.show();
+                    return;
+                }
+
+                if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_DOWN)) {
+                    if (networkThreadInitialized_) {
+                        handler_.obtainMessage(MSG_BUTTON_RECORD_REQUEST_START).sendToTarget();
+                    }
+                } else if (intent.getAction().equals(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_UP)) {
+                    if (networkThreadInitialized_) {
+                        handler_.obtainMessage(MSG_BUTTON_RECORD_REQUEST_STOP).sendToTarget();
+                    }
+                } else {
+                    Log.e(TAG, "pttButtonPressReceiverListener_ unexpected intent: " + intent.getAction());
                 }
             }
         };
@@ -250,9 +293,11 @@ public class MainActivity extends AppCompatActivity {
                         // Vibrate for 300 milliseconds
                         v_.vibrate(300);
 
-                        Toast
-                                .makeText(ctx_, "Recording start request ignored.", Toast.LENGTH_SHORT)
-                                .show();
+                        if (recordingRequestIgnoredToast_ != null) {
+                            recordingRequestIgnoredToast_.cancel();
+                        }
+                        recordingRequestIgnoredToast_ = Toast.makeText(ctx_, "Recording start request ignored.", LENGTH_SHORT);
+                        recordingRequestIgnoredToast_.show();
                         break;
                     }
                     case MSG_WIFI_STATE_CHANGED: {
@@ -327,5 +372,18 @@ public class MainActivity extends AppCompatActivity {
         LocalBroadcastManager.getInstance(this).unregisterReceiver(pttButtonPressReceiverListener_);
         super.onDestroy();
     }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        switch (requestCode) {
+            case REQUEST_RECORD_AUDIO_PERMISSION:
+                permissionToRecordAccepted_ = grantResults[0] == PackageManager.PERMISSION_GRANTED;
+                break;
+        }
+        if (!permissionToRecordAccepted_) ActivityCompat.requestPermissions(this, permissions_, REQUEST_RECORD_AUDIO_PERMISSION);;
+
+    }
+
 
 }

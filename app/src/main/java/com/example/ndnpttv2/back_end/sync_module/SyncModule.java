@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import com.example.ndnpttv2.back_end.structs.ChannelUserSession;
 import com.example.ndnpttv2.back_end.shared_state.PeerStateTable;
 import com.example.ndnpttv2.back_end.structs.SyncStreamInfo;
+import com.example.ndnpttv2.util.Logger;
 import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
 
@@ -186,6 +187,8 @@ public class SyncModule {
                                 (sync_.getSequenceNo() + 1) + ", got " + seqNum + ")");
                     }
                     sync_.publishNextSequenceNo();
+                    Logger.logEvent(new Logger.LogEventInfo(Logger.SYNCMODULE_PUBLISHED_NEW_STREAM, System.currentTimeMillis(),
+                            0, seqNum, null));
                 } catch (IOException e) {
                     e.printStackTrace();
                 } catch (SecurityException e) {
@@ -243,12 +246,14 @@ public class SyncModule {
 
                     if (lastSeqNum < seqNum) {
                         for (int i = 0; i < seqNum - lastSeqNum; i++) {
-                            eventNewStreamAvailable.trigger(
-                                    new SyncStreamInfo(
-                                            channelName,
-                                            userName,
-                                            sessionId,
-                                            lastSeqNum + i + 1));
+                            SyncStreamInfo syncStreamInfo = new SyncStreamInfo(
+                                    channelName,
+                                    userName,
+                                    sessionId,
+                                    lastSeqNum + i + 1);
+                            eventNewStreamAvailable.trigger(syncStreamInfo);
+                            Logger.logEvent(new Logger.LogEventInfo(Logger.SYNCMODULE_DISCOVERED_NEW_STREAM, System.currentTimeMillis(),
+                                    0, syncStreamInfo, null));
                         }
                     }
 

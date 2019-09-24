@@ -20,6 +20,7 @@ import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customiza
 import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
 import com.example.ndnpttv2.back_end.wifi_module.WifiModule;
 import com.example.ndnpttv2.util.Helpers;
+import com.example.ndnpttv2.util.Logger;
 import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
 
@@ -175,6 +176,8 @@ public class PlaybackQueueModule {
                         fetchingQueue_.add(syncStreamInfo);
                         Name streamName = Helpers.getStreamName(networkDataPrefix_, syncStreamInfo);
                         playbackQueue_.add(streamName);
+                        Logger.logEvent(new Logger.LogEventInfo(Logger.PQMODULE_NEW_STREAM_AVAILABLE, System.currentTimeMillis(),
+                                0, Helpers.getStreamName(networkDataPrefix_, syncStreamInfo).toString(), null));
                         break;
                     }
                     case MSG_NEW_WIFI_STATE: {
@@ -186,6 +189,8 @@ public class PlaybackQueueModule {
                             workHandler_.sendMessageAtTime(processSoftFailuresMsg,
                                     SystemClock.uptimeMillis() + NetworkThread.ROUTE_REGISTRATION_DELAY_MS);
                         }
+                    Logger.logEvent(new Logger.LogEventInfo(Logger.PQMODULE_NEW_WIFI_STATE, System.currentTimeMillis(),
+                                wifiConnectionState_, null, null));
                         break;
                     }
                     default: {

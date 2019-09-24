@@ -18,6 +18,7 @@ import com.example.ndnpttv2.back_end.Constants;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.jndn_utils.RttEstimator;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.InputStreamDataSource;
 import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
+import com.example.ndnpttv2.util.Logger;
 import com.google.gson.Gson;
 import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
@@ -301,6 +302,7 @@ public class StreamConsumer {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+            Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_INTEREST_TRANSMIT, System.currentTimeMillis(), 0, interest.getName().toString(), null));
         }
 
         private void sendMediaDataInterest(Interest interest) {
@@ -560,6 +562,7 @@ public class StreamConsumer {
             metaDataRtoToken_ = new Object();
             internalHandler_.postAtTime(() -> {
                     Log.d(TAG, streamName_.toString() + ": " + getTimeSinceStreamRecordingStart() + ": " + "rto timeout (meta data)");
+                        Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_INTEREST_RTO, System.currentTimeMillis(), 0, streamName_.toString(), null));
                     transmitMetaDataInterest(true);
                     },
                     metaDataRtoToken_,
@@ -593,6 +596,7 @@ public class StreamConsumer {
                         "playback deadline " + playbackDeadline + ", " +
                         "retx: " + isRetransmission +
                         ")");
+                Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_INTEREST_SKIP, System.currentTimeMillis(), 0, interestToSend.getName().toString(), null));
                 recordPacketEvent(segNum, PACKET_EVENT_INTEREST_SKIP);
                 eventInterestSkipped.trigger(new ProgressEventInfo(streamName_, segNum, null));
                 return;
@@ -732,10 +736,12 @@ public class StreamConsumer {
                     ")");
 
             if (audioPacketWasAppNack) {
+                Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_NACK_RECEIVE, System.currentTimeMillis(), 0, audioPacket.getName().toString(), null));
                 recordPacketEvent(segNum, PACKET_EVENT_NACK_RETRIEVED);
                 eventNackRetrieved.trigger(new ProgressEventInfo(streamName_, segNum, null));
             }
             else {
+                Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_AUDIO_DATA_RECEIVE, System.currentTimeMillis(), 0, audioPacket.getName().toString(), null));
                 recordPacketEvent(segNum, PACKET_EVENT_AUDIO_RETRIEVED);
                 eventAudioRetrieved.trigger(new ProgressEventInfo(streamName_, segNum, null));
             }

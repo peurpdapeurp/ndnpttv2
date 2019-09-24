@@ -28,6 +28,7 @@ import com.example.ndnpttv2.back_end.pq_module.PlaybackQueueModule;
 import com.example.ndnpttv2.back_end.rec_module.RecorderModule;
 import com.example.ndnpttv2.back_end.sync_module.SyncModule;
 import com.example.ndnpttv2.back_end.wifi_module.WifiModule;
+import com.example.ndnpttv2.util.Logger;
 
 import net.named_data.jndn.Name;
 import net.named_data.jndn.encoding.EncodingException;
@@ -78,13 +79,13 @@ public class MainActivity extends AppCompatActivity {
     private Settings settings_;
 
     public static class Settings {
-        String channelName;
-        String userName;
-        int producerSamplingRate;
-        int producerFramesPerSegment;
-        int consumerJitterBufferSize;
-        int maxHistoricalStreamFetchTimeMs;
-        String accessPointIpAddress;
+        public String channelName;
+        public String userName;
+        public int producerSamplingRate;
+        public int producerFramesPerSegment;
+        public int consumerJitterBufferSize;
+        public int maxHistoricalStreamFetchTimeMs;
+        public String accessPointIpAddress;
     }
 
     @SuppressLint("HandlerLeak")
@@ -287,6 +288,8 @@ public class MainActivity extends AppCompatActivity {
         settings_.consumerJitterBufferSize = Integer.parseInt(configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE]);
         settings_.maxHistoricalStreamFetchTimeMs = Integer.parseInt(configInfo[IntentInfo.CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS]);
         settings_.accessPointIpAddress = configInfo[IntentInfo.ACCESS_POINT_IP_ADDRESS];
+
+        Logger.logEvent(new Logger.LogEventInfo(Logger.APP_INIT, System.currentTimeMillis(), 0, settings_, null));
 
         String settingsString =
                 getString(R.string.channel_name_label) + " " + settings_.channelName + "\n" +

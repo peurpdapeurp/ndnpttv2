@@ -6,6 +6,7 @@ import android.net.InetAddresses;
 import android.os.Bundle;
 
 import com.example.ndnpttv2.R;
+import com.example.ndnpttv2.util.Logger;
 
 import android.app.Activity;
 import android.content.Context;
@@ -63,6 +64,8 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+
+        Logger.initialize(this, System.currentTimeMillis(), getMainLooper());
 
         spinnerIndexToSamplingRate_ = new HashMap<>();
         for (int i = 0; i < SAMPLING_RATE_OPTIONS.length; i++) {

@@ -11,6 +11,8 @@ import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
 import com.example.ndnpttv2.back_end.structs.StreamInfo;
 import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.back_end.rec_module.stream_producer.StreamProducer;
+import com.example.ndnpttv2.util.Helpers;
+import com.example.ndnpttv2.util.Logger;
 import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
 
@@ -21,6 +23,10 @@ import java.util.HashMap;
 public class RecorderModule {
 
     private static final String TAG = "RecorderModule";
+
+    // Public constants
+    public static final int REQUEST_VALID = 0;
+    public static final int REQUEST_INVALID = 1;
 
     // Messages
     private static final int MSG_RECORDING_COMPLETE = 0;
@@ -117,11 +123,15 @@ public class RecorderModule {
                         if (appState_.isRecording()) {
                             Log.e(TAG, "Got request to record while already recording, ignoring request.");
                             eventRecordingStartRequestIgnored.trigger();
+                            Logger.logEvent(new Logger.LogEventInfo(Logger.RECMODULE_RECORD_REQUEST_START, System.currentTimeMillis(),
+                                    REQUEST_INVALID, null, null));
                             return;
                         }
                         if (appState_.isPlaying()) {
                             Log.e(TAG, "Got request to record while PlaybackQueueModule was playing, ignoring request.");
                             eventRecordingStartRequestIgnored.trigger();
+                            Logger.logEvent(new Logger.LogEventInfo(Logger.RECMODULE_RECORD_REQUEST_START, System.currentTimeMillis(),
+                                    REQUEST_INVALID, null, null));
                             return;
                         }
 
@@ -156,11 +166,16 @@ public class RecorderModule {
                         eventRecordingStarted.trigger(streamInfo);
 
                         appState_.startRecording();
+
+                        Logger.logEvent(new Logger.LogEventInfo(Logger.RECMODULE_RECORD_REQUEST_START, System.currentTimeMillis(),
+                                REQUEST_VALID, null, null));
                         break;
                     }
                     case MSG_RECORD_REQUEST_STOP: {
                         if (currentStreamProducer_ != null)
                             currentStreamProducer_.recordStop();
+                        Logger.logEvent(new Logger.LogEventInfo(Logger.RECMODULE_RECORD_REQUEST_STOP, System.currentTimeMillis(),
+                                0, null, null));
                         break;
                     }
                     default: {

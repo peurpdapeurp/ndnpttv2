@@ -11,6 +11,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.example.ndnpttv2.util.Logger;
 import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
 
@@ -67,6 +68,9 @@ public class WifiModule {
         eventWifiStateChanged.addListener(wifiStateChangeListener);
 
         eventWifiStateChanged.trigger(lastWifiConnectionState_);
+
+        Logger.logEvent(new Logger.LogEventInfo(Logger.WIFIMODULE_NEW_WIFI_STATE, System.currentTimeMillis(),
+                lastWifiConnectionState_, null, null));
 
     }
 

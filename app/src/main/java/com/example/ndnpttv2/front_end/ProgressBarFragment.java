@@ -1,7 +1,6 @@
 package com.example.ndnpttv2.front_end;
 
 import android.content.Context;
-import android.graphics.Color;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -14,6 +13,7 @@ import android.os.Message;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.example.ndnpttv2.R;
@@ -28,12 +28,13 @@ public abstract class ProgressBarFragment extends Fragment {
 
     TextView nameDisplay_;
     CustomProgressBar progressBar_;
+    ImageView imageLabel_;
 
     private Name streamName_;
     private Handler handler_;
     private boolean readyForRendering_ = false;
     private LinkedTransferQueue<Message> prematureMessages_;
-    private Context ctx_;
+    Context ctx_;
 
     ProgressBarFragment(Name streamName, Looper mainThreadLooper, Context ctx) {
 
@@ -79,6 +80,9 @@ public abstract class ProgressBarFragment extends Fragment {
         progressBar_.setEnabled(false);
         progressBar_.init();
 
+        imageLabel_ = (ImageView) view.findViewById(R.id.image_label);
+        imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.ellipses));
+
         onViewInitialized();
 
         return view;
@@ -88,6 +92,7 @@ public abstract class ProgressBarFragment extends Fragment {
         Message msg = handler_.obtainMessage(msg_what, progressEventInfo);
 
         if (!readyForRendering_ &&
+                msg.what != ProgressBarFragmentConsume.MSG_STREAM_FETCHER_FETCHING_COMPLETED &&
                 msg.what != ProgressBarFragmentConsume.MSG_STREAM_BUFFER_BUFFERING_STARTED &&
                 msg.what != ProgressBarFragmentConsume.MSG_STREAM_FETCHER_FETCHING_FAILED) {
             prematureMessages_.put(msg);

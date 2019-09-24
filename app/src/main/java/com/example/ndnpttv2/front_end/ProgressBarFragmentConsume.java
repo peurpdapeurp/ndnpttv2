@@ -12,12 +12,10 @@ import android.widget.TextView;
 
 import com.example.ndnpttv2.R;
 import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
-import com.example.ndnpttv2.back_end.structs.StreamInfo;
 import com.example.ndnpttv2.back_end.pq_module.PlaybackQueueModule;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
 import com.example.ndnpttv2.back_end.structs.StreamMetaData;
-import com.example.ndnpttv2.front_end.custom_progress_bar.CustomProgressBar;
 
 import net.named_data.jndn.Name;
 
@@ -37,12 +35,13 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
     private static final int MSG_STREAM_FETCHER_AUDIO_RETRIEVED = 2;
     private static final int MSG_STREAM_FETCHER_NACK_RETRIEVED = 3;
     private static final int MSG_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED = 4;
-    public static final int MSG_STREAM_BUFFER_BUFFERING_STARTED = 5;
-    private static final int MSG_STREAM_BUFFER_FRAME_BUFFERED = 6;
-    private static final int MSG_STREAM_BUFFER_FRAME_SKIPPED = 7;
-    private static final int MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED = 8;
-    private static final int MSG_STREAM_PLAYER_PLAYING_FINISHED = 9;
-    public static final int MSG_STREAM_FETCHER_FETCHING_FAILED = 10;
+    public static final int MSG_STREAM_FETCHER_FETCHING_COMPLETED = 5;
+    public static final int MSG_STREAM_BUFFER_BUFFERING_STARTED = 6;
+    private static final int MSG_STREAM_BUFFER_FRAME_BUFFERED = 7;
+    private static final int MSG_STREAM_BUFFER_FRAME_SKIPPED = 8;
+    private static final int MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED = 9;
+    private static final int MSG_STREAM_PLAYER_PLAYING_FINISHED = 10;
+    public static final int MSG_STREAM_FETCHER_FETCHING_FAILED = 11;
 
     StreamState state_;
     boolean bufferingStarted_;
@@ -124,6 +123,8 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 processProgressEvent(MSG_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED, progressEventInfo));
         streamConsumer.eventBufferingStarted.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_BUFFER_BUFFERING_STARTED, progressEventInfo));
+        streamConsumer.eventBufferingCompleted.addListener(progressEventInfo ->
+                processProgressEvent(MSG_STREAM_FETCHER_FETCHING_COMPLETED, progressEventInfo));
         streamConsumer.eventFrameBuffered.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_BUFFER_FRAME_BUFFERED, progressEventInfo));
         streamConsumer.eventFrameSkipped.addListener(progressEventInfo ->
@@ -166,6 +167,10 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 updateProgressBar(msg.what, 0, state_);
                 break;
             }
+            case MSG_STREAM_FETCHER_FETCHING_COMPLETED: {
+                imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.circle));
+                break;
+            }
             case MSG_STREAM_BUFFER_BUFFERING_STARTED: {
                 Log.d(TAG, "got signal that buffering started");
                 StreamMetaData metaData = (StreamMetaData) progressEventInfo.obj;
@@ -199,11 +204,29 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
             }
             case MSG_STREAM_PLAYER_PLAYING_FINISHED: {
                 enableStreamInfoPopUp();
+                imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.check_mark));
                 break;
             }
             case MSG_STREAM_FETCHER_FETCHING_FAILED: {
                 Log.d(TAG, "got signal that stream fetching failed");
                 enableStreamInfoPopUp();
+                switch ((int) progressEventInfo.arg1) {
+                    case StreamConsumer.FAILURE_CODE_META_DATA_FETCH_FAILED: {
+                        imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.question_mark));
+                        break;
+                    }
+                    case StreamConsumer.FAILURE_CODE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED: {
+                        imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.x));
+                        break;
+                    }
+                    case StreamConsumer.FAILURE_CODE_STREAM_RECORDED_TOO_FAR_IN_PAST: {
+                        imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.clock));
+                        break;
+                    }
+                    default: {
+                        throw new IllegalStateException("unexpected progressEventInfo.arg1 " + progressEventInfo.arg1);
+                    }
+                }
                 break;
             }
             default: {

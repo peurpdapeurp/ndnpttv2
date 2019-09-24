@@ -2,6 +2,7 @@ package com.example.ndnpttv2.front_end;
 
 import android.content.Context;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Looper;
 import android.os.Message;
 import android.view.Gravity;
@@ -100,6 +101,7 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
                 state_.finalBlockId = progressEventInfo.arg1;
                 updateProgressBar(msg.what, 0, state_);
                 enableStreamInfoPopUp();
+                imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.check_mark));
                 break;
             }
             default: {
@@ -173,4 +175,5 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
         }
 
     }
+
 }

@@ -62,7 +62,7 @@ public class Logger {
     public static void initialize(Context ctx, long start_time, Looper mainThreadLooper) {
         java.util.Date d = new java.util.Date(start_time);
         String timeStr = new SimpleDateFormat("dd-MMM HH:mm:ss.SSS").format(d);
-        logFile_ = new File(ctx.getExternalCacheDir().getAbsolutePath() + timeStr + ".log");
+        logFile_ = new File(ctx.getExternalCacheDir().getAbsolutePath() + "/" + timeStr + ".log");
         try {
             logFileOutputStream_ = new FileOutputStream(logFile_);
         } catch (FileNotFoundException e) {

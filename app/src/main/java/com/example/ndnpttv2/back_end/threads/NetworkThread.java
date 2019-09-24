@@ -13,8 +13,8 @@ import androidx.annotation.NonNull;
 import com.example.ndnpttv2.back_end.wifi_module.WifiModule;
 import com.intel.jndn.management.ManagementException;
 import com.intel.jndn.management.Nfdc;
-import com.intel.jndn.management.types.FaceStatus;
 
+import net.named_data.jndn.Data;
 import net.named_data.jndn.Face;
 import net.named_data.jndn.Interest;
 import net.named_data.jndn.InterestFilter;
@@ -30,6 +30,7 @@ import net.named_data.jndn.security.identity.MemoryPrivateKeyStorage;
 import net.named_data.jndn.security.policy.SelfVerifyPolicyManager;
 
 import java.io.IOException;
+import java.util.List;
 
 public class NetworkThread extends HandlerThread {
 
@@ -37,10 +38,12 @@ public class NetworkThread extends HandlerThread {
 
     // Private constants
     private static final int PROCESSING_INTERVAL_MS = 50;
+    private static final int ROUTE_REGISTRATION_DELAY_MS = 500; // delay registering the route after reconnecting to avoid "Network unreachable"
 
     // Messages
     private static final int MSG_DO_SOME_WORK = 0;
     private static final int MSG_NEW_WIFI_STATE = 1;
+    private static final int MSG_REGISTER_SLASH_PREFIX = 2;
 
     private Face face_;
     private KeyChain keyChain_;
@@ -125,8 +128,14 @@ public class NetworkThread extends HandlerThread {
                         Log.d(TAG, "notified of new wifi state " + newWifiState);
                         if (newWifiState == WifiModule.CONNECTED) {
                             Log.d(TAG, "new wifi state was connected, registering / prefix");
-                            registerSlashPrefix();
+                            Message registerSlashPrefixMsg = handler_.obtainMessage(MSG_REGISTER_SLASH_PREFIX);
+                            handler_.sendMessageAtTime(registerSlashPrefixMsg,
+                                    SystemClock.uptimeMillis() + ROUTE_REGISTRATION_DELAY_MS);
                         }
+                        break;
+                    }
+                    case MSG_REGISTER_SLASH_PREFIX: {
+                        registerSlashPrefix();
                         break;
                     }
                     default: {
@@ -147,12 +156,11 @@ public class NetworkThread extends HandlerThread {
 
     private void registerSlashPrefix() {
         String accessPointUri = "udp4://" + options_.accessPointIpAddress + ":6363";
+        Log.d(TAG, "registering / route to remote uri " + accessPointUri);
         try {
             Nfdc.register(face_, accessPointUri, new Name("/"), 0);
-
         } catch (ManagementException e) {
             e.printStackTrace();
-
         }
     }
 

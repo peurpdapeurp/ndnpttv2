@@ -202,7 +202,7 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 break;
             }
             case MSG_STREAM_FETCHER_FETCHING_FAILED: {
-                Log.d(TAG, "got signal that stream meta data fetching failed");
+                Log.d(TAG, "got signal that stream fetching failed");
                 enableStreamInfoPopUp();
                 break;
             }

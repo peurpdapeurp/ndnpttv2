@@ -38,7 +38,7 @@ public class NetworkThread extends HandlerThread {
 
     // Private constants
     private static final int PROCESSING_INTERVAL_MS = 50;
-    private static final int ROUTE_REGISTRATION_DELAY_MS = 500; // delay registering the route after reconnecting to avoid "Network unreachable"
+    public static final int ROUTE_REGISTRATION_DELAY_MS = 500; // delay registering the route after reconnecting to avoid "Network unreachable"
 
     // Messages
     private static final int MSG_DO_SOME_WORK = 0;

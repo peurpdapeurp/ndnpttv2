@@ -28,6 +28,8 @@ import net.named_data.jndn.Name;
 import java.util.HashMap;
 import java.util.concurrent.LinkedTransferQueue;
 
+import static com.example.ndnpttv2.back_end.wifi_module.WifiModule.CONNECTED;
+
 public class PlaybackQueueModule {
 
     private static final String TAG = "PlaybackQueueModule";
@@ -42,6 +44,7 @@ public class PlaybackQueueModule {
     private static final int MSG_STREAM_PLAYER_PLAYING_COMPLETE = 3;
     private static final int MSG_NEW_STREAM_AVAILABLE = 4;
     private static final int MSG_NEW_WIFI_STATE = 5;
+    private static final int MSG_PROCESS_SOFT_FAILURES = 6;
 
     // Events
     public Event<StreamNameAndStreamState> eventStreamStateCreated;
@@ -61,7 +64,7 @@ public class PlaybackQueueModule {
     private HashMap<Name, InternalStreamConsumptionState> streamStates_;
     private NetworkThread.Info networkThreadInfo_;
     private StreamConsumer.Options options_;
-    private int wifiConnectionState_; // true if last state was connected, false if last state was disconnected
+    private int wifiConnectionState_;
 
     public static class StreamNameAndStreamState {
         StreamNameAndStreamState(Name streamName, InternalStreamConsumptionState streamState) {
@@ -177,6 +180,12 @@ public class PlaybackQueueModule {
                     case MSG_NEW_WIFI_STATE: {
                         wifiConnectionState_ = (Integer) msg.arg1;
                         Log.d(TAG, "wifi state changed to " + wifiConnectionState_);
+                        if (wifiConnectionState_ == WifiModule.CONNECTED) {
+                            Log.d(TAG, "wifi got connected, processing soft failures");
+                            Message processSoftFailuresMsg = workHandler_.obtainMessage(MSG_PROCESS_SOFT_FAILURES);
+                            workHandler_.sendMessageAtTime(processSoftFailuresMsg,
+                                    SystemClock.uptimeMillis() + NetworkThread.ROUTE_REGISTRATION_DELAY_MS);
+                        }
                         break;
                     }
                     default: {
@@ -195,6 +204,13 @@ public class PlaybackQueueModule {
                         doSomeWork();
                         break;
                     }
+                    case MSG_PROCESS_SOFT_FAILURES: {
+                        processSoftFailures();
+                        break;
+                    }
+                    default: {
+                        throw new IllegalStateException("unexpected msg.what " + msg.what);
+                    }
                 }
             }
         };
@@ -211,6 +227,26 @@ public class PlaybackQueueModule {
 
     public void notifyNewWifiState(int newWifiState) {
         moduleMessageHandler_.obtainMessage(MSG_NEW_WIFI_STATE, newWifiState, 0).sendToTarget();
+    }
+
+    private void processSoftFailures() {
+        // check for streams for which fetching soft-failed (i.e. failed due to wifi disconnection), and add them
+        // back into the fetching queue
+        if (softFailureQueue_.size() != 0 && wifiConnectionState_ == CONNECTED) {
+            Name streamName = softFailureQueue_.poll();
+            ChannelUserSession channelUserSession = Helpers.getChannelUserSession(streamName);
+            try {
+                fetchingQueue_.add(new SyncStreamInfo(
+                        channelUserSession.channelName,
+                        channelUserSession.userName,
+                        channelUserSession.sessionId,
+                        streamName.get(-1).toSequenceNumber()
+                ));
+            }
+            catch (Exception e) {
+                throw new IllegalStateException("failed to parse name of soft failure " + streamName.toString());
+            }
+        }
     }
 
     private void doSomeWork() {
@@ -268,24 +304,6 @@ public class PlaybackQueueModule {
 
             appState_.startPlaying();
 
-        }
-
-        // check for streams for which fetching soft-failed (i.e. failed due to wifi disconnection), and add them
-        // back into the fetching queue
-        if (softFailureQueue_.size() != 0 && wifiConnectionState_ == WifiModule.CONNECTED) {
-            Name streamName = softFailureQueue_.poll();
-            ChannelUserSession channelUserSession = Helpers.getChannelUserSession(streamName);
-            try {
-                fetchingQueue_.add(new SyncStreamInfo(
-                        channelUserSession.channelName,
-                        channelUserSession.userName,
-                        channelUserSession.sessionId,
-                        streamName.get(-1).toSequenceNumber()
-                ));
-            }
-            catch (Exception e) {
-                throw new IllegalStateException("failed to parse name of soft failure " + streamName.toString());
-            }
         }
 
         scheduleNextWork(SystemClock.uptimeMillis());

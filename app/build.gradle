@@ -42,5 +42,4 @@ dependencies {
         exclude group: 'org.hamcrest', module: 'hamcrest-core'
     }
     implementation 'com.google.code.gson:gson:2.8.5'
-    implementation files('libs/jndn-management-1.1.3.jar')
 }

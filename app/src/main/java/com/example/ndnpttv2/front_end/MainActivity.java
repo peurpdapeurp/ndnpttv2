@@ -12,15 +12,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
-import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Vibrator;
 import android.util.Log;
-import android.view.Gravity;
-import android.view.View;
-import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -40,7 +36,6 @@ import com.example.ndnpttv2.util.Logger;
 import net.named_data.jndn.Name;
 import net.named_data.jndn.encoding.EncodingException;
 
-import static android.widget.Toast.LENGTH_LONG;
 import static android.widget.Toast.LENGTH_SHORT;
 
 public class MainActivity extends AppCompatActivity {
@@ -104,7 +99,9 @@ public class MainActivity extends AppCompatActivity {
         public int producerSamplingRate;
         public int producerFramesPerSegment;
         public int consumerJitterBufferSize;
-        public int maxHistoricalStreamFetchTimeMs;
+        public int consumerMaxHistoricalStreamFetchTimeMs;
+        public int consumerMaxSuccessfulDataFetchIntervalMs;
+        public int consumerMaxMetaDataFetchTimeMs;
         public String accessPointIpAddress;
     }
 
@@ -207,7 +204,12 @@ public class MainActivity extends AppCompatActivity {
                                 appState_,
                                 new Name(getString(R.string.data_prefix)),
                                 peerStateTable_,
-                                new StreamConsumer.Options(settings_.consumerJitterBufferSize, settings_.maxHistoricalStreamFetchTimeMs)
+                                new StreamConsumer.Options(
+                                        settings_.consumerJitterBufferSize,
+                                        settings_.consumerMaxHistoricalStreamFetchTimeMs,
+                                        settings_.consumerMaxSuccessfulDataFetchIntervalMs,
+                                        settings_.consumerMaxMetaDataFetchTimeMs
+                                )
                         );
                         playbackQueueModule_.eventStreamStateCreated.addListener(streamNameAndStreamState ->
                             handler_
@@ -335,7 +337,9 @@ public class MainActivity extends AppCompatActivity {
         settings_.producerSamplingRate = Integer.parseInt(configInfo[IntentInfo.PRODUCER_SAMPLING_RATE]);
         settings_.producerFramesPerSegment = Integer.parseInt(configInfo[IntentInfo.PRODUCER_FRAMES_PER_SEGMENT]);
         settings_.consumerJitterBufferSize = Integer.parseInt(configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE]);
-        settings_.maxHistoricalStreamFetchTimeMs = Integer.parseInt(configInfo[IntentInfo.CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS]);
+        settings_.consumerMaxHistoricalStreamFetchTimeMs = Integer.parseInt(configInfo[IntentInfo.CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS]);
+        settings_.consumerMaxSuccessfulDataFetchIntervalMs = Integer.parseInt(configInfo[IntentInfo.CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS]);
+        settings_.consumerMaxMetaDataFetchTimeMs = Integer.parseInt(configInfo[IntentInfo.CONSUMER_MAX_META_DATA_FETCH_TIME_MS]);
         settings_.accessPointIpAddress = configInfo[IntentInfo.ACCESS_POINT_IP_ADDRESS];
 
         Logger.logEvent(new Logger.LogEventInfo(Logger.APP_INIT, System.currentTimeMillis(), 0, settings_, null));

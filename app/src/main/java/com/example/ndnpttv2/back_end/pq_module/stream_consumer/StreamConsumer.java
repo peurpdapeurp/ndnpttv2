@@ -93,17 +93,23 @@ public class StreamConsumer {
     public Event<ProgressEventInfo> eventStreamFetchingFailure;
 
     public static class Options {
-        public Options(long jitterBufferSize, long maxHistoricalStreamFetchTimeMs) {
+        public Options(long jitterBufferSize, long maxHistoricalStreamFetchTimeMs, long maxSuccessfulDataFetchIntervalMs,
+                       long maxMetaDataFetchTimeMs) {
             this.jitterBufferSize = jitterBufferSize;
             this.maxHistoricalStreamFetchTimeMs = maxHistoricalStreamFetchTimeMs;
+            this.maxSuccessfulDataFetchIntervalMs = maxSuccessfulDataFetchIntervalMs;
+            this.maxMetaDataFetchTimeMs = maxMetaDataFetchTimeMs;
         }
         long jitterBufferSize; // # of initial frames in StreamPlayerBuffer's jitter buffer before playback begins
         long maxHistoricalStreamFetchTimeMs; // maximum amount of ms in the past the stream was recorded to still fetch stream
+        long maxSuccessfulDataFetchIntervalMs; // maximum amount of time between successful data fetches to still fetch stream
+        long maxMetaDataFetchTimeMs; // maximum amount of time to successfully fetch meta data to still fetch stream
 
         @Override
         public String toString() {
             return "jitterBufferSize " + jitterBufferSize + ", " +
-                    "maxHistoricalStreamFetchTimeMs " + maxHistoricalStreamFetchTimeMs;
+                    "consumerMaxHistoricalStreamFetchTimeMs " + maxHistoricalStreamFetchTimeMs + ", " +
+                    "maxSuccessfulDataFetchIntervalMs " + maxSuccessfulDataFetchIntervalMs;
         }
     }
 
@@ -365,9 +371,7 @@ public class StreamConsumer {
         private static final int FINAL_BLOCK_ID_UNKNOWN = -1;
         private static final int NO_SEGS_SENT = -1;
         private static final int DEFAULT_INTEREST_LIFETIME_MS = 4000;
-        private static final int N_EXPECTED_SAMPLES = 1;
-        private static final int METADATA_FETCH_TIME_LIMIT_MS = 5000;
-        private static final int SUCCESSFUL_DATA_FETCH_TIME_LIMIT_MS = 3000;
+        private static final int N_EXPECTED_SAMPLES = 1; // for rtt estimator
 
         // Packet events
         private static final int PACKET_EVENT_AUDIO_RETRIEVED = 0;
@@ -457,7 +461,7 @@ public class StreamConsumer {
             internalHandler_.post(new Runnable() {
                 @Override
                 public void run() {
-                    metaDataFetchDeadline_ = System.currentTimeMillis() + METADATA_FETCH_TIME_LIMIT_MS;
+                    metaDataFetchDeadline_ = System.currentTimeMillis() + options_.maxMetaDataFetchTimeMs;
                     transmitMetaDataInterest(false);
                     internalHandler_.postAtTime(
                             () -> {
@@ -465,7 +469,7 @@ public class StreamConsumer {
                                 streamConsumerHandler_.obtainMessage(MSG_CLOSE_META_DATA_FETCH_FAILED).sendToTarget();
                             },
                             metaDataFetchDeadlineToken_,
-                            SystemClock.uptimeMillis() + METADATA_FETCH_TIME_LIMIT_MS
+                            SystemClock.uptimeMillis() + options_.maxMetaDataFetchTimeMs
                     );
                 }
             });
@@ -490,7 +494,7 @@ public class StreamConsumer {
                                 }
                             },
                             successfulDataFetchTimerToken_,
-                            SystemClock.uptimeMillis() + SUCCESSFUL_DATA_FETCH_TIME_LIMIT_MS
+                            SystemClock.uptimeMillis() + options_.maxSuccessfulDataFetchIntervalMs
                     );
                 }
             });

@@ -37,6 +37,8 @@ public class LoginActivity extends AppCompatActivity {
     private final int DEFAULT_PRODUCER_FRAMES_PER_SEGMENT = 1;
     private final int DEFAULT_CONSUMER_JITTER_BUFFER_SIZE = 5;
     private final int DEFAULT_CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS = 300000; // 5 minutes
+    private final int DEFAULT_CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS = 2000;
+    private final int DEFAULT_CONSUMER_MAX_META_DATA_FETCH_TIME_MS = 5000;
     private final String DEFAULT_ACCESS_POINT_IP_ADDRESS = "1.1.1.1";
 
     private EditText channelInput_;
@@ -45,6 +47,8 @@ public class LoginActivity extends AppCompatActivity {
     private EditText producerFramesPerSegmentInput_;
     private EditText consumerJitterBufferSizeInput_;
     private EditText consumerMaxHistoricalStreamFetchTimeMsInput_;
+    private EditText consumerMaxSuccessfulDataFetchIntervalMsInput_;
+    private EditText consumerMaxMetaDataFetchTimeMsInput_;
     private EditText accessPointIpAddressInput_;
     private Button okButton_;
 
@@ -57,6 +61,8 @@ public class LoginActivity extends AppCompatActivity {
     private static String PRODUCER_FRAMES_PER_SEGMENT = "PRODUCER_FRAMES_PER_SEGMENT";
     private static String CONSUMER_JITTER_BUFFER_SIZE = "CONSUMER_JITTER_BUFFER_SIZE";
     private static String CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS = "CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS";
+    private static String CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS = "CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS";
+    private static String CONSUMER_MAX_META_DATA_FETCH_TIME_MS = "CONSUMER_MAX_META_DATA_FETCH_TIME_MS";
     private static String ACCESS_POINT_IP_ADDRESS = "ACCESS_POINT_IP_ADDRESS";
 
     @Override
@@ -81,6 +87,8 @@ public class LoginActivity extends AppCompatActivity {
         producerFramesPerSegmentInput_ = (EditText) findViewById(R.id.producer_frames_per_segment_input);
         consumerJitterBufferSizeInput_ = (EditText) findViewById(R.id.consumer_jitter_buffer_size_input);
         consumerMaxHistoricalStreamFetchTimeMsInput_ = (EditText) findViewById(R.id.consumer_max_historical_stream_fetch_time_ms_input);
+        consumerMaxSuccessfulDataFetchIntervalMsInput_ = (EditText) findViewById(R.id.consumer_max_successful_data_fetch_interval_ms_input);
+        consumerMaxMetaDataFetchTimeMsInput_ = (EditText) findViewById(R.id.consumer_max_meta_data_fetch_time_ms_input);
         accessPointIpAddressInput_ = (EditText) findViewById(R.id.access_point_ip_address_input);
 
         okButton_ = (Button) findViewById(R.id.ok_button);
@@ -101,6 +109,12 @@ public class LoginActivity extends AppCompatActivity {
         consumerMaxHistoricalStreamFetchTimeMsInput_.setText(
                 Integer.toString(mPreferences.getInt(CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS,
                         DEFAULT_CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS)));
+        consumerMaxSuccessfulDataFetchIntervalMsInput_.setText(
+                Integer.toString(mPreferences.getInt(CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS,
+                        DEFAULT_CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS)));
+        consumerMaxMetaDataFetchTimeMsInput_.setText(
+                Integer.toString(mPreferences.getInt(CONSUMER_MAX_META_DATA_FETCH_TIME_MS,
+                        DEFAULT_CONSUMER_MAX_META_DATA_FETCH_TIME_MS)));
         accessPointIpAddressInput_.setText(mPreferences.getString(ACCESS_POINT_IP_ADDRESS, DEFAULT_ACCESS_POINT_IP_ADDRESS));
 
         okButton_.setOnClickListener(new View.OnClickListener() {
@@ -131,9 +145,28 @@ public class LoginActivity extends AppCompatActivity {
                             consumerMaxHistoricalStreamFetchTimeMsInput_.getText().toString().trim());
                 }
                 catch (Exception e) {
-                    showErrorToast("Please enter a valid max historical stream fetch time.");
+                    showErrorToast("Please enter a valid consumer max historical stream fetch time.");
                     return;
                 }
+                int consumerMaxSuccessfulDataFetchIntervalMs;
+                try {
+                    consumerMaxSuccessfulDataFetchIntervalMs = Integer.parseInt(
+                            consumerMaxSuccessfulDataFetchIntervalMsInput_.getText().toString().trim());
+                }
+                catch (Exception e) {
+                    showErrorToast("Please enter a valid consumer max successful data fetch interval.");
+                    return;
+                }
+                int consumerMaxMetaDataFetchTimeMs;
+                try {
+                    consumerMaxMetaDataFetchTimeMs = Integer.parseInt(
+                            consumerMaxMetaDataFetchTimeMsInput_.getText().toString().trim());
+                }
+                catch (Exception e) {
+                    showErrorToast("Please enter a valid consumer max meta data fetch time.");
+                    return;
+                }
+
                 String accessPointIpAddress = accessPointIpAddressInput_.getText().toString().trim();
 
                 if (channel.equals("")) {
@@ -156,6 +189,14 @@ public class LoginActivity extends AppCompatActivity {
                     showErrorToast("Please enter a valid consumer max historical stream fetch time.");
                     return;
                 }
+                else if (consumerMaxSuccessfulDataFetchIntervalMs < 1) {
+                    showErrorToast("Please enter a valid consumer max successful data fetch interval.");
+                    return;
+                }
+                else if (consumerMaxMetaDataFetchTimeMs < 1) {
+                    showErrorToast("Please enter a valid consumer max meta data fetch time.");
+                    return;
+                }
                 else if (!Patterns.IP_ADDRESS.matcher(accessPointIpAddress).matches()) {
                     showErrorToast("Please enter a valid access point ip address.");
                     return;
@@ -168,17 +209,21 @@ public class LoginActivity extends AppCompatActivity {
                 mPreferencesEditor.putInt(PRODUCER_FRAMES_PER_SEGMENT, producerFramesPerSegment).commit();
                 mPreferencesEditor.putInt(CONSUMER_JITTER_BUFFER_SIZE, consumerJitterBufferSize).commit();
                 mPreferencesEditor.putInt(CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS, consumerMaxHistoricalStreamFetchTimeMs).commit();
+                mPreferencesEditor.putInt(CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS, consumerMaxSuccessfulDataFetchIntervalMs).commit();
+                mPreferencesEditor.putInt(CONSUMER_MAX_META_DATA_FETCH_TIME_MS, consumerMaxMetaDataFetchTimeMs).commit();
                 mPreferencesEditor.putString(ACCESS_POINT_IP_ADDRESS, accessPointIpAddress).commit();
 
                 Intent intent = new Intent(LoginActivity.this, MainActivity.class);
 
-                String[] configInfo = new String[7];
+                String[] configInfo = new String[9];
                 configInfo[IntentInfo.CHANNEL_NAME] = channel;
                 configInfo[IntentInfo.USER_NAME] = name;
                 configInfo[IntentInfo.PRODUCER_SAMPLING_RATE] = Integer.toString(SAMPLING_RATE_OPTIONS[producerSamplingRateIndex]);
                 configInfo[IntentInfo.PRODUCER_FRAMES_PER_SEGMENT] = Integer.toString(producerFramesPerSegment);
                 configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE] = Integer.toString(consumerJitterBufferSize);
                 configInfo[IntentInfo.CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS] = Integer.toString(consumerMaxHistoricalStreamFetchTimeMs);
+                configInfo[IntentInfo.CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS] = Integer.toString(consumerMaxSuccessfulDataFetchIntervalMs);
+                configInfo[IntentInfo.CONSUMER_MAX_META_DATA_FETCH_TIME_MS] = Integer.toString(consumerMaxMetaDataFetchTimeMs);
                 configInfo[IntentInfo.ACCESS_POINT_IP_ADDRESS] = accessPointIpAddress;
                 intent.putExtra(IntentInfo.LOGIN_CONFIG, configInfo);
 

@@ -100,7 +100,7 @@ public class Logger {
             params.add(Integer.toString(settings.producerSamplingRate));
             params.add(Integer.toString(settings.producerFramesPerSegment));
             params.add(Integer.toString(settings.consumerJitterBufferSize));
-            params.add(Integer.toString(settings.maxHistoricalStreamFetchTimeMs));
+            params.add(Integer.toString(settings.consumerMaxHistoricalStreamFetchTimeMs));
             params.add(settings.accessPointIpAddress);
         }
         else if (eventString.equals(STREAMCONSUMER_INTEREST_TRANSMIT)) {

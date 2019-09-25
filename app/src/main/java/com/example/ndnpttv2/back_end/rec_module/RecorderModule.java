@@ -189,13 +189,13 @@ public class RecorderModule {
 
     }
 
-    public void recordRequestStart() {
+    public void notifyRecordRequestStart() {
         moduleMessageHandler_
                 .obtainMessage(MSG_RECORD_REQUEST_START)
                 .sendToTarget();
     }
 
-    public void recordRequestStop() {
+    public void notifyRecordRequestStop() {
         moduleMessageHandler_
                 .obtainMessage(MSG_RECORD_REQUEST_STOP)
                 .sendToTarget();

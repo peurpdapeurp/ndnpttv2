@@ -254,11 +254,11 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     }
                     case MSG_BUTTON_RECORD_REQUEST_START: {
-                        recorderModule_.recordRequestStart();
+                        recorderModule_.notifyRecordRequestStart();
                         break;
                     }
                     case MSG_BUTTON_RECORD_REQUEST_STOP: {
-                        recorderModule_.recordRequestStop();
+                        recorderModule_.notifyRecordRequestStop();
                         break;
                     }
                     case MSG_RECORDER_RECORD_STARTED: {

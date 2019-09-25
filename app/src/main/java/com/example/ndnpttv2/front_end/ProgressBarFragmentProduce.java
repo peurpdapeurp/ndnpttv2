@@ -30,7 +30,7 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
     private static final int MSG_STREAM_PRODUCER_SEGMENT_PUBLISHED = 0;
     private static final int MSG_STREAM_PRODUCER_FINAL_SEGMENT_PUBLISHED = 1;
 
-    StreamState state_;
+    private StreamState state_;
 
     private class StreamState {
         static final int FINAL_BLOCK_ID_UNKNOWN = -1;

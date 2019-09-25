@@ -84,8 +84,8 @@ public class StreamConsumer {
     public Event<ProgressEventInfo> eventNackRetrieved;
     public Event<ProgressEventInfo> eventInterestSkipped;
     public Event<ProgressEventInfo> eventFinalBlockIdLearned;
+    public Event<ProgressEventInfo> eventMetaDataFetched;
     public Event<ProgressEventInfo> eventFetchingCompleted;
-    public Event<ProgressEventInfo> eventBufferingStarted;
     public Event<ProgressEventInfo> eventFrameBuffered;
     public Event<ProgressEventInfo> eventFrameSkipped;
     public Event<ProgressEventInfo> eventFinalFrameNumLearned;
@@ -130,8 +130,8 @@ public class StreamConsumer {
         eventNackRetrieved = new SimpleEvent<>();
         eventInterestSkipped = new SimpleEvent<>();
         eventFinalBlockIdLearned = new SimpleEvent<>();
+        eventMetaDataFetched = new SimpleEvent<>();
         eventFetchingCompleted = new SimpleEvent<>();
-        eventBufferingStarted = new SimpleEvent<>();
         eventFrameBuffered = new SimpleEvent<>();
         eventFrameSkipped = new SimpleEvent<>();
         eventFinalFrameNumLearned = new SimpleEvent<>();
@@ -353,6 +353,7 @@ public class StreamConsumer {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+            Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_INTEREST_TRANSMIT, System.currentTimeMillis(), 0, interest.getName().toString(), null));
         }
     }
 
@@ -612,6 +613,7 @@ public class StreamConsumer {
             Object rtoToken = new Object();
             internalHandler_.postAtTime(() -> {
                 Log.d(TAG, streamName_.toString() + ": " + getTimeSinceStreamRecordingStart() + ": " + "rto timeout (seg num " + segNum + ")");
+                Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_INTEREST_RTO, System.currentTimeMillis(), 0, streamName_.toString(), null));
                 retransmissionQueue_.add(segNum);
                 rtoTokens_.remove(segNum);
                 recordPacketEvent(segNum, PACKET_EVENT_INTEREST_TIMEOUT);
@@ -671,6 +673,8 @@ public class StreamConsumer {
             // recalibrate production window growth rate
             state_.msPerSegNum_ = calculateMsPerSeg(streamMetaData_.producerSamplingRate, streamMetaData_.framesPerSegment);
             state_.recordingStartTime = streamMetaData_.recordingStartTime;
+
+            eventMetaDataFetched.trigger(new ProgressEventInfo(streamName_, 0, streamMetaData_));
 
             Log.d(TAG, "recalibrated ms per seg and recording start time: " + "\n" +
                     "msPerSegNum " + state_.msPerSegNum_);
@@ -900,7 +904,6 @@ public class StreamConsumer {
             if (firstRealDoSomeWork_) {
 
                 Log.d(TAG, "buffering started");
-                eventBufferingStarted.trigger(new ProgressEventInfo(streamName_, 0, streamMetaData_));
 
                 highestFrameNumPlayedDeadline_ = streamPlayStartTime_ + jitterBufferDelay_;
 

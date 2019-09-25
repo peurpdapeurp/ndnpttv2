@@ -35,17 +35,17 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
     private static final int MSG_STREAM_FETCHER_AUDIO_RETRIEVED = 2;
     private static final int MSG_STREAM_FETCHER_NACK_RETRIEVED = 3;
     private static final int MSG_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED = 4;
-    public static final int MSG_STREAM_FETCHER_FETCHING_COMPLETED = 5;
-    public static final int MSG_STREAM_BUFFER_BUFFERING_STARTED = 6;
+    public static final int MSG_STREAM_FETCHER_META_DATA_FETCHED = 5;
+    private static final int MSG_STREAM_FETCHER_FETCHING_COMPLETED = 6;
     private static final int MSG_STREAM_BUFFER_FRAME_BUFFERED = 7;
     private static final int MSG_STREAM_BUFFER_FRAME_SKIPPED = 8;
     private static final int MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED = 9;
     private static final int MSG_STREAM_PLAYER_PLAYING_FINISHED = 10;
     public static final int MSG_STREAM_FETCHER_FETCHING_FAILED = 11;
 
-    StreamState state_;
-    boolean bufferingStarted_;
-    boolean viewInitialized_;
+    private StreamState state_;
+    private boolean metaDataFetched_;
+    private boolean viewInitialized_;
 
     public class StreamState {
         static final int UNKNOWN = -1;
@@ -121,9 +121,9 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 processProgressEvent(MSG_STREAM_FETCHER_NACK_RETRIEVED, progressEventInfo));
         streamConsumer.eventFinalBlockIdLearned.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED, progressEventInfo));
-        streamConsumer.eventBufferingStarted.addListener(progressEventInfo ->
-                processProgressEvent(MSG_STREAM_BUFFER_BUFFERING_STARTED, progressEventInfo));
-        streamConsumer.eventBufferingCompleted.addListener(progressEventInfo ->
+        streamConsumer.eventMetaDataFetched.addListener(progressEventInfo ->
+                processProgressEvent(MSG_STREAM_FETCHER_META_DATA_FETCHED, progressEventInfo));
+        streamConsumer.eventFetchingCompleted.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_FETCHER_FETCHING_COMPLETED, progressEventInfo));
         streamConsumer.eventFrameBuffered.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_BUFFER_FRAME_BUFFERED, progressEventInfo));
@@ -167,12 +167,8 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 updateProgressBar(msg.what, 0, state_);
                 break;
             }
-            case MSG_STREAM_FETCHER_FETCHING_COMPLETED: {
-                imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.circle));
-                break;
-            }
-            case MSG_STREAM_BUFFER_BUFFERING_STARTED: {
-                Log.d(TAG, "got signal that buffering started");
+            case MSG_STREAM_FETCHER_META_DATA_FETCHED: {
+                Log.d(TAG, "got signal that meta data was fetched");
                 StreamMetaData metaData = (StreamMetaData) progressEventInfo.obj;
                 state_.framesPerSegment = metaData.framesPerSegment;
                 state_.producerSamplingRate = metaData.producerSamplingRate;
@@ -182,9 +178,14 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 state_.nacksFetched = 0;
                 state_.framesBuffered = 0;
                 state_.framesSkipped = 0;
-                bufferingStarted_ = true;
+                metaDataFetched_ = true;
                 if (viewInitialized_)
                     startRendering();
+                break;
+            }
+            case MSG_STREAM_FETCHER_FETCHING_COMPLETED: {
+                Log.d(TAG, "got signal that stream fetching finished");
+                imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.circle));
                 break;
             }
             case MSG_STREAM_BUFFER_FRAME_BUFFERED: {
@@ -271,7 +272,7 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
     @Override
     void onViewInitialized() {
         viewInitialized_ = true;
-        if (bufferingStarted_)
+        if (metaDataFetched_)
             startRendering();
     }
 

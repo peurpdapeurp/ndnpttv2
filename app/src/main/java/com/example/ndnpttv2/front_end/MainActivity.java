@@ -12,11 +12,15 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.os.Vibrator;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -342,7 +346,7 @@ public class MainActivity extends AppCompatActivity {
                 getString(R.string.producer_sampling_rate_label) + " " + configInfo[IntentInfo.PRODUCER_SAMPLING_RATE] + "\n" +
                 getString(R.string.producer_frames_per_segment_label) + " " + configInfo[IntentInfo.PRODUCER_FRAMES_PER_SEGMENT] + "\n" +
                 getString(R.string.consumer_jitter_buffer_size_label) + " " + configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE] + "\n" +
-                "Consumer max historical stream fetch time ms:" + " " + configInfo[IntentInfo.CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS];
+                getString(R.string.consumer_max_historical_stream_fetch_time_ms_label) + " " + configInfo[IntentInfo.CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS];
         settingsDisplay_.setText(settingsString);
 
         syncSessionId_ = System.currentTimeMillis();
@@ -384,6 +388,5 @@ public class MainActivity extends AppCompatActivity {
         if (!permissionToRecordAccepted_) ActivityCompat.requestPermissions(this, permissions_, REQUEST_RECORD_AUDIO_PERMISSION);;
 
     }
-
 
 }

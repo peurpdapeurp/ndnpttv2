@@ -189,7 +189,7 @@ public class PlaybackQueueModule {
                             workHandler_.sendMessageAtTime(processSoftFailuresMsg,
                                     SystemClock.uptimeMillis() + NetworkThread.ROUTE_REGISTRATION_DELAY_MS);
                         }
-                    Logger.logEvent(new Logger.LogEventInfo(Logger.PQMODULE_NEW_WIFI_STATE, System.currentTimeMillis(),
+                        Logger.logEvent(new Logger.LogEventInfo(Logger.PQMODULE_NEW_WIFI_STATE, System.currentTimeMillis(),
                                 wifiConnectionState_, null, null));
                         break;
                     }

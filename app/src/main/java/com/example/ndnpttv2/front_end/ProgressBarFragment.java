@@ -10,10 +10,12 @@ import androidx.fragment.app.Fragment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.PopupWindow;
 import android.widget.TextView;
 
 import com.example.ndnpttv2.R;
@@ -25,6 +27,10 @@ import net.named_data.jndn.Name;
 import java.util.concurrent.LinkedTransferQueue;
 
 public abstract class ProgressBarFragment extends Fragment {
+
+    // Private constants
+    private static final int SYMBOL_GUIDE_WINDOW_HEIGHT = 800;
+    private static final int SYMBOL_GUIDE_WINDOW_WIDTH = 1000;
 
     TextView nameDisplay_;
     CustomProgressBar progressBar_;
@@ -92,8 +98,7 @@ public abstract class ProgressBarFragment extends Fragment {
         Message msg = handler_.obtainMessage(msg_what, progressEventInfo);
 
         if (!readyForRendering_ &&
-                msg.what != ProgressBarFragmentConsume.MSG_STREAM_FETCHER_FETCHING_COMPLETED &&
-                msg.what != ProgressBarFragmentConsume.MSG_STREAM_BUFFER_BUFFERING_STARTED &&
+                msg.what != ProgressBarFragmentConsume.MSG_STREAM_FETCHER_META_DATA_FETCHED &&
                 msg.what != ProgressBarFragmentConsume.MSG_STREAM_FETCHER_FETCHING_FAILED) {
             prematureMessages_.put(msg);
         }
@@ -131,4 +136,5 @@ public abstract class ProgressBarFragment extends Fragment {
     long getNumFrames(long finalBlockId, long framesPerSegment) {
         return finalBlockId * framesPerSegment + framesPerSegment - 1;
     }
+
 }

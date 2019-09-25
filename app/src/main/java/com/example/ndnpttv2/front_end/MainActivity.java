@@ -51,12 +51,11 @@ public class MainActivity extends AppCompatActivity {
     private static final int MSG_BUTTON_RECORD_REQUEST_START = 2;
     private static final int MSG_BUTTON_RECORD_REQUEST_STOP = 3;
     private static final int MSG_RECORDER_RECORD_STARTED = 4;
-    private static final int MSG_RECORDER_RECORD_FINISHED = 5;
-    private static final int MSG_SYNC_NEW_STREAMS_AVAILABLE = 6;
-    private static final int MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED = 7;
-    private static final int MSG_RECORDER_STREAM_STATE_CREATED = 8;
-    private static final int MSG_RECORDER_RECORD_START_REQUEST_IGNORED = 9;
-    private static final int MSG_WIFI_STATE_CHANGED = 10;
+    private static final int MSG_SYNC_NEW_STREAMS_AVAILABLE = 5;
+    private static final int MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED = 6;
+    private static final int MSG_RECORDER_STREAM_STATE_CREATED = 7;
+    private static final int MSG_RECORDER_RECORD_START_REQUEST_IGNORED = 8;
+    private static final int MSG_WIFI_STATE_CHANGED = 9;
 
     // Thread objects
     private NetworkThread networkThread_;
@@ -226,10 +225,6 @@ public class MainActivity extends AppCompatActivity {
                             handler_
                                 .obtainMessage(MSG_RECORDER_RECORD_STARTED, streamInfo)
                                 .sendToTarget());
-                        recorderModule_.eventRecordingFinished.addListener(streamName ->
-                            handler_
-                                .obtainMessage(MSG_RECORDER_RECORD_FINISHED, streamName)
-                                .sendToTarget());
                         recorderModule_.eventStreamStateCreated.addListener(streamInfoAndStreamState ->
                             handler_
                                 .obtainMessage(MSG_RECORDER_STREAM_STATE_CREATED, streamInfoAndStreamState)
@@ -268,10 +263,6 @@ public class MainActivity extends AppCompatActivity {
                         } catch (EncodingException e) {
                             e.printStackTrace();
                         }
-                        break;
-                    }
-                    case MSG_RECORDER_RECORD_FINISHED: {
-                        Log.d(TAG, "RecorderModule finished recording");
                         break;
                     }
                     case MSG_SYNC_NEW_STREAMS_AVAILABLE: {

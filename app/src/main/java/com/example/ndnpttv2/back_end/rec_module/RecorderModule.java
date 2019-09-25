@@ -35,7 +35,6 @@ public class RecorderModule {
 
     // Events
     public Event<StreamInfo> eventRecordingStarted;
-    public Event<Name> eventRecordingFinished;
     public Event<StreamInfoAndStreamState> eventStreamStateCreated;
     public Event<Object> eventRecordingStartRequestIgnored;
 
@@ -79,7 +78,6 @@ public class RecorderModule {
         pastStreamProducers_ = new HashMap<>();
 
         eventRecordingStarted = new SimpleEvent<>();
-        eventRecordingFinished = new SimpleEvent<>();
         eventStreamStateCreated = new SimpleEvent<>();
         eventRecordingStartRequestIgnored = new SimpleEvent<>();
 
@@ -102,7 +100,6 @@ public class RecorderModule {
                     case MSG_RECORDING_COMPLETE: {
                         Log.d(TAG, "recording of stream " + streamName.toString() + " finished");
                         appState_.stopRecording();
-                        eventRecordingFinished.trigger(streamName);
                         break;
                     }
                     default: {

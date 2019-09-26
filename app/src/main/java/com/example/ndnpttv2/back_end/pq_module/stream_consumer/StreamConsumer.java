@@ -44,9 +44,10 @@ public class StreamConsumer {
     private static final String TAG = "StreamConsumer";
 
     // Public constants
-    public static final int FAILURE_CODE_META_DATA_FETCH_FAILED = 0;
-    public static final int FAILURE_CODE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED = 1;
-    public static final int FAILURE_CODE_STREAM_RECORDED_TOO_FAR_IN_PAST = 2;
+    public static final int FETCH_COMPLETE_CODE_SUCCESS = 0;
+    public static final int FETCH_COMPLETE_CODE_META_DATA_TIMEOUT = 1;
+    public static final int FETCH_COMPLETE_CODE_MEDIA_DATA_TIMEOUT = 2;
+    public static final int FETCH_COMPLETE_CODE_STREAM_RECORDED_TOO_FAR_IN_PAST = 3;
 
     // Private constants
     private static final int PROCESSING_INTERVAL_MS = 50;
@@ -58,8 +59,8 @@ public class StreamConsumer {
     private static final int MSG_FETCH_START = 1;
     private static final int MSG_BUFFER_START = 2;
     private static final int MSG_CLOSE_SUCCESS = 3;
-    private static final int MSG_CLOSE_META_DATA_FETCH_FAILED = 4;
-    private static final int MSG_CLOSE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED = 5;
+    private static final int MSG_CLOSE_META_DATA_TIMEOUT = 4;
+    private static final int MSG_CLOSE_MEDIA_DATA_TIMEOUT = 5;
     private static final int MSG_CLOSE_STREAM_RECORDED_TOO_FAR_IN_PAST = 6;
 
     private Network network_;
@@ -90,26 +91,25 @@ public class StreamConsumer {
     public Event<ProgressEventInfo> eventFrameSkipped;
     public Event<ProgressEventInfo> eventFinalFrameNumLearned;
     public Event<ProgressEventInfo> eventBufferingCompleted;
-    public Event<ProgressEventInfo> eventStreamFetchingFailure;
 
     public static class Options {
-        public Options(long jitterBufferSize, long maxHistoricalStreamFetchTimeMs, long maxSuccessfulDataFetchIntervalMs,
-                       long maxMetaDataFetchTimeMs) {
+        public Options(long jitterBufferSize, long maxHistoricalStreamFetchTimeMs, long mediaDataTimeoutMs,
+                       long metaDataTimeoutMs) {
             this.jitterBufferSize = jitterBufferSize;
             this.maxHistoricalStreamFetchTimeMs = maxHistoricalStreamFetchTimeMs;
-            this.maxSuccessfulDataFetchIntervalMs = maxSuccessfulDataFetchIntervalMs;
-            this.maxMetaDataFetchTimeMs = maxMetaDataFetchTimeMs;
+            this.mediaDataTimeoutMs = mediaDataTimeoutMs;
+            this.metaDataTimeoutMs = metaDataTimeoutMs;
         }
         long jitterBufferSize; // # of initial frames in StreamPlayerBuffer's jitter buffer before playback begins
         long maxHistoricalStreamFetchTimeMs; // maximum amount of ms in the past the stream was recorded to still fetch stream
-        long maxSuccessfulDataFetchIntervalMs; // maximum amount of time between successful data fetches to still fetch stream
-        long maxMetaDataFetchTimeMs; // maximum amount of time to successfully fetch meta data to still fetch stream
+        long mediaDataTimeoutMs; // maximum amount of time between successful data fetches to still fetch stream
+        long metaDataTimeoutMs; // maximum amount of time to successfully fetch meta data to still fetch stream
 
         @Override
         public String toString() {
             return "jitterBufferSize " + jitterBufferSize + ", " +
                     "consumerMaxHistoricalStreamFetchTimeMs " + maxHistoricalStreamFetchTimeMs + ", " +
-                    "maxSuccessfulDataFetchIntervalMs " + maxSuccessfulDataFetchIntervalMs;
+                    "mediaDataTimeoutMs " + mediaDataTimeoutMs;
         }
     }
 
@@ -142,7 +142,6 @@ public class StreamConsumer {
         eventFrameSkipped = new SimpleEvent<>();
         eventFinalFrameNumLearned = new SimpleEvent<>();
         eventBufferingCompleted = new SimpleEvent<>();
-        eventStreamFetchingFailure = new SimpleEvent<>();
 
         handler_ = new Handler(networkThreadInfo.looper) {
             @Override
@@ -170,12 +169,12 @@ public class StreamConsumer {
                         close(MSG_CLOSE_SUCCESS);
                         break;
                     }
-                    case MSG_CLOSE_META_DATA_FETCH_FAILED: {
-                        close(MSG_CLOSE_META_DATA_FETCH_FAILED);
+                    case MSG_CLOSE_META_DATA_TIMEOUT: {
+                        close(MSG_CLOSE_META_DATA_TIMEOUT);
                         break;
                     }
-                    case MSG_CLOSE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED: {
-                        close(MSG_CLOSE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED);
+                    case MSG_CLOSE_MEDIA_DATA_TIMEOUT: {
+                        close(MSG_CLOSE_MEDIA_DATA_TIMEOUT);
                         break;
                     }
                     case MSG_CLOSE_STREAM_RECORDED_TOO_FAR_IN_PAST: {
@@ -217,28 +216,34 @@ public class StreamConsumer {
                 eventBufferingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
                 break;
             }
-            case MSG_CLOSE_META_DATA_FETCH_FAILED: {
-                eventStreamFetchingFailure.trigger(
+            case MSG_CLOSE_META_DATA_TIMEOUT: {
+                eventFetchingCompleted.trigger(
                         new ProgressEventInfo(
                                 streamName_,
-                                FAILURE_CODE_META_DATA_FETCH_FAILED,
+                                FETCH_COMPLETE_CODE_META_DATA_TIMEOUT,
                                 null));
+                Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_FETCHING_COMPLETE, System.currentTimeMillis(),
+                        FETCH_COMPLETE_CODE_META_DATA_TIMEOUT, streamName_.toString(), null));
                 break;
             }
-            case MSG_CLOSE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED: {
-                eventStreamFetchingFailure.trigger(
+            case MSG_CLOSE_MEDIA_DATA_TIMEOUT: {
+                eventFetchingCompleted.trigger(
                         new ProgressEventInfo(
                                 streamName_,
-                                FAILURE_CODE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED,
+                                FETCH_COMPLETE_CODE_MEDIA_DATA_TIMEOUT,
                                 null));
+                Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_FETCHING_COMPLETE, System.currentTimeMillis(),
+                        FETCH_COMPLETE_CODE_MEDIA_DATA_TIMEOUT, streamName_.toString(), null));
                 break;
             }
             case MSG_CLOSE_STREAM_RECORDED_TOO_FAR_IN_PAST: {
-                eventStreamFetchingFailure.trigger(
+                eventFetchingCompleted.trigger(
                         new ProgressEventInfo(
                                 streamName_,
-                                FAILURE_CODE_STREAM_RECORDED_TOO_FAR_IN_PAST,
+                                FETCH_COMPLETE_CODE_STREAM_RECORDED_TOO_FAR_IN_PAST,
                                 null));
+                Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_FETCHING_COMPLETE, System.currentTimeMillis(),
+                        FETCH_COMPLETE_CODE_STREAM_RECORDED_TOO_FAR_IN_PAST, streamName_.toString(), null));
                 break;
             }
             default: {
@@ -461,15 +466,15 @@ public class StreamConsumer {
             internalHandler_.post(new Runnable() {
                 @Override
                 public void run() {
-                    metaDataFetchDeadline_ = System.currentTimeMillis() + options_.maxMetaDataFetchTimeMs;
+                    metaDataFetchDeadline_ = System.currentTimeMillis() + options_.metaDataTimeoutMs;
                     transmitMetaDataInterest(false);
                     internalHandler_.postAtTime(
                             () -> {
                                 Log.d(TAG, "closing stream consumer (meta data fetch failed)");
-                                streamConsumerHandler_.obtainMessage(MSG_CLOSE_META_DATA_FETCH_FAILED).sendToTarget();
+                                streamConsumerHandler_.obtainMessage(MSG_CLOSE_META_DATA_TIMEOUT).sendToTarget();
                             },
                             metaDataFetchDeadlineToken_,
-                            SystemClock.uptimeMillis() + options_.maxMetaDataFetchTimeMs
+                            SystemClock.uptimeMillis() + options_.metaDataTimeoutMs
                     );
                 }
             });
@@ -490,11 +495,11 @@ public class StreamConsumer {
                                 if (!fetchingFinished_) {
                                     Log.d(TAG, System.currentTimeMillis() + ": " +
                                             "closing stream consumer (successful data fetch time limit reached)");
-                                    streamConsumerHandler_.obtainMessage(MSG_CLOSE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED).sendToTarget();
+                                    streamConsumerHandler_.obtainMessage(MSG_CLOSE_MEDIA_DATA_TIMEOUT).sendToTarget();
                                 }
                             },
                             successfulDataFetchTimerToken_,
-                            SystemClock.uptimeMillis() + options_.maxSuccessfulDataFetchIntervalMs
+                            SystemClock.uptimeMillis() + options_.mediaDataTimeoutMs
                     );
                 }
             });
@@ -508,7 +513,9 @@ public class StreamConsumer {
                 Log.d(TAG, "found in close that there was an outstanding successful data fetch timer, removing it");
                 internalHandler_.removeCallbacksAndMessages(successfulDataFetchTimerToken_);
             }
-            eventFetchingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
+            eventFetchingCompleted.trigger(new ProgressEventInfo(streamName_, FETCH_COMPLETE_CODE_SUCCESS, null));
+            Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_FETCHING_COMPLETE, System.currentTimeMillis(),
+                    FETCH_COMPLETE_CODE_SUCCESS, streamName_.toString(), null));
             fetchingFinished_ = true;
             closed_ = true;
         }

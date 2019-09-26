@@ -41,11 +41,10 @@ public class PlaybackQueueModule {
     // Messages
     private static final int MSG_DO_SOME_WORK = 0;
     private static final int MSG_STREAM_CONSUMER_FETCHING_COMPLETE = 1;
-    private static final int MSG_STREAM_CONSUMER_FETCHING_FAILED = 2;
-    private static final int MSG_STREAM_PLAYER_PLAYING_COMPLETE = 3;
-    private static final int MSG_NEW_STREAM_AVAILABLE = 4;
-    private static final int MSG_NEW_WIFI_STATE = 5;
-    private static final int MSG_PROCESS_SOFT_FAILURES = 6;
+    private static final int MSG_STREAM_PLAYER_PLAYING_COMPLETE = 2;
+    private static final int MSG_NEW_STREAM_AVAILABLE = 3;
+    private static final int MSG_NEW_WIFI_STATE = 4;
+    private static final int MSG_PROCESS_SOFT_FAILURES = 5;
 
     // Events
     public Event<StreamNameAndStreamState> eventStreamStateCreated;
@@ -112,42 +111,41 @@ public class PlaybackQueueModule {
 
                 switch (msg.what) {
                     case MSG_STREAM_CONSUMER_FETCHING_COMPLETE: {
-                        Log.d(TAG, "fetching of stream " + streamName.toString() + " finished");
-                        break;
-                    }
-                    case MSG_STREAM_CONSUMER_FETCHING_FAILED: {
-
-                        streamState.streamPlayer.close();
-                        playbackQueue_.remove(streamName);
-                        streamStates_.remove(streamName);
-                        appState_.stopPlaying();
-
-                        String failureTypeString = "";
-                        switch ((int) progressEventInfo.arg1) {
-                            case StreamConsumer.FAILURE_CODE_META_DATA_FETCH_FAILED: {
-                                failureTypeString = "meta data fetch fail";
-                                if (wifiConnectionState_ == WifiModule.DISCONNECTED) {
-                                    softFailureQueue_.put(progressEventInfo.streamName);
-                                }
-                                break;
-                            }
-                            case StreamConsumer.FAILURE_CODE_SUCCESSFUL_DATA_FETCH_TIME_LIMIT_REACHED: {
-                                failureTypeString = "successful data fetch time limit reached";
-                                if (wifiConnectionState_ == WifiModule.DISCONNECTED) {
-                                    softFailureQueue_.put(progressEventInfo.streamName);
-                                }
-                                break;
-                            }
-                            case StreamConsumer.FAILURE_CODE_STREAM_RECORDED_TOO_FAR_IN_PAST: {
-                                failureTypeString = "stream recorded too far in past";
-                                break;
-                            }
-                            default: {
-                                throw new IllegalStateException("unexpected progressEventInfo.arg1 " + progressEventInfo.arg1);
-                            }
+                        if (progressEventInfo.arg1 == StreamConsumer.FETCH_COMPLETE_CODE_SUCCESS) {
+                            Log.d(TAG, "fetching of stream " + streamName.toString() + " finished");
                         }
-                        Log.d(TAG, "playing of stream " + streamName.toString() + " finished (" + failureTypeString + ")");
+                        else {
+                            streamState.streamPlayer.close();
+                            playbackQueue_.remove(streamName);
+                            streamStates_.remove(streamName);
+                            appState_.stopPlaying();
 
+                            String failureTypeString = "";
+                            switch ((int) progressEventInfo.arg1) {
+                                case StreamConsumer.FETCH_COMPLETE_CODE_META_DATA_TIMEOUT: {
+                                    failureTypeString = "meta data timeout";
+                                    if (wifiConnectionState_ == WifiModule.DISCONNECTED) {
+                                        softFailureQueue_.put(progressEventInfo.streamName);
+                                    }
+                                    break;
+                                }
+                                case StreamConsumer.FETCH_COMPLETE_CODE_MEDIA_DATA_TIMEOUT: {
+                                    failureTypeString = "media data timeout";
+                                    if (wifiConnectionState_ == WifiModule.DISCONNECTED) {
+                                        softFailureQueue_.put(progressEventInfo.streamName);
+                                    }
+                                    break;
+                                }
+                                case StreamConsumer.FETCH_COMPLETE_CODE_STREAM_RECORDED_TOO_FAR_IN_PAST: {
+                                    failureTypeString = "stream recorded too far in past";
+                                    break;
+                                }
+                                default: {
+                                    throw new IllegalStateException("unexpected progressEventInfo.arg1 " + progressEventInfo.arg1);
+                                }
+                            }
+                            Log.d(TAG, "playing of stream " + streamName.toString() + " failed (" + failureTypeString + ")");
+                        }
                         break;
                     }
                     case MSG_STREAM_PLAYER_PLAYING_COMPLETE: {
@@ -286,11 +284,6 @@ public class PlaybackQueueModule {
                 progressEventHandler_
                         .obtainMessage(MSG_STREAM_CONSUMER_FETCHING_COMPLETE, progressEventInfo)
                         .sendToTarget());
-            streamConsumer.eventStreamFetchingFailure.addListener(progressEventInfo ->
-                    progressEventHandler_
-                        .obtainMessage(MSG_STREAM_CONSUMER_FETCHING_FAILED, progressEventInfo)
-                        .sendToTarget());
-
             eventStreamStateCreated.trigger(new StreamNameAndStreamState(streamName, internalStreamConsumptionState));
 
             streamConsumer.streamFetchStart();

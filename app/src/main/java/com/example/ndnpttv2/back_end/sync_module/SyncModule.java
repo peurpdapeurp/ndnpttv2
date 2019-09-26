@@ -258,6 +258,7 @@ public class SyncModule {
                     }
 
                     peerState.highestSeqNum = seqNum;
+                    Log.d(TAG, "highest seq num for " + channelUserSessionKey.toString() + " updated: " + peerState.highestSeqNum);
 
                 }
 

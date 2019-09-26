@@ -26,10 +26,6 @@ import java.util.concurrent.LinkedTransferQueue;
 
 public abstract class ProgressBarFragment extends Fragment {
 
-    // Private constants
-    private static final int SYMBOL_GUIDE_WINDOW_HEIGHT = 800;
-    private static final int SYMBOL_GUIDE_WINDOW_WIDTH = 1000;
-
     TextView nameDisplay_;
     CustomProgressBar progressBar_;
     ImageView imageLabel_;
@@ -97,7 +93,7 @@ public abstract class ProgressBarFragment extends Fragment {
 
         if (!readyForRendering_ &&
                 msg.what != ProgressBarFragmentConsume.MSG_STREAM_FETCHER_META_DATA_FETCHED &&
-                msg.what != ProgressBarFragmentConsume.MSG_STREAM_FETCHER_FETCHING_FAILED) {
+                msg.what != ProgressBarFragmentConsume.MSG_STREAM_FETCHER_FETCHING_COMPLETED) {
             prematureMessages_.put(msg);
         }
         else {

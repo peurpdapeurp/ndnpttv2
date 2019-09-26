@@ -7,6 +7,7 @@ import android.os.Message;
 
 import androidx.annotation.NonNull;
 
+import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.rec_module.RecorderModule;
 import com.example.ndnpttv2.back_end.structs.SyncStreamInfo;
 import com.example.ndnpttv2.back_end.wifi_module.WifiModule;
@@ -36,6 +37,7 @@ public class Logger {
     public static final String STREAMCONSUMER_AUDIO_DATA_RECEIVE = "STREAMCONSUMER_AUDIO_DATA_RECEIVE";
     public static final String STREAMCONSUMER_NACK_RECEIVE = "STREAMCONSUMER_NACK_RECEIVE";
     public static final String STREAMCONSUMER_INTEREST_SKIP = "STREAMCONSUMER_INTEREST_SKIP";
+    public static final String STREAMCONSUMER_FETCHING_COMPLETE = "STREAMCONSUMER_FETCHING_COMPLETE";
     public static final String PQMODULE_NEW_STREAM_AVAILABLE = "PQMODULE_NEW_STREAM_AVAILABLE";
     public static final String PQMODULE_NEW_WIFI_STATE = "PQMODULE_NEW_WIFI_STATE";
     public static final String RECMODULE_RECORD_REQUEST_START = "RECMODULE_RECORD_REQUEST_START";
@@ -122,6 +124,33 @@ public class Logger {
         else if (eventString.equals(STREAMCONSUMER_INTEREST_SKIP)) {
             String interestName = (String) logEventInfo.obj1;
             params.add(interestName);
+        }
+        else if (eventString.equals(STREAMCONSUMER_FETCHING_COMPLETE)) {
+            String streamName = (String) logEventInfo.obj1;
+            String fetchCompleteCodeString = "";
+            switch (logEventInfo.arg1) {
+                case StreamConsumer.FETCH_COMPLETE_CODE_SUCCESS: {
+                    fetchCompleteCodeString = "SUCCESS";
+                    break;
+                }
+                case StreamConsumer.FETCH_COMPLETE_CODE_META_DATA_TIMEOUT: {
+                    fetchCompleteCodeString = "FAILURE_META_DATA_TIMEOUT";
+                    break;
+                }
+                case StreamConsumer.FETCH_COMPLETE_CODE_MEDIA_DATA_TIMEOUT: {
+                    fetchCompleteCodeString = "FAILURE_MEDIA_DATA_TIMEOUT";
+                    break;
+                }
+                case StreamConsumer.FETCH_COMPLETE_CODE_STREAM_RECORDED_TOO_FAR_IN_PAST: {
+                    fetchCompleteCodeString = "FAILURE_STREAM_RECORDED_TOO_FAR_IN_PAST";
+                    break;
+                }
+                default: {
+                    throw new IllegalStateException("unexpected fetch complete code " + logEventInfo.arg1);
+                }
+            }
+            params.add(streamName);
+            params.add(fetchCompleteCodeString);
         }
         else if (eventString.equals(PQMODULE_NEW_STREAM_AVAILABLE)) {
             String streamName = (String) logEventInfo.obj1;

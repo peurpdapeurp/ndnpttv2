@@ -59,9 +59,9 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
                     "Frames per segment: " + framesPerSegment + "\n" +
                     "Sampling rate: " + producerSamplingRate + "\n" +
                     "Recording start time: " + itemDateStr + "\n" +
-                    "Final block id: " +
+                    "Final block id (index): " +
                         ((finalBlockId == FINAL_BLOCK_ID_UNKNOWN) ? "?" : finalBlockId) + "\n" +
-                    "Segments published: " + numSegsPublished;
+                    "Segments published (count): " + numSegsPublished;
 //                    + "\n" + "Highest segment published: " +
 //                        ((highestSegPublished == NO_SEGMENTS_PUBLISHED) ? "none" : highestSegPublished);
         }

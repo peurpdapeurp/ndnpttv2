@@ -85,21 +85,21 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                     "Sampling rate: " +
                         ((producerSamplingRate == UNKNOWN) ? "?" : producerSamplingRate) + "\n" +
                     "Recording start time: " + itemDateStr + "\n" +
-                    "Final block id: " +
+                    "Final block id (index): " +
                         ((finalBlockId == UNKNOWN) ? "?" : finalBlockId) + "\n" +
-                    "Final frame number: " +
+                    "Final frame (index): " +
                         ((finalFrameNum == UNKNOWN) ? "?" : finalFrameNum) + "\n" +
-                    "Highest segment anticipated: " +
+                    "Highest segment anticipated (index): " +
                         ((highestSegAnticipated == NO_SEGMENTS_ANTICIPATED) ? "none" : highestSegAnticipated) + "\n" +
-                    "Segments fetched: " +
+                    "Segments fetched (count): " +
                             ((segmentsFetched == UNKNOWN) ? "?" : segmentsFetched) + "\n" +
-                    "Segments skipped: " +
+                    "Segments skipped (count): " +
                             ((segmentsSkipped == UNKNOWN) ? "?" : segmentsSkipped) + "\n" +
-                    "Nacks fetched: " +
+                    "Nacks fetched (count): " +
                             ((nacksFetched == UNKNOWN) ? "?" : nacksFetched) + "\n" +
-                    "Frames buffered: " +
+                    "Frames buffered (count): " +
                             ((framesBuffered == UNKNOWN) ? "?" : framesBuffered) + "\n" +
-                    "Frames skipped: " +
+                    "Frames skipped (count): " +
                             ((framesSkipped == UNKNOWN) ? "?" : framesSkipped);
         }
     }

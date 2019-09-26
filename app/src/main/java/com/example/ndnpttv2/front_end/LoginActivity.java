@@ -2,7 +2,6 @@ package com.example.ndnpttv2.front_end;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.net.InetAddresses;
 import android.os.Bundle;
 
 import com.example.ndnpttv2.R;
@@ -37,8 +36,8 @@ public class LoginActivity extends AppCompatActivity {
     private final int DEFAULT_PRODUCER_FRAMES_PER_SEGMENT = 1;
     private final int DEFAULT_CONSUMER_JITTER_BUFFER_SIZE = 5;
     private final int DEFAULT_CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS = 300000; // 5 minutes
-    private final int DEFAULT_CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS = 2000;
-    private final int DEFAULT_CONSUMER_MAX_META_DATA_FETCH_TIME_MS = 5000;
+    private final int DEFAULT_CONSUMER_MEDIA_DATA_TIMEOUT_MS = 5000;
+    private final int DEFAULT_CONSUMER_META_DATA_TIMEOUT_MS = 5000;
     private final String DEFAULT_ACCESS_POINT_IP_ADDRESS = "1.1.1.1";
 
     private EditText channelInput_;
@@ -47,10 +46,12 @@ public class LoginActivity extends AppCompatActivity {
     private EditText producerFramesPerSegmentInput_;
     private EditText consumerJitterBufferSizeInput_;
     private EditText consumerMaxHistoricalStreamFetchTimeMsInput_;
-    private EditText consumerMaxSuccessfulDataFetchIntervalMsInput_;
-    private EditText consumerMaxMetaDataFetchTimeMsInput_;
+    private EditText consumerMediaDataTimeoutMsInput_;
+    private EditText consumerMetaDataTimeoutMsInput_;
     private EditText accessPointIpAddressInput_;
     private Button okButton_;
+
+    private Toast currentErrorToast_;
 
     // shared preferences object to store login parameters between sessions
     SharedPreferences mPreferences;
@@ -61,8 +62,8 @@ public class LoginActivity extends AppCompatActivity {
     private static String PRODUCER_FRAMES_PER_SEGMENT = "PRODUCER_FRAMES_PER_SEGMENT";
     private static String CONSUMER_JITTER_BUFFER_SIZE = "CONSUMER_JITTER_BUFFER_SIZE";
     private static String CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS = "CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS";
-    private static String CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS = "CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS";
-    private static String CONSUMER_MAX_META_DATA_FETCH_TIME_MS = "CONSUMER_MAX_META_DATA_FETCH_TIME_MS";
+    private static String CONSUMER_MEDIA_DATA_TIMEOUT_MS = "CONSUMER_MEDIA_DATA_TIMEOUT_MS";
+    private static String CONSUMER_META_DATA_TIMEOUT_MS = "CONSUMER_META_DATA_TIMEOUT_MS";
     private static String ACCESS_POINT_IP_ADDRESS = "ACCESS_POINT_IP_ADDRESS";
 
     @Override
@@ -87,8 +88,8 @@ public class LoginActivity extends AppCompatActivity {
         producerFramesPerSegmentInput_ = (EditText) findViewById(R.id.producer_frames_per_segment_input);
         consumerJitterBufferSizeInput_ = (EditText) findViewById(R.id.consumer_jitter_buffer_size_input);
         consumerMaxHistoricalStreamFetchTimeMsInput_ = (EditText) findViewById(R.id.consumer_max_historical_stream_fetch_time_ms_input);
-        consumerMaxSuccessfulDataFetchIntervalMsInput_ = (EditText) findViewById(R.id.consumer_max_successful_data_fetch_interval_ms_input);
-        consumerMaxMetaDataFetchTimeMsInput_ = (EditText) findViewById(R.id.consumer_max_meta_data_fetch_time_ms_input);
+        consumerMediaDataTimeoutMsInput_ = (EditText) findViewById(R.id.consumer_media_data_timeout_ms_input);
+        consumerMetaDataTimeoutMsInput_ = (EditText) findViewById(R.id.consumer_meta_data_timeout_ms_input);
         accessPointIpAddressInput_ = (EditText) findViewById(R.id.access_point_ip_address_input);
 
         okButton_ = (Button) findViewById(R.id.ok_button);
@@ -109,12 +110,12 @@ public class LoginActivity extends AppCompatActivity {
         consumerMaxHistoricalStreamFetchTimeMsInput_.setText(
                 Integer.toString(mPreferences.getInt(CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS,
                         DEFAULT_CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS)));
-        consumerMaxSuccessfulDataFetchIntervalMsInput_.setText(
-                Integer.toString(mPreferences.getInt(CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS,
-                        DEFAULT_CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS)));
-        consumerMaxMetaDataFetchTimeMsInput_.setText(
-                Integer.toString(mPreferences.getInt(CONSUMER_MAX_META_DATA_FETCH_TIME_MS,
-                        DEFAULT_CONSUMER_MAX_META_DATA_FETCH_TIME_MS)));
+        consumerMediaDataTimeoutMsInput_.setText(
+                Integer.toString(mPreferences.getInt(CONSUMER_MEDIA_DATA_TIMEOUT_MS,
+                        DEFAULT_CONSUMER_MEDIA_DATA_TIMEOUT_MS)));
+        consumerMetaDataTimeoutMsInput_.setText(
+                Integer.toString(mPreferences.getInt(CONSUMER_META_DATA_TIMEOUT_MS,
+                        DEFAULT_CONSUMER_META_DATA_TIMEOUT_MS)));
         accessPointIpAddressInput_.setText(mPreferences.getString(ACCESS_POINT_IP_ADDRESS, DEFAULT_ACCESS_POINT_IP_ADDRESS));
 
         okButton_.setOnClickListener(new View.OnClickListener() {
@@ -148,22 +149,22 @@ public class LoginActivity extends AppCompatActivity {
                     showErrorToast("Please enter a valid consumer max historical stream fetch time.");
                     return;
                 }
-                int consumerMaxSuccessfulDataFetchIntervalMs;
+                int consumerMediaDataTimeoutMs;
                 try {
-                    consumerMaxSuccessfulDataFetchIntervalMs = Integer.parseInt(
-                            consumerMaxSuccessfulDataFetchIntervalMsInput_.getText().toString().trim());
+                    consumerMediaDataTimeoutMs = Integer.parseInt(
+                            consumerMediaDataTimeoutMsInput_.getText().toString().trim());
                 }
                 catch (Exception e) {
-                    showErrorToast("Please enter a valid consumer max successful data fetch interval.");
+                    showErrorToast("Please enter a valid consumer media data timeout.");
                     return;
                 }
-                int consumerMaxMetaDataFetchTimeMs;
+                int consumerMetaDataTimeoutMs;
                 try {
-                    consumerMaxMetaDataFetchTimeMs = Integer.parseInt(
-                            consumerMaxMetaDataFetchTimeMsInput_.getText().toString().trim());
+                    consumerMetaDataTimeoutMs = Integer.parseInt(
+                            consumerMetaDataTimeoutMsInput_.getText().toString().trim());
                 }
                 catch (Exception e) {
-                    showErrorToast("Please enter a valid consumer max meta data fetch time.");
+                    showErrorToast("Please enter a valid consumer meta data timeout.");
                     return;
                 }
 
@@ -189,12 +190,12 @@ public class LoginActivity extends AppCompatActivity {
                     showErrorToast("Please enter a valid consumer max historical stream fetch time.");
                     return;
                 }
-                else if (consumerMaxSuccessfulDataFetchIntervalMs < 1) {
-                    showErrorToast("Please enter a valid consumer max successful data fetch interval.");
+                else if (consumerMediaDataTimeoutMs < 1) {
+                    showErrorToast("Please enter a valid consumer media data timeout.");
                     return;
                 }
-                else if (consumerMaxMetaDataFetchTimeMs < 1) {
-                    showErrorToast("Please enter a valid consumer max meta data fetch time.");
+                else if (consumerMetaDataTimeoutMs < 1) {
+                    showErrorToast("Please enter a valid consumer meta data timeout.");
                     return;
                 }
                 else if (!Patterns.IP_ADDRESS.matcher(accessPointIpAddress).matches()) {
@@ -209,8 +210,8 @@ public class LoginActivity extends AppCompatActivity {
                 mPreferencesEditor.putInt(PRODUCER_FRAMES_PER_SEGMENT, producerFramesPerSegment).commit();
                 mPreferencesEditor.putInt(CONSUMER_JITTER_BUFFER_SIZE, consumerJitterBufferSize).commit();
                 mPreferencesEditor.putInt(CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS, consumerMaxHistoricalStreamFetchTimeMs).commit();
-                mPreferencesEditor.putInt(CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS, consumerMaxSuccessfulDataFetchIntervalMs).commit();
-                mPreferencesEditor.putInt(CONSUMER_MAX_META_DATA_FETCH_TIME_MS, consumerMaxMetaDataFetchTimeMs).commit();
+                mPreferencesEditor.putInt(CONSUMER_MEDIA_DATA_TIMEOUT_MS, consumerMediaDataTimeoutMs).commit();
+                mPreferencesEditor.putInt(CONSUMER_META_DATA_TIMEOUT_MS, consumerMetaDataTimeoutMs).commit();
                 mPreferencesEditor.putString(ACCESS_POINT_IP_ADDRESS, accessPointIpAddress).commit();
 
                 Intent intent = new Intent(LoginActivity.this, MainActivity.class);
@@ -222,8 +223,8 @@ public class LoginActivity extends AppCompatActivity {
                 configInfo[IntentInfo.PRODUCER_FRAMES_PER_SEGMENT] = Integer.toString(producerFramesPerSegment);
                 configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE] = Integer.toString(consumerJitterBufferSize);
                 configInfo[IntentInfo.CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS] = Integer.toString(consumerMaxHistoricalStreamFetchTimeMs);
-                configInfo[IntentInfo.CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS] = Integer.toString(consumerMaxSuccessfulDataFetchIntervalMs);
-                configInfo[IntentInfo.CONSUMER_MAX_META_DATA_FETCH_TIME_MS] = Integer.toString(consumerMaxMetaDataFetchTimeMs);
+                configInfo[IntentInfo.CONSUMER_MEDIA_DATA_TIMEOUT_MS] = Integer.toString(consumerMediaDataTimeoutMs);
+                configInfo[IntentInfo.CONSUMER_META_DATA_TIMEOUT_MS] = Integer.toString(consumerMetaDataTimeoutMs);
                 configInfo[IntentInfo.ACCESS_POINT_IP_ADDRESS] = accessPointIpAddress;
                 intent.putExtra(IntentInfo.LOGIN_CONFIG, configInfo);
 
@@ -252,9 +253,12 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     private void showErrorToast(String msg) {
-        Toast toast = Toast.makeText(LoginActivity.this,
+        if (currentErrorToast_ != null) {
+            currentErrorToast_.cancel();
+        }
+        currentErrorToast_ = Toast.makeText(LoginActivity.this,
                 msg, Toast.LENGTH_SHORT);
-        toast.show();
+        currentErrorToast_.show();
     }
 
 }

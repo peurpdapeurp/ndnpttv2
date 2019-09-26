@@ -99,8 +99,8 @@ public class MainActivity extends AppCompatActivity {
         public int producerFramesPerSegment;
         public int consumerJitterBufferSize;
         public int consumerMaxHistoricalStreamFetchTimeMs;
-        public int consumerMaxSuccessfulDataFetchIntervalMs;
-        public int consumerMaxMetaDataFetchTimeMs;
+        public int consumerMediaDataTimeoutMs;
+        public int consumerMetaDataTimeoutMs;
         public String accessPointIpAddress;
     }
 
@@ -206,8 +206,8 @@ public class MainActivity extends AppCompatActivity {
                                 new StreamConsumer.Options(
                                         settings_.consumerJitterBufferSize,
                                         settings_.consumerMaxHistoricalStreamFetchTimeMs,
-                                        settings_.consumerMaxSuccessfulDataFetchIntervalMs,
-                                        settings_.consumerMaxMetaDataFetchTimeMs
+                                        settings_.consumerMediaDataTimeoutMs,
+                                        settings_.consumerMetaDataTimeoutMs
                                 )
                         );
                         playbackQueueModule_.eventStreamStateCreated.addListener(streamNameAndStreamState ->
@@ -329,8 +329,8 @@ public class MainActivity extends AppCompatActivity {
         settings_.producerFramesPerSegment = Integer.parseInt(configInfo[IntentInfo.PRODUCER_FRAMES_PER_SEGMENT]);
         settings_.consumerJitterBufferSize = Integer.parseInt(configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE]);
         settings_.consumerMaxHistoricalStreamFetchTimeMs = Integer.parseInt(configInfo[IntentInfo.CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS]);
-        settings_.consumerMaxSuccessfulDataFetchIntervalMs = Integer.parseInt(configInfo[IntentInfo.CONSUMER_MAX_SUCCESSFUL_DATA_FETCH_INTERVAL_MS]);
-        settings_.consumerMaxMetaDataFetchTimeMs = Integer.parseInt(configInfo[IntentInfo.CONSUMER_MAX_META_DATA_FETCH_TIME_MS]);
+        settings_.consumerMediaDataTimeoutMs = Integer.parseInt(configInfo[IntentInfo.CONSUMER_MEDIA_DATA_TIMEOUT_MS]);
+        settings_.consumerMetaDataTimeoutMs = Integer.parseInt(configInfo[IntentInfo.CONSUMER_META_DATA_TIMEOUT_MS]);
         settings_.accessPointIpAddress = configInfo[IntentInfo.ACCESS_POINT_IP_ADDRESS];
 
         Logger.logEvent(new Logger.LogEventInfo(Logger.APP_INIT, System.currentTimeMillis(), 0, settings_, null));
@@ -341,7 +341,9 @@ public class MainActivity extends AppCompatActivity {
                 getString(R.string.producer_sampling_rate_label) + " " + configInfo[IntentInfo.PRODUCER_SAMPLING_RATE] + "\n" +
                 getString(R.string.producer_frames_per_segment_label) + " " + configInfo[IntentInfo.PRODUCER_FRAMES_PER_SEGMENT] + "\n" +
                 getString(R.string.consumer_jitter_buffer_size_label) + " " + configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE] + "\n" +
-                getString(R.string.consumer_max_historical_stream_fetch_time_ms_label) + " " + configInfo[IntentInfo.CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS];
+                getString(R.string.consumer_max_historical_stream_fetch_time_ms_label) + " " + configInfo[IntentInfo.CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS] + "\n" +
+                getString(R.string.consumer_media_data_timeout_ms_label) + " " + configInfo[IntentInfo.CONSUMER_MEDIA_DATA_TIMEOUT_MS] + "\n" +
+                getString(R.string.consumer_meta_data_timeout_ms_label) + " " + configInfo[IntentInfo.CONSUMER_META_DATA_TIMEOUT_MS];
         settingsDisplay_.setText(settingsString);
 
         syncSessionId_ = System.currentTimeMillis();

@@ -9,7 +9,9 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:layout_marginLeft="5dp"
+        android:layout_marginRight="5dp">
 
         <TextView
             android:id="@+id/channel_settings_label"
@@ -23,14 +25,14 @@
             android:textStyle="bold" />
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="0dp">
+            android:layout_marginBottom="0dp"
+            android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/channel_input_label"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Channel Name:"
                 android:textColor="?attr/actionModeSplitBackground"
@@ -39,7 +41,7 @@
 
             <EditText
                 android:id="@+id/channel_input"
-                android:layout_width="259dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ems="10"
                 android:inputType="textPersonName"
@@ -47,13 +49,13 @@
         </LinearLayout>
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/user_name_input_label"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="User Name:"
                 android:textColor="?attr/actionModeSplitBackground"
@@ -62,7 +64,7 @@
 
             <EditText
                 android:id="@+id/user_name_input"
-                android:layout_width="283dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ems="10"
                 android:inputType="textPersonName"
@@ -81,7 +83,7 @@
             android:textStyle="bold" />
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
@@ -101,13 +103,13 @@
         </LinearLayout>
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/producer_frames_per_segment_input_label"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Frames Per Segment:"
                 android:textColor="?attr/actionModeSplitBackground"
@@ -116,7 +118,7 @@
 
             <EditText
                 android:id="@+id/producer_frames_per_segment_input"
-                android:layout_width="217dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ems="10"
                 android:inputType="textPersonName"
@@ -135,13 +137,13 @@
             android:textStyle="bold" />
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/consumer_jitter_buffer_size_input_label"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Jitter Buffer Size (frames):"
                 android:textColor="?attr/actionModeSplitBackground"
@@ -150,7 +152,7 @@
 
             <EditText
                 android:id="@+id/consumer_jitter_buffer_size_input"
-                android:layout_width="181dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ems="10"
                 android:inputType="textPersonName"
@@ -158,13 +160,13 @@
         </LinearLayout>
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/consumer_max_historical_stream_fetch_time_ms_input_label"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Max Historical Stream Fetch Time (ms):"
                 android:textColor="?attr/actionModeSplitBackground"
@@ -173,7 +175,7 @@
 
             <EditText
                 android:id="@+id/consumer_max_historical_stream_fetch_time_ms_input"
-                android:layout_width="94dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ems="10"
                 android:inputType="textPersonName"
@@ -181,22 +183,22 @@
         </LinearLayout>
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
             <TextView
-                android:id="@+id/consumer_max_successful_data_fetch_interval_ms_input_label"
-                android:layout_width="match_parent"
+                android:id="@+id/consumer_media_data_timeout_ms_input_label"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Max Successful Data Fetch Interval (ms):"
+                android:text="Media Data Timeout (ms):"
                 android:textColor="?attr/actionModeSplitBackground"
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
             <EditText
-                android:id="@+id/consumer_max_successful_data_fetch_interval_ms_input"
-                android:layout_width="85dp"
+                android:id="@+id/consumer_media_data_timeout_ms_input"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ems="10"
                 android:inputType="textPersonName"
@@ -204,22 +206,22 @@
         </LinearLayout>
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
             <TextView
-                android:id="@+id/consumer_max_meta_data_fetch_time_ms_input_label"
-                android:layout_width="match_parent"
+                android:id="@+id/consumer_meta_data_timeout_ms_input_label"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Max Meta Data Fetch Time (ms):"
+                android:text="Meta Data Timeout (ms):"
                 android:textColor="?attr/actionModeSplitBackground"
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
             <EditText
-                android:id="@+id/consumer_max_meta_data_fetch_time_ms_input"
-                android:layout_width="141dp"
+                android:id="@+id/consumer_meta_data_timeout_ms_input"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ems="10"
                 android:inputType="textPersonName"
@@ -238,13 +240,13 @@
             android:textStyle="bold" />
 
         <LinearLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal">
 
             <TextView
                 android:id="@+id/access_point_ip_address_input_label"
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Access Point IP Address:"
                 android:textColor="?attr/actionModeSplitBackground"
@@ -253,7 +255,7 @@
 
             <EditText
                 android:id="@+id/access_point_ip_address_input"
-                android:layout_width="193dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:ems="10"
                 android:inputType="textPersonName"

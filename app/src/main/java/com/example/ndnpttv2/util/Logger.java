@@ -38,6 +38,8 @@ public class Logger {
     public static final String STREAMCONSUMER_NACK_RECEIVE = "STREAMCONSUMER_NACK_RECEIVE";
     public static final String STREAMCONSUMER_INTEREST_SKIP = "STREAMCONSUMER_INTEREST_SKIP";
     public static final String STREAMCONSUMER_FETCHING_COMPLETE = "STREAMCONSUMER_FETCHING_COMPLETE";
+    public static final String STREAMCONSUMER_BUFFERING_START = "STREAMCONSUMER_BUFFERING_START";
+    public static final String STREAMCONSUMER_BUFFERING_COMPLETE = "STREAMCONSUMER_BUFFERING_COMPLETE";
     public static final String PQMODULE_NEW_STREAM_AVAILABLE = "PQMODULE_NEW_STREAM_AVAILABLE";
     public static final String PQMODULE_NEW_WIFI_STATE = "PQMODULE_NEW_WIFI_STATE";
     public static final String RECMODULE_RECORD_REQUEST_START = "RECMODULE_RECORD_REQUEST_START";
@@ -151,6 +153,14 @@ public class Logger {
             }
             params.add(streamName);
             params.add(fetchCompleteCodeString);
+        }
+        else if (eventString.equals(STREAMCONSUMER_BUFFERING_START)) {
+            String streamName = (String) logEventInfo.obj1;
+            params.add(streamName);
+        }
+        else if (eventString.equals(STREAMCONSUMER_BUFFERING_COMPLETE)) {
+            String streamName = (String) logEventInfo.obj1;
+            params.add(streamName);
         }
         else if (eventString.equals(PQMODULE_NEW_STREAM_AVAILABLE)) {
             String streamName = (String) logEventInfo.obj1;

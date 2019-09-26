@@ -214,6 +214,8 @@ public class StreamConsumer {
         switch (close_msg_what) {
             case MSG_CLOSE_SUCCESS: {
                 eventBufferingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
+                Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_BUFFERING_COMPLETE, System.currentTimeMillis(),
+                        0, streamName_.toString(), null));
                 break;
             }
             case MSG_CLOSE_META_DATA_TIMEOUT: {
@@ -915,6 +917,8 @@ public class StreamConsumer {
             if (firstRealDoSomeWork_) {
 
                 Log.d(TAG, "buffering started");
+                Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_BUFFERING_START, System.currentTimeMillis(),
+                        0, streamName_.toString(), null));
 
                 highestFrameNumPlayedDeadline_ = streamPlayStartTime_ + jitterBufferDelay_;
 

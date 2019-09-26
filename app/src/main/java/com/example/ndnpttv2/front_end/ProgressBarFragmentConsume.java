@@ -307,7 +307,7 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 long segNum = state_.highestSegAnticipated;
                 for (int i = 0; i < state_.framesPerSegment; i++) {
                     long frameNum = segNum * state_.framesPerSegment + i;
-                    progressBar_.updateSingleSegmentColor((int) frameNum, R.color.red);
+                    progressBar_.updateSingleSegmentColor((int) frameNum, R.color.black);
                 }
                 break;
             }
@@ -321,7 +321,7 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
             }
             case MSG_STREAM_BUFFER_FRAME_SKIPPED: {
                 long frameNum = arg1;
-                progressBar_.updateSingleSegmentColor((int) frameNum, R.color.black);
+                progressBar_.updateSingleSegmentColor((int) frameNum, R.color.red);
                 break;
             }
             case MSG_STREAM_BUFFER_FRAME_BUFFERED: {

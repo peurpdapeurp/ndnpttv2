@@ -39,13 +39,21 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="30dp"
-            android:orientation="horizontal">
+            android:layout_height="15dp"
+            android:orientation="horizontal"
+            android:layout_marginTop="2dp">
 
             <com.example.ndnpttv2.front_end.custom_progress_bar.CustomProgressBar
                 android:id="@+id/progress_bar"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent" />
+                android:layout_height="match_parent"
+                android:max="100"
+                android:paddingLeft="0dp"
+                android:paddingRight="0dp"
+                android:progress="0"
+                android:progressDrawable="@android:color/transparent"
+                android:thumb="@drawable/seek_thumb_normal"
+                android:thumbOffset="0dp" />
 
         </LinearLayout>
 

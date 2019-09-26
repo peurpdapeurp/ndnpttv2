@@ -299,7 +299,6 @@ public class MainActivity extends AppCompatActivity {
                     }
                     case MSG_WIFI_STATE_CHANGED: {
                         int newWifiState = msg.arg1;
-                        playbackQueueModule_.notifyNewWifiState(newWifiState);
                         networkThread_.notifyNewWifiState(newWifiState);
                         break;
                     }

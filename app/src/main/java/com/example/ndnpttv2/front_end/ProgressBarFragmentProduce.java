@@ -24,7 +24,7 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
 
     // Private constants
     private static final int POPUP_WINDOW_WIDTH = 900;
-    private static final int POPUP_WINDOW_HEIGHT = 425;
+    private static final int POPUP_WINDOW_HEIGHT = 375;
 
     // Messages
     private static final int MSG_STREAM_PRODUCER_SEGMENT_PUBLISHED = 0;
@@ -61,9 +61,9 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
                     "Recording start time: " + itemDateStr + "\n" +
                     "Final block id: " +
                         ((finalBlockId == FINAL_BLOCK_ID_UNKNOWN) ? "?" : finalBlockId) + "\n" +
-                    "Segments published: " + numSegsPublished + "\n" +
-                    "Highest segment published: " +
-                        ((highestSegPublished == NO_SEGMENTS_PUBLISHED) ? "none" : highestSegPublished);
+                    "Segments published: " + numSegsPublished;
+//                    + "\n" + "Highest segment published: " +
+//                        ((highestSegPublished == NO_SEGMENTS_PUBLISHED) ? "none" : highestSegPublished);
         }
     }
 

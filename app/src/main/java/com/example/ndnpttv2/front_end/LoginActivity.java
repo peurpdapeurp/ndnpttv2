@@ -261,5 +261,9 @@ public class LoginActivity extends AppCompatActivity {
         currentErrorToast_.show();
     }
 
+    @Override
+    public void onBackPressed() {
+        // do nothing; this is to stop MainActivity from getting onActivityResult callback when back is pressed on Login screen
+    }
 }
 

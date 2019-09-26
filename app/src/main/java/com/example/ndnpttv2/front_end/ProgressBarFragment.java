@@ -10,6 +10,7 @@ import androidx.fragment.app.Fragment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -26,11 +27,13 @@ import java.util.concurrent.LinkedTransferQueue;
 
 public abstract class ProgressBarFragment extends Fragment {
 
+    private static final String TAG = "ProgressBarFragment";
+
     TextView nameDisplay_;
     CustomProgressBar progressBar_;
     ImageView imageLabel_;
 
-    private Name streamName_;
+    protected Name streamName_;
     private Handler handler_;
     private boolean readyForRendering_ = false;
     private LinkedTransferQueue<Message> prematureMessages_;
@@ -60,6 +63,8 @@ public abstract class ProgressBarFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
+
+        Log.d(TAG, "onCreateView");
         View view =  inflater.inflate(R.layout.fragment_progress_bar, container, false);
 
         nameDisplay_ = (TextView) view.findViewById(R.id.name_display);
@@ -84,6 +89,8 @@ public abstract class ProgressBarFragment extends Fragment {
         imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.ellipses));
 
         onViewInitialized();
+
+        render();
 
         return view;
     }
@@ -126,6 +133,8 @@ public abstract class ProgressBarFragment extends Fragment {
     }
 
     abstract void onViewInitialized();
+
+    abstract void render();
 
     long getNumFrames(long finalBlockId, long framesPerSegment) {
         return finalBlockId * framesPerSegment + framesPerSegment - 1;

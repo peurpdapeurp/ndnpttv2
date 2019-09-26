@@ -5,6 +5,7 @@ import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Looper;
 import android.os.Message;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.PopupWindow;
@@ -22,6 +23,8 @@ import java.text.SimpleDateFormat;
 
 public class ProgressBarFragmentProduce extends ProgressBarFragment {
 
+    private static final String TAG = "ProgressBarFragmentProd";
+
     // Private constants
     private static final int POPUP_WINDOW_WIDTH = 900;
     private static final int POPUP_WINDOW_HEIGHT = 375;
@@ -31,6 +34,8 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
     private static final int MSG_STREAM_PRODUCER_FINAL_SEGMENT_PUBLISHED = 1;
 
     private StreamState state_;
+    private Drawable currentIcon_;
+    private boolean streamPopUpEnabled_ = false;
 
     private class StreamState {
         static final int FINAL_BLOCK_ID_UNKNOWN = -1;
@@ -94,20 +99,22 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
                 if (progressEventInfo.arg1 > state_.highestSegPublished) {
                     state_.highestSegPublished = progressEventInfo.arg1;
                 }
-                updateProgressBar(msg.what, progressEventInfo.arg1, state_);
+                updateProgressBar(msg.what, progressEventInfo.arg1);
                 break;
             }
             case MSG_STREAM_PRODUCER_FINAL_SEGMENT_PUBLISHED: {
                 state_.finalBlockId = progressEventInfo.arg1;
-                updateProgressBar(msg.what, 0, state_);
-                enableStreamInfoPopUp();
-                imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.check_mark));
+                updateProgressBar(msg.what, 0);
+                streamPopUpEnabled_ = true;
+                currentIcon_ = ctx_.getDrawable(R.drawable.check_mark);
                 break;
             }
             default: {
                 throw new IllegalStateException("unexpected msg.what " + msg.what);
             }
         }
+
+        render();
     }
 
     @Override
@@ -149,15 +156,15 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
                 location[0], location[1] + anchorView.getHeight());
     }
 
-    void updateProgressBar(int msg_what, long arg1, StreamState streamState) {
-        boolean finalBlockIdKnown = streamState.finalBlockId != StreamState.FINAL_BLOCK_ID_UNKNOWN;
+    void updateProgressBar(int msg_what, long arg1) {
+        boolean finalBlockIdKnown = state_.finalBlockId != StreamState.FINAL_BLOCK_ID_UNKNOWN;
 
         // rescaling logic
         if (finalBlockIdKnown) {
-            progressBar_.setTotalSegments((int) streamState.finalBlockId + 1);
+            progressBar_.setTotalSegments((int) state_.finalBlockId + 1);
         }
         if (!finalBlockIdKnown &&
-                ((float) streamState.highestSegPublished / (float) progressBar_.getTotalSegments()) > 0.90f) {
+                ((float) state_.highestSegPublished / (float) progressBar_.getTotalSegments()) > 0.90f) {
             progressBar_.setTotalSegments(progressBar_.getTotalSegments() * 2);
         }
 
@@ -176,4 +183,21 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
 
     }
 
+    @Override
+    void render() {
+        try {
+            if (currentIcon_ != null)
+                imageLabel_.setImageDrawable(currentIcon_);
+            nameDisplay_.setText(streamName_.toString());
+            if (streamPopUpEnabled_)
+                enableStreamInfoPopUp();
+            progressBar_.render();
+        }
+        catch (NullPointerException e) {
+            Log.e(TAG, "failed to render for " + (streamName_ == null ? "?" : streamName_.toString()) + ", error: " + e.getMessage());
+        }
+        catch (IllegalStateException e) {
+            Log.e(TAG, "failed to render for " + (streamName_ == null ? "?" : streamName_.toString()) + ", error: " + e.getMessage());
+        }
+    }
 }

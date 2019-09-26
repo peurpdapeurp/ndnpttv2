@@ -2,6 +2,7 @@ package com.example.ndnpttv2.front_end;
 
 import android.content.Context;
 import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.Drawable;
 import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
@@ -45,6 +46,8 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
     private StreamState state_;
     private boolean metaDataFetched_;
     private boolean viewInitialized_;
+    private Drawable currentIcon_;
+    private boolean streamPopUpEnabled_ = false;
 
     public class StreamState {
         static final int UNKNOWN = -1;
@@ -143,7 +146,7 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
         switch (msg.what) {
             case MSG_STREAM_FETCHER_PRODUCTION_WINDOW_GROW: {
                 state_.highestSegAnticipated = progressEventInfo.arg1;
-                updateProgressBar(msg.what, 0, state_);
+                updateProgressBar(msg.what, 0);
                 break;
             }
             case MSG_STREAM_FETCHER_INTEREST_SKIPPED: {
@@ -152,7 +155,7 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
             }
             case MSG_STREAM_FETCHER_AUDIO_RETRIEVED: {
                 state_.segmentsFetched++;
-                updateProgressBar(msg.what, progressEventInfo.arg1, state_);
+                updateProgressBar(msg.what, progressEventInfo.arg1);
                 break;
             }
             case MSG_STREAM_FETCHER_NACK_RETRIEVED: {
@@ -161,7 +164,7 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
             }
             case MSG_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED: {
                 state_.finalBlockId = progressEventInfo.arg1;
-                updateProgressBar(msg.what, 0, state_);
+                updateProgressBar(msg.what, 0);
                 break;
             }
             case MSG_STREAM_FETCHER_META_DATA_FETCHED: {
@@ -184,19 +187,19 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 Log.d(TAG, "got signal that stream fetching finished");
                 switch ((int) progressEventInfo.arg1) {
                     case StreamConsumer.FETCH_COMPLETE_CODE_SUCCESS: {
-                        imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.circle));
+                        currentIcon_ = ctx_.getDrawable(R.drawable.circle);
                         break;
                     }
                     case StreamConsumer.FETCH_COMPLETE_CODE_META_DATA_TIMEOUT: {
-                        imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.question_mark));
+                        currentIcon_ = ctx_.getDrawable(R.drawable.question_mark);
                         break;
                     }
                     case StreamConsumer.FETCH_COMPLETE_CODE_MEDIA_DATA_TIMEOUT: {
-                        imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.x));
+                        currentIcon_ = ctx_.getDrawable(R.drawable.x);
                         break;
                     }
                     case StreamConsumer.FETCH_COMPLETE_CODE_STREAM_RECORDED_TOO_FAR_IN_PAST: {
-                        imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.clock));
+                        currentIcon_ = ctx_.getDrawable(R.drawable.clock);
                         break;
                     }
                     default: {
@@ -204,34 +207,37 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                     }
                 }
                 if (progressEventInfo.arg1 != StreamConsumer.FETCH_COMPLETE_CODE_SUCCESS) {
-                    enableStreamInfoPopUp();
+                    streamPopUpEnabled_ = true;
                 }
                 break;
             }
             case MSG_STREAM_BUFFER_FRAME_BUFFERED: {
                 state_.framesBuffered++;
-                updateProgressBar(msg.what, progressEventInfo.arg1, state_);
+                updateProgressBar(msg.what, progressEventInfo.arg1);
                 break;
             }
             case MSG_STREAM_BUFFER_FRAME_SKIPPED: {
                 state_.framesSkipped++;
-                updateProgressBar(msg.what, progressEventInfo.arg1, state_);
+                updateProgressBar(msg.what, progressEventInfo.arg1);
                 break;
             }
             case MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED: {
                 state_.finalFrameNum = progressEventInfo.arg1;
-                updateProgressBar(msg.what, 0, state_);
+                updateProgressBar(msg.what, 0);
                 break;
             }
             case MSG_STREAM_PLAYER_PLAYING_FINISHED: {
-                enableStreamInfoPopUp();
-                imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.check_mark));
+                Log.d(TAG, "got signal stream playing finished");
+                streamPopUpEnabled_ = true;
+                currentIcon_ = ctx_.getDrawable(R.drawable.check_mark);
                 break;
             }
             default: {
                 throw new IllegalStateException("unexpected msg.what " + msg.what);
             }
         }
+
+        render();
     }
 
     @Override
@@ -274,40 +280,41 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
             startRendering();
     }
 
-    void updateProgressBar(int msg_what, long arg1, StreamState streamState) {
-        boolean finalBlockIdKnown = streamState.finalBlockId != StreamState.UNKNOWN;
-        boolean finalFrameNumKnown = streamState.finalFrameNum != StreamState.UNKNOWN;
+    void updateProgressBar(int msg_what, long arg1) {
+
+        boolean finalBlockIdKnown = state_.finalBlockId != StreamState.UNKNOWN;
+        boolean finalFrameNumKnown = state_.finalFrameNum != StreamState.UNKNOWN;
 
         // rescaling logic
         if (!finalBlockIdKnown && finalFrameNumKnown) {
-            if (progressBar_.getTotalSegments() != streamState.finalFrameNum + 1) {
-                progressBar_.setTotalSegments((int) (streamState.finalFrameNum + 1));
+            if (progressBar_.getTotalSegments() != state_.finalFrameNum + 1) {
+                progressBar_.setTotalSegments((int) (state_.finalFrameNum + 1));
             }
         }
         else if (finalBlockIdKnown) {
-            long numFrames = getNumFrames(streamState.finalBlockId, streamState.framesPerSegment);
+            long numFrames = getNumFrames(state_.finalBlockId, state_.framesPerSegment);
             if (progressBar_.getTotalSegments() != numFrames) {
                 progressBar_.setTotalSegments((int) numFrames);
             }
         }
-        else if ((float) streamState.highestSegAnticipated / (float) progressBar_.getTotalSegments() > 0.90f) {
+        else if ((float) state_.highestSegAnticipated / (float) progressBar_.getTotalSegments() > 0.90f) {
             progressBar_.setTotalSegments(progressBar_.getTotalSegments() * 2);
         }
 
         // single progress bar segment update logic
         switch (msg_what) {
             case MSG_STREAM_FETCHER_PRODUCTION_WINDOW_GROW: {
-                long segNum = streamState.highestSegAnticipated;
-                for (int i = 0; i < streamState.framesPerSegment; i++) {
-                    long frameNum = segNum * streamState.framesPerSegment + i;
+                long segNum = state_.highestSegAnticipated;
+                for (int i = 0; i < state_.framesPerSegment; i++) {
+                    long frameNum = segNum * state_.framesPerSegment + i;
                     progressBar_.updateSingleSegmentColor((int) frameNum, R.color.red);
                 }
                 break;
             }
             case MSG_STREAM_FETCHER_AUDIO_RETRIEVED: {
                 long segNum = arg1;
-                for (int i = 0; i < streamState.framesPerSegment; i++) {
-                    long frameNum = segNum * streamState.framesPerSegment + i;
+                for (int i = 0; i < state_.framesPerSegment; i++) {
+                    long frameNum = segNum * state_.framesPerSegment + i;
                     progressBar_.updateSingleSegmentColor((int) frameNum, R.color.yellow);
                 }
                 break;
@@ -331,4 +338,21 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
         }
     }
 
+    @Override
+    void render() {
+        try {
+            if (currentIcon_ != null)
+                imageLabel_.setImageDrawable(currentIcon_);
+            nameDisplay_.setText(streamName_.toString());
+            if (streamPopUpEnabled_)
+                enableStreamInfoPopUp();
+            progressBar_.render();
+        }
+        catch (NullPointerException e) {
+            Log.e(TAG, "failed to render for " + (streamName_ == null ? "?" : streamName_.toString()) + ", error: " + e.getMessage());
+        }
+        catch (IllegalStateException e) {
+            Log.e(TAG, "failed to render for " + (streamName_ == null ? "?" : streamName_.toString()) + ", error: " + e.getMessage());
+        }
+    }
 }

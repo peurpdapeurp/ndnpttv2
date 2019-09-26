@@ -63,7 +63,6 @@ public class CustomProgressBar extends AppCompatSeekBar {
     public void updateSingleSegmentColor(int segNum, int color) {
         if (segNum >= totalSegments_) return;
         progressItemsList_.get(segNum).color = color;
-        invalidate();
     }
 
     public int getSegmentColor(int segNum) {
@@ -102,7 +101,6 @@ public class CustomProgressBar extends AppCompatSeekBar {
         }
 
         initData(progressItemsList);
-        invalidate();
     }
 
     public void reset() {
@@ -120,6 +118,10 @@ public class CustomProgressBar extends AppCompatSeekBar {
     public void init() {
         segmentColors_ = new HashMap<>();
         reset();
+    }
+
+    public void render() {
+        invalidate();
     }
 
     public CustomProgressBar(Context context) {

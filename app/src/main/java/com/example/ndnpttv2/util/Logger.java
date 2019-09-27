@@ -227,9 +227,9 @@ public class Logger {
 
     private static String generateLogMessage(String eventString, long timestamp, ArrayList<String> parameters) {
         String message = "";
-        message += eventString;
-        message += ",";
         message += Long.toString(timestamp);
+        message += ",";
+        message += eventString;
         message += ":";
         message += " ";
         for (String param : parameters) {

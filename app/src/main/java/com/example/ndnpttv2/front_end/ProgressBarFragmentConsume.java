@@ -12,11 +12,14 @@ import android.widget.PopupWindow;
 import android.widget.TextView;
 
 import com.example.ndnpttv2.R;
+import com.example.ndnpttv2.back_end.pq_module.InternalStreamConsumptionState;
 import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
 import com.example.ndnpttv2.back_end.pq_module.PlaybackQueueModule;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
 import com.example.ndnpttv2.back_end.structs.StreamMetaData;
+import com.pploder.events.Event;
+import com.pploder.events.SimpleEvent;
 
 import net.named_data.jndn.Name;
 
@@ -106,13 +109,13 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
         }
     }
 
-    ProgressBarFragmentConsume(PlaybackQueueModule.StreamNameAndStreamState streamNameAndStreamState,
+    ProgressBarFragmentConsume(InternalStreamConsumptionState consumptionState,
                                Looper mainThreadLooper, Context ctx) {
-        super(streamNameAndStreamState.streamName, mainThreadLooper, ctx);
+        super(consumptionState.streamName, mainThreadLooper, ctx);
 
-        state_ = new StreamState(streamNameAndStreamState.streamName);
+        state_ = new StreamState(consumptionState.streamName);
 
-        StreamConsumer streamConsumer = streamNameAndStreamState.streamState.streamConsumer;
+        StreamConsumer streamConsumer = consumptionState.streamConsumer;
         streamConsumer.eventProductionWindowGrowth.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_FETCHER_PRODUCTION_WINDOW_GROW, progressEventInfo));
         streamConsumer.eventInterestSkipped.addListener(progressEventInfo ->
@@ -134,7 +137,7 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
         streamConsumer.eventFinalFrameNumLearned.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED, progressEventInfo));
 
-        StreamPlayer streamPlayer = streamNameAndStreamState.streamState.streamPlayer;
+        StreamPlayer streamPlayer = consumptionState.streamPlayer;
         streamPlayer.eventPlayingCompleted.addListener(progressEventInfo ->
                 processProgressEvent(MSG_STREAM_PLAYER_PLAYING_FINISHED, progressEventInfo));
     }
@@ -343,7 +346,11 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
         try {
             if (currentIcon_ != null)
                 imageLabel_.setImageDrawable(currentIcon_);
-            nameDisplay_.setText(streamName_.toString());
+            String displayText =
+                    syncStreamInfo_.channelUserSession.userName + ", " +
+                    syncStreamInfo_.channelUserSession.sessionId + ", " +
+                    syncStreamInfo_.seqNum;
+            nameDisplay_.setText(displayText);
             if (streamPopUpEnabled_)
                 enableStreamInfoPopUp();
             progressBar_.render();

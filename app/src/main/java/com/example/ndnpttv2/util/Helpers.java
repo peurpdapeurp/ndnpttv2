@@ -4,12 +4,28 @@ import com.example.ndnpttv2.back_end.structs.ChannelUserSession;
 import com.example.ndnpttv2.back_end.structs.SyncStreamInfo;
 
 import net.named_data.jndn.Name;
+import net.named_data.jndn.encoding.EncodingException;
 
 import java.nio.ByteBuffer;
 
 import static com.example.ndnpttv2.back_end.Constants.META_DATA_MARKER;
 
 public class Helpers {
+
+    public static SyncStreamInfo getSyncStreamInfo(Name streamName) {
+        ChannelUserSession channelUserSession = getChannelUserSession(streamName);
+        try {
+            return new SyncStreamInfo(
+                    channelUserSession.channelName,
+                    channelUserSession.userName,
+                    channelUserSession.sessionId,
+                    streamName.get(-1).toSequenceNumber()
+            );
+        } catch (EncodingException e) {
+            e.printStackTrace();
+            throw new IllegalStateException("failed to get sequence number from stream name " + streamName.toString());
+        }
+    }
 
     public static ChannelUserSession getChannelUserSession(Name streamName) {
         return new ChannelUserSession(

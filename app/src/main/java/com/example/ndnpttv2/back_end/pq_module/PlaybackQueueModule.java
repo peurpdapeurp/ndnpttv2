@@ -21,6 +21,7 @@ import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
 import com.example.ndnpttv2.back_end.wifi_module.WifiModule;
 import com.example.ndnpttv2.util.Helpers;
 import com.example.ndnpttv2.util.Logger;
+import com.google.protobuf.Internal;
 import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
 
@@ -45,7 +46,7 @@ public class PlaybackQueueModule {
     private static final int MSG_NEW_STREAM_AVAILABLE = 3;
 
     // Events
-    public Event<StreamNameAndStreamState> eventStreamStateCreated;
+    public Event<InternalStreamConsumptionState> eventStreamStateCreated;
 
     private PeerStateTable peerStateTable_;
     private AppState appState_;
@@ -56,20 +57,12 @@ public class PlaybackQueueModule {
     private Handler workHandler_;
 
     private Name networkDataPrefix_;
-    private LinkedTransferQueue<SyncStreamInfo> fetchingQueue_;
-    private LinkedTransferQueue<Name> playbackQueue_;
-    private HashMap<Name, InternalStreamConsumptionState> streamStates_;
+    private LinkedTransferQueue<Long> fetchingQueue_;
+    private LinkedTransferQueue<Long> playbackQueue_;
+    private HashMap<Long, InternalStreamConsumptionState> streamStates_;
     private NetworkThread.Info networkThreadInfo_;
     private StreamConsumer.Options options_;
-
-    public static class StreamNameAndStreamState {
-        StreamNameAndStreamState(Name streamName, InternalStreamConsumptionState streamState) {
-            this.streamName = streamName;
-            this.streamState = streamState;
-        }
-        public Name streamName;
-        public InternalStreamConsumptionState streamState;
-    }
+    private long currentProgressTrackerId_ = 0;
 
     public PlaybackQueueModule(Context ctx, Looper mainThreadLooper, NetworkThread.Info networkThreadInfo,
                                AppState appState, Name networkDataPrefix, PeerStateTable peerStateTable,
@@ -94,11 +87,12 @@ public class PlaybackQueueModule {
             public void handleMessage(@NonNull Message msg) {
                 ProgressEventInfo progressEventInfo = (ProgressEventInfo) msg.obj;
                 Name streamName = progressEventInfo.streamName;
-                InternalStreamConsumptionState streamState = streamStates_.get(streamName);
+                InternalStreamConsumptionState streamState = streamStates_.get(progressEventInfo.progressTrackerId);
 
                 if (streamState == null) {
                     Log.w(TAG, "streamState was null for msg (" +
                             "msg.what " + msg.what + ", " +
+                            "progress tracker id " + progressEventInfo.progressTrackerId + ", " +
                             "stream name " + streamName.toString() +
                             ")");
                     return;
@@ -111,8 +105,8 @@ public class PlaybackQueueModule {
                         }
                         else {
                             streamState.streamPlayer.close();
-                            playbackQueue_.remove(streamName);
-                            streamStates_.remove(streamName);
+                            playbackQueue_.remove(progressEventInfo.progressTrackerId);
+                            streamStates_.remove(progressEventInfo.progressTrackerId);
                             appState_.stopPlaying();
 
                             String failureTypeString = "";
@@ -140,7 +134,7 @@ public class PlaybackQueueModule {
                     case MSG_STREAM_PLAYER_PLAYING_COMPLETE: {
                         Log.d(TAG, "playing of stream " + streamName.toString() + " finished");
                         streamState.streamPlayer.close();
-                        streamStates_.remove(streamName);
+                        streamStates_.remove(progressEventInfo.progressTrackerId);
                         appState_.stopPlaying();
                         break;
                     }
@@ -160,11 +154,14 @@ public class PlaybackQueueModule {
                         Log.d(TAG, "Notified of new stream " + "(" +
                                 syncStreamInfo.toString() +
                                 ")");
-                        fetchingQueue_.add(syncStreamInfo);
-                        Name streamName = Helpers.getStreamName(networkDataPrefix_, syncStreamInfo);
-                        playbackQueue_.add(streamName);
+                        fetchingQueue_.add(currentProgressTrackerId_);
+                        playbackQueue_.add(currentProgressTrackerId_);
                         Logger.logEvent(new Logger.LogEventInfo(Logger.PQMODULE_NEW_STREAM_AVAILABLE, System.currentTimeMillis(),
                                 0, Helpers.getStreamName(networkDataPrefix_, syncStreamInfo).toString(), null));
+                        Name streamName = Helpers.getStreamName(networkDataPrefix_, syncStreamInfo);
+                        InternalStreamConsumptionState consumptionState = new InternalStreamConsumptionState(streamName, null, null);
+                        streamStates_.put(currentProgressTrackerId_, consumptionState);
+                        currentProgressTrackerId_++;
                         break;
                     }
                     default: {
@@ -200,25 +197,32 @@ public class PlaybackQueueModule {
         moduleMessageHandler_.obtainMessage(MSG_NEW_STREAM_AVAILABLE, syncStreamInfo).sendToTarget();
     }
 
+    public void notifyRefetchRequest(Name streamName) {
+        moduleMessageHandler_.obtainMessage(MSG_NEW_STREAM_AVAILABLE, Helpers.getSyncStreamInfo(streamName)).sendToTarget();
+    }
+
     private void doSomeWork() {
 
         // initiate the fetching of streams ready for fetching
         if (fetchingQueue_.size() != 0) {
 
-            SyncStreamInfo syncStreamInfo = fetchingQueue_.poll();
-            Name streamName = Helpers.getStreamName(networkDataPrefix_, syncStreamInfo);
+            Long progressTrackerId = fetchingQueue_.poll();
+            InternalStreamConsumptionState consumptionState = streamStates_.get(progressTrackerId);
+            Name streamName = consumptionState.streamName;
+            SyncStreamInfo syncStreamInfo = Helpers.getSyncStreamInfo(streamName);
             Log.d(TAG, "fetching queue was non empty, fetching stream " + streamName.toString());
 
             InputStreamDataSource transferSource = new InputStreamDataSource();
 
             StreamPlayer streamPlayer = new StreamPlayer(ctx_, transferSource,
-                    streamName, progressEventHandler_);
+                    progressTrackerId, streamName);
             streamPlayer.eventPlayingCompleted.addListener(progressEventInfo ->
                 progressEventHandler_
                         .obtainMessage(MSG_STREAM_PLAYER_PLAYING_COMPLETE, progressEventInfo)
                         .sendToTarget());
 
             StreamConsumer streamConsumer = new StreamConsumer(
+                    progressTrackerId,
                     networkDataPrefix_,
                     syncStreamInfo,
                     transferSource,
@@ -226,27 +230,28 @@ public class PlaybackQueueModule {
                     peerStateTable_,
                     options_
             );
-            InternalStreamConsumptionState internalStreamConsumptionState = new InternalStreamConsumptionState(streamConsumer, streamPlayer);
-            streamStates_.put(streamName, internalStreamConsumptionState);
+
+            consumptionState.streamPlayer = streamPlayer;
+            consumptionState.streamConsumer = streamConsumer;
+
             streamConsumer.eventFetchingCompleted.addListener(progressEventInfo ->
                 progressEventHandler_
                         .obtainMessage(MSG_STREAM_CONSUMER_FETCHING_COMPLETE, progressEventInfo)
                         .sendToTarget());
-            eventStreamStateCreated.trigger(new StreamNameAndStreamState(streamName, internalStreamConsumptionState));
+            eventStreamStateCreated.trigger(consumptionState);
 
             streamConsumer.streamFetchStart();
-
         }
 
         // initiate the playback of streams ready for playback
         if (playbackQueue_.size() != 0 && !appState_.isRecording() && !appState_.isPlaying()) {
 
-            Name streamName = playbackQueue_.poll();
+            Long progressTrackerId = playbackQueue_.poll();
+            InternalStreamConsumptionState consumptionState = streamStates_.get(progressTrackerId);
 
-            Log.d(TAG, "playback queue was non empty, playing stream " + streamName.toString());
+            Log.d(TAG, "playback queue was non empty, playing stream " + consumptionState.streamName.toString());
 
-            InternalStreamConsumptionState streamState = streamStates_.get(streamName);
-            streamState.streamConsumer.streamBufferStart();
+            consumptionState.streamConsumer.streamBufferStart();
 
             appState_.startPlaying();
 

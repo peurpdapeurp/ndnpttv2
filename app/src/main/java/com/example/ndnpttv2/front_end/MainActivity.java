@@ -21,6 +21,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.ndnpttv2.R;
+import com.example.ndnpttv2.back_end.pq_module.InternalStreamConsumptionState;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.shared_state.AppState;
 import com.example.ndnpttv2.back_end.shared_state.PeerStateTable;
@@ -56,6 +57,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int MSG_RECORDER_STREAM_STATE_CREATED = 7;
     private static final int MSG_RECORDER_RECORD_START_REQUEST_IGNORED = 8;
     private static final int MSG_WIFI_STATE_CHANGED = 9;
+    private static final int MSG_REFETCH_REQUEST = 10;
 
     // Thread objects
     private NetworkThread networkThread_;
@@ -70,10 +72,8 @@ public class MainActivity extends AppCompatActivity {
     private AppState appState_;
     private PeerStateTable peerStateTable_;
 
-    // Configuration parameters
     private Name applicationBroadcastPrefix_;
     private Name applicationDataPrefix_;
-    private long syncSessionId_;
 
     // UI elements
     private TextView settingsDisplay_;
@@ -95,6 +95,7 @@ public class MainActivity extends AppCompatActivity {
     public static class Settings {
         public String channelName;
         public String userName;
+        public long sessionId;
         public int producerSamplingRate;
         public int producerFramesPerSegment;
         public int consumerJitterBufferSize;
@@ -183,7 +184,7 @@ public class MainActivity extends AppCompatActivity {
                         syncModule_ = new SyncModule(
                                 applicationBroadcastPrefix_,
                                 applicationDataPrefix_,
-                                syncSessionId_,
+                                settings_.sessionId,
                                 networkThreadInfo.looper,
                                 peerStateTable_
                         );
@@ -271,11 +272,13 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     }
                     case MSG_PLAYBACKQUEUE_STREAM_STATE_CREATED: {
-                        PlaybackQueueModule.StreamNameAndStreamState streamNameAndStreamState =
-                                (PlaybackQueueModule.StreamNameAndStreamState) msg.obj;
-                        progressBarListFragment_.addProgressBar(
-                                new ProgressBarFragmentConsume(streamNameAndStreamState, getMainLooper(), ctx_)
-                        );
+                        InternalStreamConsumptionState consumptionState =
+                                (InternalStreamConsumptionState) msg.obj;
+                        ProgressBarFragmentConsume progressBarFragmentConsume =
+                                new ProgressBarFragmentConsume(consumptionState, getMainLooper(), ctx_);
+                        progressBarFragmentConsume.eventReplayRequest.addListener(name ->
+                                handler_.obtainMessage(MSG_REFETCH_REQUEST, name).sendToTarget());
+                        progressBarListFragment_.addProgressBar(progressBarFragmentConsume);
                         break;
                     }
                     case MSG_RECORDER_STREAM_STATE_CREATED: {
@@ -302,6 +305,11 @@ public class MainActivity extends AppCompatActivity {
                         networkThread_.notifyNewWifiState(newWifiState);
                         break;
                     }
+                    case MSG_REFETCH_REQUEST: {
+                        Name streamName = (Name) msg.obj;
+                        playbackQueueModule_.notifyRefetchRequest(streamName);
+                        break;
+                    }
                     default:
                         throw new IllegalStateException("unexpected msg.what " + msg.what);
                 }
@@ -324,6 +332,7 @@ public class MainActivity extends AppCompatActivity {
 
         settings_.channelName = configInfo[IntentInfo.CHANNEL_NAME];
         settings_.userName = configInfo[IntentInfo.USER_NAME];
+        settings_.sessionId = System.currentTimeMillis();
         settings_.producerSamplingRate = Integer.parseInt(configInfo[IntentInfo.PRODUCER_SAMPLING_RATE]);
         settings_.producerFramesPerSegment = Integer.parseInt(configInfo[IntentInfo.PRODUCER_FRAMES_PER_SEGMENT]);
         settings_.consumerJitterBufferSize = Integer.parseInt(configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE]);
@@ -337,6 +346,7 @@ public class MainActivity extends AppCompatActivity {
         String settingsString =
                 getString(R.string.channel_name_label) + " " + settings_.channelName + "\n" +
                 getString(R.string.user_name_label) + " " + settings_.userName + "\n" +
+                getString(R.string.session_id_label) + " " + settings_.sessionId + "\n" +
                 getString(R.string.producer_sampling_rate_label) + " " + configInfo[IntentInfo.PRODUCER_SAMPLING_RATE] + "\n" +
                 getString(R.string.producer_frames_per_segment_label) + " " + configInfo[IntentInfo.PRODUCER_FRAMES_PER_SEGMENT] + "\n" +
                 getString(R.string.consumer_jitter_buffer_size_label) + " " + configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE] + "\n" +
@@ -345,14 +355,12 @@ public class MainActivity extends AppCompatActivity {
                 getString(R.string.consumer_meta_data_timeout_ms_label) + " " + configInfo[IntentInfo.CONSUMER_META_DATA_TIMEOUT_MS];
         settingsDisplay_.setText(settingsString);
 
-        syncSessionId_ = System.currentTimeMillis();
-
         applicationBroadcastPrefix_ = new Name(getString(R.string.broadcast_prefix))
                 .append(settings_.channelName);
         applicationDataPrefix_ = new Name(getString(R.string.data_prefix))
                 .append(settings_.channelName)
                 .append(settings_.userName)
-                .append(Long.toString(syncSessionId_));
+                .append(Long.toString(settings_.sessionId));
 
         // Thread objects
         networkThread_ = new NetworkThread(

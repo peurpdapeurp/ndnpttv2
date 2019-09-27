@@ -78,6 +78,7 @@ public class StreamConsumer {
     private Options options_;
     private StreamMetaData streamMetaData_;
     private PeerStateTable peerStateTable_;
+    private long progressTrackerId_;
 
     // Events
     public Event<ProgressEventInfo> eventProductionWindowGrowth;
@@ -113,12 +114,13 @@ public class StreamConsumer {
         }
     }
 
-    public StreamConsumer(Name networkDataPrefix, SyncStreamInfo syncStreamInfo, InputStreamDataSource audioOutputSource,
-                          NetworkThread.Info networkThreadInfo, PeerStateTable peerStateTable, Options options) {
+    public StreamConsumer(long progressTrackerId, Name networkDataPrefix, SyncStreamInfo syncStreamInfo,
+                          InputStreamDataSource audioOutputSource, NetworkThread.Info networkThreadInfo,
+                          PeerStateTable peerStateTable, Options options) {
 
         channelUserSession_ = syncStreamInfo.channelUserSession;
         streamSeqNum_ = syncStreamInfo.seqNum;
-
+        progressTrackerId_ = progressTrackerId;
         streamName_ = Helpers.getStreamName(networkDataPrefix, syncStreamInfo);
         streamMetaDataName_ = Helpers.getStreamMetaDataName(networkDataPrefix, syncStreamInfo);
         options_ = options;
@@ -213,7 +215,7 @@ public class StreamConsumer {
         handler_.removeCallbacksAndMessages(null);
         switch (close_msg_what) {
             case MSG_CLOSE_SUCCESS: {
-                eventBufferingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
+                eventBufferingCompleted.trigger(new ProgressEventInfo(progressTrackerId_, streamName_,0, null));
                 Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_BUFFERING_COMPLETE, System.currentTimeMillis(),
                         0, streamName_.toString(), null));
                 break;
@@ -221,6 +223,7 @@ public class StreamConsumer {
             case MSG_CLOSE_META_DATA_TIMEOUT: {
                 eventFetchingCompleted.trigger(
                         new ProgressEventInfo(
+                                progressTrackerId_,
                                 streamName_,
                                 FETCH_COMPLETE_CODE_META_DATA_TIMEOUT,
                                 null));
@@ -231,6 +234,7 @@ public class StreamConsumer {
             case MSG_CLOSE_MEDIA_DATA_TIMEOUT: {
                 eventFetchingCompleted.trigger(
                         new ProgressEventInfo(
+                                progressTrackerId_,
                                 streamName_,
                                 FETCH_COMPLETE_CODE_MEDIA_DATA_TIMEOUT,
                                 null));
@@ -241,6 +245,7 @@ public class StreamConsumer {
             case MSG_CLOSE_STREAM_RECORDED_TOO_FAR_IN_PAST: {
                 eventFetchingCompleted.trigger(
                         new ProgressEventInfo(
+                                progressTrackerId_,
                                 streamName_,
                                 FETCH_COMPLETE_CODE_STREAM_RECORDED_TOO_FAR_IN_PAST,
                                 null));
@@ -515,7 +520,8 @@ public class StreamConsumer {
                 Log.d(TAG, "found in close that there was an outstanding successful data fetch timer, removing it");
                 internalHandler_.removeCallbacksAndMessages(successfulDataFetchTimerToken_);
             }
-            eventFetchingCompleted.trigger(new ProgressEventInfo(streamName_, FETCH_COMPLETE_CODE_SUCCESS, null));
+            eventFetchingCompleted.trigger(new ProgressEventInfo(progressTrackerId_, streamName_,
+                    FETCH_COMPLETE_CODE_SUCCESS, null));
             Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_FETCHING_COMPLETE, System.currentTimeMillis(),
                     FETCH_COMPLETE_CODE_SUCCESS, streamName_.toString(), null));
             fetchingFinished_ = true;
@@ -540,7 +546,8 @@ public class StreamConsumer {
                 while (nextSegShouldBeSent() && withinCwnd()) {
                     if (closed_) return;
                     state_.highestSegAnticipated++;
-                    eventProductionWindowGrowth.trigger(new ProgressEventInfo(streamName_, state_.highestSegAnticipated, null));
+                    eventProductionWindowGrowth.trigger(new ProgressEventInfo(progressTrackerId_, streamName_,
+                            state_.highestSegAnticipated, null));
                     transmitMediaDataInterest(state_.highestSegAnticipated, false);
                 }
             }
@@ -612,7 +619,7 @@ public class StreamConsumer {
                         ")");
                 Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_INTEREST_SKIP, System.currentTimeMillis(), 0, interestToSend.getName().toString(), null));
                 recordPacketEvent(segNum, PACKET_EVENT_INTEREST_SKIP);
-                eventInterestSkipped.trigger(new ProgressEventInfo(streamName_, segNum, null));
+                eventInterestSkipped.trigger(new ProgressEventInfo(progressTrackerId_, streamName_, segNum, null));
                 return;
             }
 
@@ -687,7 +694,7 @@ public class StreamConsumer {
             state_.msPerSegNum_ = calculateMsPerSeg(streamMetaData_.producerSamplingRate, streamMetaData_.framesPerSegment);
             state_.recordingStartTime = streamMetaData_.recordingStartTime;
 
-            eventMetaDataFetched.trigger(new ProgressEventInfo(streamName_, 0, streamMetaData_));
+            eventMetaDataFetched.trigger(new ProgressEventInfo(progressTrackerId_, streamName_, 0, streamMetaData_));
 
             Log.d(TAG, "recalibrated ms per seg and recording start time: " + "\n" +
                     "msPerSegNum " + state_.msPerSegNum_);
@@ -741,7 +748,8 @@ public class StreamConsumer {
                 }
             }
             if (state_.finalBlockId != FINAL_BLOCK_ID_UNKNOWN) {
-                eventFinalBlockIdLearned.trigger(new ProgressEventInfo(streamName_, state_.finalBlockId, null));
+                eventFinalBlockIdLearned.trigger(new ProgressEventInfo(progressTrackerId_, streamName_,
+                        state_.finalBlockId, null));
             }
 
             Log.d(TAG, streamName_.toString() + ": " + "receive data (" +
@@ -755,12 +763,12 @@ public class StreamConsumer {
             if (audioPacketWasAppNack) {
                 Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_NACK_RECEIVE, System.currentTimeMillis(), 0, audioPacket.getName().toString(), null));
                 recordPacketEvent(segNum, PACKET_EVENT_NACK_RETRIEVED);
-                eventNackRetrieved.trigger(new ProgressEventInfo(streamName_, segNum, null));
+                eventNackRetrieved.trigger(new ProgressEventInfo(progressTrackerId_, streamName_, segNum, null));
             }
             else {
                 Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_AUDIO_DATA_RECEIVE, System.currentTimeMillis(), 0, audioPacket.getName().toString(), null));
                 recordPacketEvent(segNum, PACKET_EVENT_AUDIO_RETRIEVED);
-                eventAudioRetrieved.trigger(new ProgressEventInfo(streamName_, segNum, null));
+                eventAudioRetrieved.trigger(new ProgressEventInfo(progressTrackerId_, streamName_, segNum, null));
             }
             retransmissionQueue_.remove(segNum);
             internalHandler_.removeCallbacksAndMessages(rtoTokens_.get(segNum));
@@ -959,7 +967,7 @@ public class StreamConsumer {
                             (finalFrameNumDeadline_ != PLAYBACK_DEADLINE_UNKNOWN &&
                                     currentTime > finalFrameNumDeadline_));
                     jitterBuffer_.poll();
-                    eventFrameBuffered.trigger(new ProgressEventInfo(streamName_, highestFrameNumPlayed_, null));
+                    eventFrameBuffered.trigger(new ProgressEventInfo(progressTrackerId_, streamName_, highestFrameNumPlayed_, null));
                 }
                 else {
                     if (nextFrame == null || nextFrame.frameNum > highestFrameNumPlayed_) {
@@ -967,7 +975,7 @@ public class StreamConsumer {
                         audioOutputSource_.write(getSilentFrame(),
                                 (finalFrameNumDeadline_ != PLAYBACK_DEADLINE_UNKNOWN &&
                                         currentTime > finalFrameNumDeadline_));
-                        eventFrameSkipped.trigger(new ProgressEventInfo(streamName_, highestFrameNumPlayed_, null));
+                        eventFrameSkipped.trigger(new ProgressEventInfo(progressTrackerId_, streamName_, highestFrameNumPlayed_, null));
                     }
                 }
 
@@ -1016,7 +1024,7 @@ public class StreamConsumer {
             // frames in it
             if (parsedFrames.size() < streamMetaData_.framesPerSegment) {
                 finalFrameNum_ = (segNum * streamMetaData_.framesPerSegment) + parsedFrames.size() - 1;
-                eventFinalFrameNumLearned.trigger(new ProgressEventInfo(streamName_, finalFrameNum_, null));
+                eventFinalFrameNumLearned.trigger(new ProgressEventInfo(progressTrackerId_, streamName_, finalFrameNum_, null));
                 Log.d(TAG, streamName_.toString() + ": " + "detected end of stream (" +
                         "final seg num " + segNum + ", " +
                         "final frame num " + finalFrameNum_ +

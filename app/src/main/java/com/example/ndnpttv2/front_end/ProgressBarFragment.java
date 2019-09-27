@@ -14,12 +14,19 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.example.ndnpttv2.R;
+import com.example.ndnpttv2.back_end.structs.ChannelUserSession;
 import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
+import com.example.ndnpttv2.back_end.structs.SyncStreamInfo;
 import com.example.ndnpttv2.front_end.custom_progress_bar.CustomProgressBar;
+import com.example.ndnpttv2.util.Helpers;
+import com.pploder.events.Event;
+import com.pploder.events.SimpleEvent;
 
 import net.named_data.jndn.Name;
 
@@ -32,18 +39,25 @@ public abstract class ProgressBarFragment extends Fragment {
     TextView nameDisplay_;
     CustomProgressBar progressBar_;
     ImageView imageLabel_;
+    ImageButton refetchButton_;
 
-    protected Name streamName_;
+    Name streamName_;
+    SyncStreamInfo syncStreamInfo_;
     private Handler handler_;
     private boolean readyForRendering_ = false;
     private LinkedTransferQueue<Message> prematureMessages_;
     Context ctx_;
 
+    Event<Name> eventReplayRequest;
+
     ProgressBarFragment(Name streamName, Looper mainThreadLooper, Context ctx) {
 
         streamName_ = streamName;
+        syncStreamInfo_ = Helpers.getSyncStreamInfo(streamName_);
         prematureMessages_ = new LinkedTransferQueue<>();
         ctx_ = ctx;
+
+        eventReplayRequest = new SimpleEvent<>();
 
         handler_ = new Handler(mainThreadLooper) {
             @Override
@@ -87,6 +101,14 @@ public abstract class ProgressBarFragment extends Fragment {
 
         imageLabel_ = (ImageView) view.findViewById(R.id.image_label);
         imageLabel_.setImageDrawable(ctx_.getDrawable(R.drawable.ellipses));
+
+        refetchButton_ = (ImageButton) view.findViewById(R.id.fetch_button);
+        refetchButton_.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                eventReplayRequest.trigger(streamName_);
+            }
+        });
 
         onViewInitialized();
 

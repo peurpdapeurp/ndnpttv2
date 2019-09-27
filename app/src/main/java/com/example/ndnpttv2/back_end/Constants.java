@@ -9,4 +9,7 @@ public class Constants {
     public static final String
             META_DATA_MARKER = "meta-data";
 
+    public static final int
+            NO_PROGRESS_TRACKER_ID = -1;
+
 }

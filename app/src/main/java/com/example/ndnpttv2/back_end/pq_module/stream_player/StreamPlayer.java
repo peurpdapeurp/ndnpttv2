@@ -21,24 +21,25 @@ import com.pploder.events.SimpleEvent;
 
 import net.named_data.jndn.Name;
 
+import static com.example.ndnpttv2.back_end.Constants.NO_PROGRESS_TRACKER_ID;
+
 public class StreamPlayer {
 
     private static final String TAG = "StreamPlayer";
 
     private ExoPlayer player_;
-    private Handler uiHandler_;
     private Name streamName_;
-    private boolean playingStarted_ = false;
     private boolean closed_ = false;
+    long progressTrackerId_;
 
     // Events
     public Event<ProgressEventInfo> eventPlayingCompleted;
 
     public StreamPlayer(Context ctx, InputStreamDataSource dataSource,
-                        Name streamName, Handler uiHandler) {
+                        long progressTrackerId, Name streamName) {
 
+        progressTrackerId_ = progressTrackerId;
         streamName_ = streamName;
-        uiHandler_ = uiHandler;
 
         eventPlayingCompleted = new SimpleEvent<>();
 
@@ -78,7 +79,7 @@ public class StreamPlayer {
                         "Exoplayer state changed to: " + playbackStateString);
 
                 if (playbackState == Player.STATE_ENDED) {
-                    eventPlayingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
+                    eventPlayingCompleted.trigger(new ProgressEventInfo(progressTrackerId_, streamName_, 0, null));
                 }
             }
 
@@ -86,7 +87,7 @@ public class StreamPlayer {
             public void onPlayerError(ExoPlaybackException error) {
                 Log.e(TAG, "ExoPlayer had error: " + error.getMessage());
                 close();
-                eventPlayingCompleted.trigger(new ProgressEventInfo(streamName_, 0, null));
+                eventPlayingCompleted.trigger(new ProgressEventInfo(progressTrackerId_, streamName_, 0, null));
             }
         });
 

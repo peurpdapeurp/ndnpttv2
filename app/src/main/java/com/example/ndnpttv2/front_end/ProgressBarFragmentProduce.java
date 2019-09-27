@@ -119,6 +119,8 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
 
     @Override
     void onViewInitialized() {
+        refetchButton_.setEnabled(false);
+        refetchButton_.setVisibility(View.INVISIBLE);
         startRendering();
     }
 
@@ -188,7 +190,7 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
         try {
             if (currentIcon_ != null)
                 imageLabel_.setImageDrawable(currentIcon_);
-            nameDisplay_.setText(streamName_.toString());
+            nameDisplay_.setText(Long.toString(syncStreamInfo_.seqNum));
             if (streamPopUpEnabled_)
                 enableStreamInfoPopUp();
             progressBar_.render();

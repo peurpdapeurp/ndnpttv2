@@ -35,6 +35,7 @@ import net.named_data.jndn.util.Blob;
 import net.named_data.jndn.util.MemoryContentCache;
 
 import static com.example.ndnpttv2.back_end.Constants.META_DATA_MARKER;
+import static com.example.ndnpttv2.back_end.Constants.NO_PROGRESS_TRACKER_ID;
 
 public class StreamProducer {
 
@@ -523,7 +524,7 @@ public class StreamProducer {
             // so just close the StreamProducer
             if (frameProcessingFinished_) {
                 close();
-                eventFinalSegmentPublished.trigger(new ProgressEventInfo(streamName_, finalBlockId_, null));
+                eventFinalSegmentPublished.trigger(new ProgressEventInfo(NO_PROGRESS_TRACKER_ID, streamName_, finalBlockId_, null));
             }
         }
 
@@ -538,7 +539,8 @@ public class StreamProducer {
                     "Name: " + data.getName() + "\n" +
                     "FinalBlockId: " + data.getMetaInfo().getFinalBlockId().getValue().toHex());
             try {
-                eventSegmentPublished.trigger(new ProgressEventInfo(streamName_, data.getName().get(-1).toSegment(), null));
+                eventSegmentPublished.trigger(new ProgressEventInfo(NO_PROGRESS_TRACKER_ID, streamName_,
+                        data.getName().get(-1).toSegment(), null));
             } catch (EncodingException e) {
                 e.printStackTrace();
                 throw new IllegalStateException("failed to get segment number from " + data.getName());

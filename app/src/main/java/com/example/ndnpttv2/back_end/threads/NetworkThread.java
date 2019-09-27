@@ -6,15 +6,14 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 
 import com.example.ndnpttv2.back_end.wifi_module.WifiModule;
+import com.example.ndnpttv2.util.Logger;
 import com.intel.jndn.management.ManagementException;
 import com.intel.jndn.management.Nfdc;
 
-import net.named_data.jndn.Data;
 import net.named_data.jndn.Face;
 import net.named_data.jndn.Interest;
 import net.named_data.jndn.InterestFilter;
@@ -30,7 +29,9 @@ import net.named_data.jndn.security.identity.MemoryPrivateKeyStorage;
 import net.named_data.jndn.security.policy.SelfVerifyPolicyManager;
 
 import java.io.IOException;
-import java.util.List;
+
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_DEBUG;
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_ERROR;
 
 public class NetworkThread extends HandlerThread {
 
@@ -125,9 +126,9 @@ public class NetworkThread extends HandlerThread {
                     case MSG_NEW_WIFI_STATE: {
                         int newWifiState = msg.arg1;
                         wifiConnectionState_ = newWifiState;
-                        Log.d(TAG, "notified of new wifi state " + newWifiState);
+                        Logger.logDebugEvent(TAG, LOG_DEBUG, "notified of new wifi state " + newWifiState,System.currentTimeMillis());
                         if (newWifiState == WifiModule.CONNECTED) {
-                            Log.d(TAG, "new wifi state was connected, registering / prefix");
+                            Logger.logDebugEvent(TAG, LOG_DEBUG, "new wifi state was connected, registering / prefix",System.currentTimeMillis());
                             Message registerSlashPrefixMsg = handler_.obtainMessage(MSG_REGISTER_SLASH_PREFIX);
                             handler_.sendMessageAtTime(registerSlashPrefixMsg,
                                     SystemClock.uptimeMillis() + ROUTE_REGISTRATION_DELAY_MS);
@@ -139,6 +140,8 @@ public class NetworkThread extends HandlerThread {
                         break;
                     }
                     default: {
+
+                        Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected msg.what " + msg.what,System.currentTimeMillis());
                         throw new IllegalStateException("unexpected msg.what " + msg.what);
                     }
                 }
@@ -156,7 +159,7 @@ public class NetworkThread extends HandlerThread {
 
     private void registerSlashPrefix() {
         String accessPointUri = "udp4://" + options_.accessPointIpAddress + ":6363";
-        Log.d(TAG, "registering / route to remote uri " + accessPointUri);
+        Logger.logDebugEvent(TAG, LOG_DEBUG, "registering / route to remote uri " + accessPointUri,System.currentTimeMillis());
         try {
             Nfdc.register(face_, accessPointUri, new Name("/"), 0);
         } catch (ManagementException e) {

@@ -11,17 +11,14 @@ import androidx.annotation.NonNull;
 
 import com.example.ndnpttv2.back_end.shared_state.AppState;
 import com.example.ndnpttv2.back_end.shared_state.PeerStateTable;
-import com.example.ndnpttv2.back_end.structs.ChannelUserSession;
 import com.example.ndnpttv2.back_end.structs.SyncStreamInfo;
 import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.InputStreamDataSource;
 import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
-import com.example.ndnpttv2.back_end.wifi_module.WifiModule;
 import com.example.ndnpttv2.util.Helpers;
 import com.example.ndnpttv2.util.Logger;
-import com.google.protobuf.Internal;
 import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
 
@@ -30,7 +27,8 @@ import net.named_data.jndn.Name;
 import java.util.HashMap;
 import java.util.concurrent.LinkedTransferQueue;
 
-import static com.example.ndnpttv2.back_end.wifi_module.WifiModule.CONNECTED;
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_DEBUG;
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_ERROR;
 
 public class PlaybackQueueModule {
 
@@ -101,7 +99,7 @@ public class PlaybackQueueModule {
                 switch (msg.what) {
                     case MSG_STREAM_CONSUMER_FETCHING_COMPLETE: {
                         if (progressEventInfo.arg1 == StreamConsumer.FETCH_COMPLETE_CODE_SUCCESS) {
-                            Log.d(TAG, "fetching of stream " + streamName.toString() + " finished");
+                            Logger.logDebugEvent(TAG, LOG_DEBUG, "fetching of stream " + streamName.toString() + " finished",System.currentTimeMillis());
                         }
                         else {
                             streamState.streamPlayer.close();
@@ -124,21 +122,23 @@ public class PlaybackQueueModule {
                                     break;
                                 }
                                 default: {
+                                    Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected progressEventInfo.arg1 " + progressEventInfo.arg1,System.currentTimeMillis());
                                     throw new IllegalStateException("unexpected progressEventInfo.arg1 " + progressEventInfo.arg1);
                                 }
                             }
-                            Log.d(TAG, "playing of stream " + streamName.toString() + " failed (" + failureTypeString + ")");
+                            Logger.logDebugEvent(TAG, LOG_DEBUG, "playing of stream " + streamName.toString() + " failed (" + failureTypeString + ")",System.currentTimeMillis());
                         }
                         break;
                     }
                     case MSG_STREAM_PLAYER_PLAYING_COMPLETE: {
-                        Log.d(TAG, "playing of stream " + streamName.toString() + " finished");
+                        Logger.logDebugEvent(TAG, LOG_DEBUG, "playing of stream " + streamName.toString() + " finished",System.currentTimeMillis());
                         streamState.streamPlayer.close();
                         streamStates_.remove(progressEventInfo.progressTrackerId);
                         appState_.stopPlaying();
                         break;
                     }
                     default: {
+                        Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected msg.what " + msg.what,System.currentTimeMillis());
                         throw new IllegalStateException("unexpected msg.what " + msg.what);
                     }
                 }
@@ -165,6 +165,7 @@ public class PlaybackQueueModule {
                         break;
                     }
                     default: {
+                        Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected msg.what " + msg.what,System.currentTimeMillis());
                         throw new IllegalStateException("unexpected msg.what " + msg.what);
                     }
                 }
@@ -181,6 +182,7 @@ public class PlaybackQueueModule {
                         break;
                     }
                     default: {
+                        Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected msg.what " + msg.what,System.currentTimeMillis());
                         throw new IllegalStateException("unexpected msg.what " + msg.what);
                     }
                 }
@@ -189,7 +191,7 @@ public class PlaybackQueueModule {
 
         workHandler_.obtainMessage(MSG_DO_SOME_WORK).sendToTarget(); // start the work handler's work cycle
 
-        Log.d(TAG, "PlaybackQueueModule constructed.");
+        Logger.logDebugEvent(TAG, LOG_DEBUG, "PlaybackQueueModule constructed.",System.currentTimeMillis());
 
     }
 
@@ -210,7 +212,7 @@ public class PlaybackQueueModule {
             InternalStreamConsumptionState consumptionState = streamStates_.get(progressTrackerId);
             Name streamName = consumptionState.streamName;
             SyncStreamInfo syncStreamInfo = Helpers.getSyncStreamInfo(streamName);
-            Log.d(TAG, "fetching queue was non empty, fetching stream " + streamName.toString());
+            Logger.logDebugEvent(TAG, LOG_DEBUG, "fetching queue was non empty, fetching stream " + streamName.toString(),System.currentTimeMillis());
 
             InputStreamDataSource transferSource = new InputStreamDataSource();
 
@@ -249,7 +251,7 @@ public class PlaybackQueueModule {
             Long progressTrackerId = playbackQueue_.poll();
             InternalStreamConsumptionState consumptionState = streamStates_.get(progressTrackerId);
 
-            Log.d(TAG, "playback queue was non empty, playing stream " + consumptionState.streamName.toString());
+            Logger.logDebugEvent(TAG, LOG_DEBUG, "playback queue was non empty, playing stream " + consumptionState.streamName.toString(),System.currentTimeMillis());
 
             consumptionState.streamConsumer.streamBufferStart();
 

@@ -12,7 +12,8 @@ public class IntentInfo {
         CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS = 5,
         CONSUMER_MEDIA_DATA_TIMEOUT_MS = 6,
         CONSUMER_META_DATA_TIMEOUT_MS = 7,
-        ACCESS_POINT_IP_ADDRESS = 8;
+        ACCESS_POINT_IP_ADDRESS = 8,
+        DEBUG_LOGGING_ENABLED_SETTING = 9;
     public static String
             LOGIN_CONFIG = "LOGIN_CONFIG";
 

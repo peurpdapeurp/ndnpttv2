@@ -4,9 +4,12 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.util.Log;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+
+import com.example.ndnpttv2.util.Logger;
+
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_DEBUG;
 
 public class PTTButtonPressReceiver extends BroadcastReceiver {
 
@@ -21,7 +24,7 @@ public class PTTButtonPressReceiver extends BroadcastReceiver {
             Intent pttButtonPressedIntent = new Intent(IntentInfo.PTTButtonPressReceiver_PTT_BUTTON_UP);
             LocalBroadcastManager.getInstance(context).sendBroadcast(pttButtonPressedIntent);
         } else {
-            Log.d(TAG, "Unexpected intent: " + intent.getAction());
+            Logger.logDebugEvent(TAG, LOG_DEBUG, "Unexpected intent: " + intent.getAction(),System.currentTimeMillis());
         }
     }
 

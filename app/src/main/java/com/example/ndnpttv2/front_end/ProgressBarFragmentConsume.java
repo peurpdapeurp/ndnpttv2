@@ -18,12 +18,15 @@ import com.example.ndnpttv2.back_end.pq_module.PlaybackQueueModule;
 import com.example.ndnpttv2.back_end.pq_module.stream_consumer.StreamConsumer;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.StreamPlayer;
 import com.example.ndnpttv2.back_end.structs.StreamMetaData;
+import com.example.ndnpttv2.util.Logger;
 import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
 
 import net.named_data.jndn.Name;
 
 import java.text.SimpleDateFormat;
+
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_ERROR;
 
 public class ProgressBarFragmentConsume extends ProgressBarFragment {
 
@@ -206,6 +209,7 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                         break;
                     }
                     default: {
+                        Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected progressEventInfo.arg1 " + progressEventInfo.arg1,System.currentTimeMillis());
                         throw new IllegalStateException("unexpected progressEventInfo.arg1 " + progressEventInfo.arg1);
                     }
                 }
@@ -236,6 +240,7 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 break;
             }
             default: {
+                Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected msg.what " + msg.what,System.currentTimeMillis());
                 throw new IllegalStateException("unexpected msg.what " + msg.what);
             }
         }
@@ -332,12 +337,16 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
                 progressBar_.updateSingleSegmentColor((int) frameNum, R.color.green);
                 break;
             }
-            case MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED:
+            case MSG_STREAM_BUFFER_FINAL_FRAME_NUM_LEARNED: {
                 break;
-            case MSG_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED:
+            }
+            case MSG_STREAM_FETCHER_FINAL_BLOCK_ID_LEARNED: {
                 break;
-            default:
+            }
+            default: {
+                Logger.logDebugEvent(TAG,LOG_ERROR,"updateProgressBar unexpected event_code " + msg_what,System.currentTimeMillis());
                 throw new IllegalStateException("updateProgressBar unexpected event_code " + msg_what);
+            }
         }
     }
 
@@ -356,10 +365,10 @@ public class ProgressBarFragmentConsume extends ProgressBarFragment {
             progressBar_.render();
         }
         catch (NullPointerException e) {
-            Log.e(TAG, "failed to render for " + (streamName_ == null ? "?" : streamName_.toString()) + ", error: " + e.getMessage());
+            Logger.logDebugEvent(TAG,LOG_ERROR, "failed to render for " + (streamName_ == null ? "?" : streamName_.toString()) + ", error: " + e.getMessage(),System.currentTimeMillis());
         }
         catch (IllegalStateException e) {
-            Log.e(TAG, "failed to render for " + (streamName_ == null ? "?" : streamName_.toString()) + ", error: " + e.getMessage());
+            Logger.logDebugEvent(TAG,LOG_ERROR, "failed to render for " + (streamName_ == null ? "?" : streamName_.toString()) + ", error: " + e.getMessage(),System.currentTimeMillis());
         }
     }
 }

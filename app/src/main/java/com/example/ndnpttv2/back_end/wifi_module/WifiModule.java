@@ -7,7 +7,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
 import android.os.SystemClock;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -16,6 +15,9 @@ import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
 
 import java.util.function.Consumer;
+
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_DEBUG;
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_ERROR;
 
 public class WifiModule {
 
@@ -55,6 +57,7 @@ public class WifiModule {
                         break;
                     }
                     default: {
+                        Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected msg.what " + msg.what,System.currentTimeMillis());
                         throw new IllegalStateException("unexpected msg.what " + msg.what);
                     }
                 }
@@ -63,7 +66,7 @@ public class WifiModule {
 
         handler_.obtainMessage(MSG_DO_SOME_WORK).sendToTarget();
 
-        Log.d(TAG, "Initialized with wifi state " + lastWifiConnectionState_);
+        Logger.logDebugEvent(TAG, LOG_DEBUG, "Initialized with wifi state " + lastWifiConnectionState_,System.currentTimeMillis());
 
         eventWifiStateChanged.addListener(wifiStateChangeListener);
 
@@ -78,7 +81,7 @@ public class WifiModule {
         int currentWifiConnectionState = checkWifiConnectionState();
 
         if (currentWifiConnectionState != lastWifiConnectionState_) {
-            Log.d(TAG, "detected wifi state change to " + currentWifiConnectionState);
+            Logger.logDebugEvent(TAG, LOG_DEBUG, "detected wifi state change to " + currentWifiConnectionState,System.currentTimeMillis());
             eventWifiStateChanged.trigger(currentWifiConnectionState);
             lastWifiConnectionState_ = currentWifiConnectionState;
         }

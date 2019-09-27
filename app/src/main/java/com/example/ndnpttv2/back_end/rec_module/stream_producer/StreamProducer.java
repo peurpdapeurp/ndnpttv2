@@ -19,6 +19,7 @@ import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
 import com.example.ndnpttv2.back_end.structs.StreamMetaData;
 import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.util.Helpers;
+import com.example.ndnpttv2.util.Logger;
 import com.example.ndnpttv2.util.Pipe;
 import com.google.gson.Gson;
 import com.pploder.events.Event;
@@ -36,6 +37,8 @@ import net.named_data.jndn.util.MemoryContentCache;
 
 import static com.example.ndnpttv2.back_end.Constants.META_DATA_MARKER;
 import static com.example.ndnpttv2.back_end.Constants.NO_PROGRESS_TRACKER_ID;
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_DEBUG;
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_ERROR;
 
 public class StreamProducer {
 
@@ -105,11 +108,12 @@ public class StreamProducer {
                         break;
                     }
                     case MSG_RECORD_STOP: {
-                        Log.d(TAG, "Got MSG_RECORD_STOP");
+                        Logger.logDebugEvent(TAG, LOG_DEBUG, "Got MSG_RECORD_STOP",System.currentTimeMillis());
                         mediaRecorder_.stopRecording();
                         break;
                     }
                     default: {
+                        Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected msg.what " + msg.what,System.currentTimeMillis());
                         throw new IllegalStateException("unexpected msg.what " + msg.what);
                     }
                 }
@@ -152,13 +156,13 @@ public class StreamProducer {
     private void close() {
         handler_.removeCallbacksAndMessages(null);
         streamProducerClosed_ = true;
-        Log.d(TAG, "Closed.");
+        Logger.logDebugEvent(TAG, LOG_DEBUG, "Closed.",System.currentTimeMillis());
     }
 
     private void publishStreamMetaData() {
         metaData_ = new StreamMetaData(options_.framesPerSegment, options_.producerSamplingRate, options_.recordingStartTime);
         String streamMetaDataString = jsonSerializer_.toJson(metaData_);
-        Log.d(TAG, "serialized stream meta data into json string: " + streamMetaDataString);
+        Logger.logDebugEvent(TAG, LOG_DEBUG, "serialized stream meta data into json string: " + streamMetaDataString,System.currentTimeMillis());
         Data metaDataPacket = new Data(new Name(streamName_).append(Constants.META_DATA_MARKER));
         metaDataPacket.setContent(new Blob(streamMetaDataString));
         network_.sendMetaDataPacket(metaDataPacket);
@@ -208,7 +212,7 @@ public class StreamProducer {
                         return;
                     }
 
-                    Log.d(TAG, "Attempting to read " + read_size + " bytes from input stream.");
+                    Logger.logDebugEvent(TAG, LOG_DEBUG, "Attempting to read " + read_size + " bytes from input stream.",System.currentTimeMillis());
                     try {
                         int ret = inputStream_.read(readingState_.buffer,
                                 readingState_.current_bytes_read,
@@ -225,7 +229,7 @@ public class StreamProducer {
                             Helpers.bytesToHex(readingState_.buffer));
 
                     readingState_.current_bytes_read += read_size;
-                    Log.d(TAG, "Current bytes read: " + readingState_.current_bytes_read);
+                    Logger.logDebugEvent(TAG, LOG_DEBUG, "Current bytes read: " + readingState_.current_bytes_read,System.currentTimeMillis());
 
                     // we've finished reading enough of the header to get the frame length
                     if (readingState_.current_bytes_read >= 5) {
@@ -255,11 +259,11 @@ public class StreamProducer {
                         // deliver it to the FramePacketizer
                         if (bundler_.hasFullBundle()) {
 
-                            Log.d(TAG, "Bundler did have a full bundle, packetizing full audio bundle...");
+                            Logger.logDebugEvent(TAG, LOG_DEBUG, "Bundler did have a full bundle, packetizing full audio bundle...",System.currentTimeMillis());
 
                             byte[] audioBundle = bundler_.getCurrentBundle();
 
-                            Log.d(TAG, "Contents of full audio bundle: " + Helpers.bytesToHex(audioBundle));
+                            Logger.logDebugEvent(TAG, LOG_DEBUG, "Contents of full audio bundle: " + Helpers.bytesToHex(audioBundle),System.currentTimeMillis());
 
                             Data audioPacket = packetizer_.generateAudioDataPacket(audioBundle, false, currentSegmentNum_);
 
@@ -268,7 +272,7 @@ public class StreamProducer {
                             network_.sendMediaDataPacket(audioPacket);
 
                         } else {
-                            Log.d(TAG, "Bundler did not yet have full bundle, extracting next ADTS frame...");
+                            Logger.logDebugEvent(TAG, LOG_DEBUG, "Bundler did not yet have full bundle, extracting next ADTS frame...",System.currentTimeMillis());
                         }
 
                         // we did not read past the end of the current ADTS frame
@@ -297,7 +301,7 @@ public class StreamProducer {
             }
             else {
 
-                Log.d(TAG, "StreamProducer frame processor detected that recording finished; checking for last audio bundle...");
+                Logger.logDebugEvent(TAG, LOG_DEBUG, "StreamProducer frame processor detected that recording finished; checking for last audio bundle...",System.currentTimeMillis());
 
                 if (bundler_.getCurrentBundleSize() > 0) {
 
@@ -305,7 +309,7 @@ public class StreamProducer {
                             " publishing a partially filled end of stream data packet (segment number " + currentSegmentNum_ + ").");
                     byte[] audioBundle = bundler_.getCurrentBundle();
 
-                    Log.d(TAG, "Contents of last full audio bundle: " + Helpers.bytesToHex(audioBundle));
+                    Logger.logDebugEvent(TAG, LOG_DEBUG, "Contents of last full audio bundle: " + Helpers.bytesToHex(audioBundle),System.currentTimeMillis());
 
                     Data endOfStreamPacket = packetizer_.generateAudioDataPacket(audioBundle, true, currentSegmentNum_);
 
@@ -366,7 +370,7 @@ public class StreamProducer {
                 for (byte[] frame : bundle_) {
                     bundleLength += frame.length;
                 }
-                Log.d(TAG, "Length of audio bundle: " + bundleLength);
+                Logger.logDebugEvent(TAG, LOG_DEBUG, "Length of audio bundle: " + bundleLength,System.currentTimeMillis());
                 byte[] byte_array_bundle = new byte[bundleLength];
                 int current_index = 0;
                 for (byte[] frame : bundle_) {
@@ -433,7 +437,7 @@ public class StreamProducer {
             recorder_.setAudioEncodingBitRate(10000);
             recorder_.setOutputFile(ofs_);
 
-            Log.d(TAG, "Recording started...");
+            Logger.logDebugEvent(TAG, LOG_DEBUG, "Recording started...",System.currentTimeMillis());
             try {
                 recorder_.prepare();
                 recorder_.start();
@@ -457,7 +461,7 @@ public class StreamProducer {
                 if (recorder_ != null) {
                     recorder_.stop();
                 }
-                Log.d(TAG, "Recording stopped.");
+                Logger.logDebugEvent(TAG, LOG_DEBUG, "Recording stopped.",System.currentTimeMillis());
             } catch (IllegalStateException e) {
                 e.printStackTrace();
             } catch (RuntimeException e) {
@@ -484,22 +488,22 @@ public class StreamProducer {
             mcc_ = new MemoryContentCache(face_);
             mcc_.setInterestFilter(streamName_,
                     (prefix, interest, face1, interestFilterId, filter) -> {
-                        Log.d(TAG, "No data in MCC found for interest " + interest.getName().toUri());
+                        Logger.logDebugEvent(TAG, LOG_DEBUG, "No data in MCC found for interest " + interest.getName().toUri(),System.currentTimeMillis());
                         Name streamPrefix = interest.getName().getPrefix(-1);
 
                         if (interest.getName().get(-1).toEscapedString().equals(META_DATA_MARKER)) {
-                            Log.d(TAG, "Got interest for meta data " + interest.getName().toString());
+                            Logger.logDebugEvent(TAG, LOG_DEBUG, "Got interest for meta data " + interest.getName().toString(),System.currentTimeMillis());
                             mcc_.storePendingInterest(interest, face1);
                             return;
                         }
 
                         if (finalBlockId_ == FINAL_BLOCK_ID_UNKNOWN) {
-                            Log.d(TAG, "Final block id unknown for stream " + streamPrefix.toUri());
+                            Logger.logDebugEvent(TAG, LOG_DEBUG, "Final block id unknown for stream " + streamPrefix.toUri(),System.currentTimeMillis());
                             mcc_.storePendingInterest(interest, face1);
                             return;
                         }
 
-                        Log.d(TAG, "Final block id " + finalBlockId_ + " known for stream " + streamPrefix.toUri());
+                        Logger.logDebugEvent(TAG, LOG_DEBUG, "Final block id " + finalBlockId_ + " known for stream " + streamPrefix.toUri(),System.currentTimeMillis());
                         Data appNack = new Data();
                         appNack.setName(interest.getName());
                         MetaInfo metaInfo = new MetaInfo();
@@ -507,7 +511,7 @@ public class StreamProducer {
                         metaInfo.setFreshnessPeriod(1.0);
                         appNack.setMetaInfo(metaInfo);
                         appNack.setContent(new Blob(Helpers.longToBytes(finalBlockId_)));
-                        Log.d(TAG, "Putting application nack with name " + interest.getName().toUri() + " in mcc.");
+                        Logger.logDebugEvent(TAG, LOG_DEBUG, "Putting application nack with name " + interest.getName().toUri() + " in mcc.",System.currentTimeMillis());
                         mcc_.add(appNack);
                         try {
                             face1.putData(appNack);
@@ -543,6 +547,7 @@ public class StreamProducer {
                         data.getName().get(-1).toSegment(), null));
             } catch (EncodingException e) {
                 e.printStackTrace();
+                Logger.logDebugEvent(TAG,LOG_ERROR,Helpers.getExceptionStackTrace(e),System.currentTimeMillis());
                 throw new IllegalStateException("failed to get segment number from " + data.getName());
             }
             mcc_.add(data);

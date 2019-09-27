@@ -38,6 +38,8 @@ import java.util.HashSet;
 import java.util.PriorityQueue;
 
 import static com.example.ndnpttv2.back_end.shared_state.PeerStateTable.NO_META_DATA_SEQ_NUM;
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_DEBUG;
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_ERROR;
 
 public class StreamConsumer {
 
@@ -156,7 +158,7 @@ public class StreamConsumer {
                     }
                     case MSG_FETCH_START: {
                         if (streamFetchStartCalled_) return;
-                        Log.d(TAG, "stream fetch started");
+                        Logger.logDebugEvent(TAG, LOG_DEBUG, "stream fetch started",System.currentTimeMillis());
                         streamFetchStartCalled_ = true;
                         doSomeWork();
                         break;
@@ -184,6 +186,7 @@ public class StreamConsumer {
                         break;
                     }
                     default: {
+                        Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected msg.what " + msg.what,System.currentTimeMillis());
                         throw new IllegalStateException("unexpected msg.what " + msg.what);
                     }
                 }
@@ -209,7 +212,7 @@ public class StreamConsumer {
     }
 
     private void close(int close_msg_what) {
-        Log.d(TAG, streamName_.toString() + ": " + "close called");
+        Logger.logDebugEvent(TAG, LOG_DEBUG, streamName_.toString() + ": " + "close called",System.currentTimeMillis());
         streamFetcher_.close();
         streamPlayerBuffer_.close();
         handler_.removeCallbacksAndMessages(null);
@@ -254,6 +257,7 @@ public class StreamConsumer {
                 break;
             }
             default: {
+                Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected close_msg_what " + close_msg_what,System.currentTimeMillis());
                 throw new IllegalStateException("unexpected close_msg_what " + close_msg_what);
             }
         }
@@ -477,7 +481,7 @@ public class StreamConsumer {
                     transmitMetaDataInterest(false);
                     internalHandler_.postAtTime(
                             () -> {
-                                Log.d(TAG, "closing stream consumer (meta data fetch failed)");
+                                Logger.logDebugEvent(TAG, LOG_DEBUG, "closing stream consumer (meta data fetch failed)",System.currentTimeMillis());
                                 streamConsumerHandler_.obtainMessage(MSG_CLOSE_META_DATA_TIMEOUT).sendToTarget();
                             },
                             metaDataFetchDeadlineToken_,
@@ -488,9 +492,9 @@ public class StreamConsumer {
         }
 
         private void resetAndStartSuccessfulDataFetchTimer() {
-            Log.d(TAG, System.currentTimeMillis() + ": " + "resetting and starting successful data fetch timer");
+            Logger.logDebugEvent(TAG, LOG_DEBUG, System.currentTimeMillis() + ": " + "resetting and starting successful data fetch timer",System.currentTimeMillis());
             if (successfulDataFetchTimerToken_ != null) {
-                Log.d(TAG, "found that successfulDataFetchTimerRunnable_ wasn't null, remove last data fetch timer from handler");
+                Logger.logDebugEvent(TAG, LOG_DEBUG, "found that successfulDataFetchTimerRunnable_ wasn't null, remove last data fetch timer from handler",System.currentTimeMillis());
                 internalHandler_.removeCallbacksAndMessages(successfulDataFetchTimerToken_);
             }
             successfulDataFetchTimerToken_ = new Object();
@@ -514,10 +518,10 @@ public class StreamConsumer {
 
         private void close() {
             if (closed_) return;
-            Log.d(TAG, streamName_.toString() + ": " + "close called, state of fetcher: " + state_.toString());
+            Logger.logDebugEvent(TAG, LOG_DEBUG, streamName_.toString() + ": " + "close called, state of fetcher: " + state_.toString(),System.currentTimeMillis());
             internalHandler_.removeCallbacksAndMessages(null);
             if (successfulDataFetchTimerToken_ != null) {
-                Log.d(TAG, "found in close that there was an outstanding successful data fetch timer, removing it");
+                Logger.logDebugEvent(TAG, LOG_DEBUG, "found in close that there was an outstanding successful data fetch timer, removing it",System.currentTimeMillis());
                 internalHandler_.removeCallbacksAndMessages(successfulDataFetchTimerToken_);
             }
             eventFetchingCompleted.trigger(new ProgressEventInfo(progressTrackerId_, streamName_,
@@ -582,7 +586,7 @@ public class StreamConsumer {
 
             metaDataRtoToken_ = new Object();
             internalHandler_.postAtTime(() -> {
-                    Log.d(TAG, streamName_.toString() + ": " + getTimeSinceStreamRecordingStart() + ": " + "rto timeout (meta data)");
+                    Logger.logDebugEvent(TAG, LOG_DEBUG, streamName_.toString() + ": " + getTimeSinceStreamRecordingStart() + ": " + "rto timeout (meta data)",System.currentTimeMillis());
                         Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_INTEREST_RTO, System.currentTimeMillis(), 0, streamName_.toString(), null));
                     transmitMetaDataInterest(true);
                     },
@@ -632,7 +636,7 @@ public class StreamConsumer {
 
             Object rtoToken = new Object();
             internalHandler_.postAtTime(() -> {
-                Log.d(TAG, streamName_.toString() + ": " + getTimeSinceStreamRecordingStart() + ": " + "rto timeout (seg num " + segNum + ")");
+                Logger.logDebugEvent(TAG, LOG_DEBUG, streamName_.toString() + ": " + getTimeSinceStreamRecordingStart() + ": " + "rto timeout (seg num " + segNum + ")",System.currentTimeMillis());
                 Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_INTEREST_RTO, System.currentTimeMillis(), 0, streamName_.toString(), null));
                 retransmissionQueue_.add(segNum);
                 rtoTokens_.remove(segNum);
@@ -665,7 +669,7 @@ public class StreamConsumer {
             internalHandler_.removeCallbacksAndMessages(metaDataFetchDeadlineToken_);
             internalHandler_.removeCallbacksAndMessages(metaDataRtoToken_);
             if (metaDataPacket.getMetaInfo().getType() == ContentType.NACK) {
-                Log.d(TAG, "got an application nack as response to meta data interest");
+                Logger.logDebugEvent(TAG, LOG_DEBUG, "got an application nack as response to meta data interest",System.currentTimeMillis());
             }
             StreamMetaData streamMetaData;
             try {
@@ -673,6 +677,7 @@ public class StreamConsumer {
                         metaDataPacket.getContent().toString(), StreamMetaData.class);
             }
             catch (Exception e) {
+                Logger.logDebugEvent(TAG,LOG_ERROR,"meta data parsing failed for " + metaDataPacket.getName().toString(),System.currentTimeMillis());
                 throw new IllegalStateException("meta data parsing failed for " + metaDataPacket.getName().toString());
             }
 
@@ -686,7 +691,7 @@ public class StreamConsumer {
             }
 
             if (System.currentTimeMillis() > streamMetaData_.recordingStartTime + options_.maxHistoricalStreamFetchTimeMs) {
-                Log.d(TAG, streamName_.toString() + ": " + "stream recorded too far in the past, cancelling stream fetch");
+                Logger.logDebugEvent(TAG, LOG_DEBUG, streamName_.toString() + ": " + "stream recorded too far in the past, cancelling stream fetch",System.currentTimeMillis());
                 streamConsumerHandler_.obtainMessage(MSG_CLOSE_STREAM_RECORDED_TOO_FAR_IN_PAST).sendToTarget();
             }
 
@@ -732,7 +737,7 @@ public class StreamConsumer {
             boolean audioPacketWasAppNack = audioPacket.getMetaInfo().getType() == ContentType.NACK;
             if (audioPacketWasAppNack) {
                 finalBlockId = Helpers.bytesToLong(audioPacket.getContent().getImmutableArray());
-                Log.d(TAG, streamName_.toString() + ": " + "audioPacketWasAppNack, final block id " + finalBlockId);
+                Logger.logDebugEvent(TAG, LOG_DEBUG, streamName_.toString() + ": " + "audioPacketWasAppNack, final block id " + finalBlockId,System.currentTimeMillis());
                 state_.finalBlockId = finalBlockId;
                 streamPlayerBuffer_.receiveFinalSegNum(finalBlockId);
             }
@@ -924,7 +929,7 @@ public class StreamConsumer {
 
             if (firstRealDoSomeWork_) {
 
-                Log.d(TAG, "buffering started");
+                Logger.logDebugEvent(TAG, LOG_DEBUG, "buffering started",System.currentTimeMillis());
                 Logger.logEvent(new Logger.LogEventInfo(Logger.STREAMCONSUMER_BUFFERING_START, System.currentTimeMillis(),
                         0, streamName_.toString(), null));
 
@@ -984,7 +989,7 @@ public class StreamConsumer {
             }
 
             if (finalFrameNumDeadline_ == PLAYBACK_DEADLINE_UNKNOWN) {
-                Log.d(TAG, streamName_.toString() + ": " + "final frame num deadline unknown");
+                Logger.logDebugEvent(TAG, LOG_DEBUG, streamName_.toString() + ": " + "final frame num deadline unknown",System.currentTimeMillis());
                 return;
             }
 
@@ -1001,7 +1006,7 @@ public class StreamConsumer {
                 audioOutputSource_.write(getSilentFrame(), true);
                 printState();
                 // close the entire stream consumer, now that playback is done
-                Log.d(TAG, "closing stream consumer");
+                Logger.logDebugEvent(TAG, LOG_DEBUG, "closing stream consumer",System.currentTimeMillis());
                 streamConsumerHandler_.obtainMessage(MSG_CLOSE_SUCCESS).sendToTarget();
             }
         }
@@ -1016,7 +1021,7 @@ public class StreamConsumer {
             for (int i = 0; i < parsedFramesLength; i++) {
                 byte[] frameData = parsedFrames.get(i);
                 long frameNum = (segNum * streamMetaData_.framesPerSegment) + i;
-                Log.d(TAG, streamName_.toString() + ": " + "got frame " + frameNum);
+                Logger.logDebugEvent(TAG, LOG_DEBUG, streamName_.toString() + ": " + "got frame " + frameNum,System.currentTimeMillis());
                 jitterBuffer_.add(new Frame(frameNum, frameData));
             }
             // to detect end of stream, assume that every batch of frames besides the batch of
@@ -1037,7 +1042,7 @@ public class StreamConsumer {
             if (finalFrameNum_ != FINAL_FRAME_NUM_UNKNOWN) return;
             if (finalSegNum_ != FINAL_SEG_NUM_UNKNOWN) return;
 
-            Log.d(TAG, streamName_.toString() + ": " + "receiveFinalSegNum: " + finalSegNum);
+            Logger.logDebugEvent(TAG, LOG_DEBUG, streamName_.toString() + ": " + "receiveFinalSegNum: " + finalSegNum,System.currentTimeMillis());
 
             finalSegNum_ = finalSegNum;
             // calculate the finalFrameNumDeadline_ based on the assumption that the last segment

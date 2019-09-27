@@ -13,8 +13,11 @@ import android.util.Log;
 import androidx.appcompat.widget.AppCompatSeekBar;
 
 import com.example.ndnpttv2.R;
+import com.example.ndnpttv2.util.Logger;
 
 import net.named_data.jndn.Name;
+
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_DEBUG;
 
 public class CustomProgressBar extends AppCompatSeekBar {
 
@@ -45,7 +48,7 @@ public class CustomProgressBar extends AppCompatSeekBar {
     }
 
     public void setTotalSegments(int totalSegments) {
-        Log.d(TAG, "total segments changed (new value " + totalSegments + ")");
+        Logger.logDebugEvent(TAG, LOG_DEBUG,"total segments changed (new value " + totalSegments + ")",System.currentTimeMillis());
         totalSegments_ = totalSegments;
 
         ArrayList<Integer> oldColors = new ArrayList<>();

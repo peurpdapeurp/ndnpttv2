@@ -8,6 +8,7 @@ import android.util.Log;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.AdtsExtractorFactory;
 import com.example.ndnpttv2.back_end.pq_module.stream_player.exoplayer_customization.InputStreamDataSource;
 import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
+import com.example.ndnpttv2.util.Logger;
 import com.google.android.exoplayer2.DefaultLoadControl;
 import com.google.android.exoplayer2.ExoPlaybackException;
 import com.google.android.exoplayer2.ExoPlayer;
@@ -22,6 +23,7 @@ import com.pploder.events.SimpleEvent;
 import net.named_data.jndn.Name;
 
 import static com.example.ndnpttv2.back_end.Constants.NO_PROGRESS_TRACKER_ID;
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_ERROR;
 
 public class StreamPlayer {
 
@@ -85,7 +87,7 @@ public class StreamPlayer {
 
             @Override
             public void onPlayerError(ExoPlaybackException error) {
-                Log.e(TAG, "ExoPlayer had error: " + error.getMessage());
+                Logger.logDebugEvent(TAG,LOG_ERROR, "ExoPlayer had error: " + error.getMessage(),System.currentTimeMillis());
                 close();
                 eventPlayingCompleted.trigger(new ProgressEventInfo(progressTrackerId_, streamName_, 0, null));
             }

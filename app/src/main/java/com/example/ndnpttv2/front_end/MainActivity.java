@@ -38,6 +38,8 @@ import net.named_data.jndn.Name;
 import net.named_data.jndn.encoding.EncodingException;
 
 import static android.widget.Toast.LENGTH_SHORT;
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_DEBUG;
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_ERROR;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -103,6 +105,7 @@ public class MainActivity extends AppCompatActivity {
         public int consumerMediaDataTimeoutMs;
         public int consumerMetaDataTimeoutMs;
         public String accessPointIpAddress;
+        public boolean debugLoggingEnabled;
     }
 
     @SuppressLint("HandlerLeak")
@@ -163,7 +166,7 @@ public class MainActivity extends AppCompatActivity {
                         handler_.obtainMessage(MSG_BUTTON_RECORD_REQUEST_STOP).sendToTarget();
                     }
                 } else {
-                    Log.e(TAG, "pttButtonPressReceiverListener_ unexpected intent: " + intent.getAction());
+                    Logger.logDebugEvent(TAG,LOG_ERROR, "pttButtonPressReceiverListener_ unexpected intent: " + intent.getAction(),System.currentTimeMillis());
                 }
             }
         };
@@ -175,7 +178,7 @@ public class MainActivity extends AppCompatActivity {
             public void handleMessage(@NonNull Message msg) {
                 switch (msg.what) {
                     case MSG_NETWORK_THREAD_INITIALIZED: {
-                        Log.d(TAG, "Network thread eventInitialized");
+                        Logger.logDebugEvent(TAG, LOG_DEBUG,"Network thread eventInitialized",System.currentTimeMillis());
                         NetworkThread.Info networkThreadInfo = (NetworkThread.Info) msg.obj;
 
                         appState_ = new AppState();
@@ -310,8 +313,10 @@ public class MainActivity extends AppCompatActivity {
                         playbackQueueModule_.notifyRefetchRequest(streamName);
                         break;
                     }
-                    default:
+                    default: {
+                        Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected msg.what " + msg.what,System.currentTimeMillis());
                         throw new IllegalStateException("unexpected msg.what " + msg.what);
+                    }
                 }
             }
         };
@@ -340,6 +345,9 @@ public class MainActivity extends AppCompatActivity {
         settings_.consumerMediaDataTimeoutMs = Integer.parseInt(configInfo[IntentInfo.CONSUMER_MEDIA_DATA_TIMEOUT_MS]);
         settings_.consumerMetaDataTimeoutMs = Integer.parseInt(configInfo[IntentInfo.CONSUMER_META_DATA_TIMEOUT_MS]);
         settings_.accessPointIpAddress = configInfo[IntentInfo.ACCESS_POINT_IP_ADDRESS];
+        settings_.debugLoggingEnabled = Boolean.parseBoolean(configInfo[IntentInfo.DEBUG_LOGGING_ENABLED_SETTING]);
+
+        Logger.initialize(this, System.currentTimeMillis(), getMainLooper(), settings_.debugLoggingEnabled);
 
         Logger.logEvent(new Logger.LogEventInfo(Logger.APP_INIT, System.currentTimeMillis(), 0, settings_, null));
 
@@ -352,7 +360,8 @@ public class MainActivity extends AppCompatActivity {
                 getString(R.string.consumer_jitter_buffer_size_label) + " " + configInfo[IntentInfo.CONSUMER_JITTER_BUFFER_SIZE] + "\n" +
                 getString(R.string.consumer_max_historical_stream_fetch_time_ms_label) + " " + configInfo[IntentInfo.CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS] + "\n" +
                 getString(R.string.consumer_media_data_timeout_ms_label) + " " + configInfo[IntentInfo.CONSUMER_MEDIA_DATA_TIMEOUT_MS] + "\n" +
-                getString(R.string.consumer_meta_data_timeout_ms_label) + " " + configInfo[IntentInfo.CONSUMER_META_DATA_TIMEOUT_MS];
+                getString(R.string.consumer_meta_data_timeout_ms_label) + " " + configInfo[IntentInfo.CONSUMER_META_DATA_TIMEOUT_MS] + "\n" +
+                        getString(R.string.debug_logging_enabled_label) + " " + configInfo[IntentInfo.DEBUG_LOGGING_ENABLED_SETTING];
         settingsDisplay_.setText(settingsString);
 
         applicationBroadcastPrefix_ = new Name(getString(R.string.broadcast_prefix))

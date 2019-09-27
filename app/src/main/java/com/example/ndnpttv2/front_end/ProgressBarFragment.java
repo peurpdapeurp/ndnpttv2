@@ -10,27 +10,27 @@ import androidx.fragment.app.Fragment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.example.ndnpttv2.R;
-import com.example.ndnpttv2.back_end.structs.ChannelUserSession;
 import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
 import com.example.ndnpttv2.back_end.structs.SyncStreamInfo;
 import com.example.ndnpttv2.front_end.custom_progress_bar.CustomProgressBar;
 import com.example.ndnpttv2.util.Helpers;
+import com.example.ndnpttv2.util.Logger;
 import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
 
 import net.named_data.jndn.Name;
 
 import java.util.concurrent.LinkedTransferQueue;
+
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_DEBUG;
 
 public abstract class ProgressBarFragment extends Fragment {
 
@@ -78,7 +78,7 @@ public abstract class ProgressBarFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
 
-        Log.d(TAG, "onCreateView");
+        Logger.logDebugEvent(TAG, LOG_DEBUG,"onCreateView",System.currentTimeMillis());
         View view =  inflater.inflate(R.layout.fragment_progress_bar, container, false);
 
         nameDisplay_ = (TextView) view.findViewById(R.id.name_display);

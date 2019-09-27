@@ -14,8 +14,11 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 
 import com.example.ndnpttv2.R;
+import com.example.ndnpttv2.util.Logger;
 
 import java.util.ArrayList;
+
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_ERROR;
 
 public class ProgressBarListFragment extends Fragment {
 
@@ -81,7 +84,7 @@ public class ProgressBarListFragment extends Fragment {
             transaction.commit();
         }
         catch (IllegalStateException e) {
-            Log.e(TAG, "Failed to add progress bar for " + progressBarFragment.getStreamName().toString() + " to UI, error: " + e.getMessage());
+            Logger.logDebugEvent(TAG, LOG_ERROR, "Failed to add progress bar for " + progressBarFragment.getStreamName().toString() + " to UI, error: " + e.getMessage(),System.currentTimeMillis());
             return;
         }
 

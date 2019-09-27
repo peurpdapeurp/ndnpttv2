@@ -5,6 +5,7 @@ import android.os.ParcelFileDescriptor;
 
 import androidx.annotation.Nullable;
 
+import com.example.ndnpttv2.util.Logger;
 import com.example.ndnpttv2.util.Pipe;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.upstream.BaseDataSource;
@@ -13,6 +14,8 @@ import com.google.android.exoplayer2.upstream.DataSpec;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_ERROR;
 
 public class InputStreamDataSource extends BaseDataSource {
 
@@ -42,6 +45,9 @@ public class InputStreamDataSource extends BaseDataSource {
         transferInitializing(dataSpec);
         readPosition_ = (int) dataSpec.position;
         if (dataSpec.length != C.LENGTH_UNSET) {
+            Logger.logDebugEvent(TAG,LOG_ERROR,"The length of the data spec should not be set for an input " +
+                    "stream data source; the total amount of data is unknown at " +
+                    "open time.",System.currentTimeMillis());
             throw new IOException("The length of the data spec should not be set for an input " +
                     "stream data source; the total amount of data is unknown at " +
                     "open time.");

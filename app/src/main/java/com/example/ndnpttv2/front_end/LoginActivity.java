@@ -18,6 +18,7 @@ import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.Toast;
@@ -39,6 +40,7 @@ public class LoginActivity extends AppCompatActivity {
     private final int DEFAULT_CONSUMER_MEDIA_DATA_TIMEOUT_MS = 5000;
     private final int DEFAULT_CONSUMER_META_DATA_TIMEOUT_MS = 5000;
     private final String DEFAULT_ACCESS_POINT_IP_ADDRESS = "1.1.1.1";
+    private final boolean DEFAULT_DEBUG_LOGGING_ENABLED_SETTING = false;
 
     private EditText channelInput_;
     private EditText nameInput_;
@@ -49,6 +51,7 @@ public class LoginActivity extends AppCompatActivity {
     private EditText consumerMediaDataTimeoutMsInput_;
     private EditText consumerMetaDataTimeoutMsInput_;
     private EditText accessPointIpAddressInput_;
+    private CheckBox debugLoggingEnabledInput_;
     private Button okButton_;
 
     private Toast currentErrorToast_;
@@ -65,14 +68,13 @@ public class LoginActivity extends AppCompatActivity {
     private static String CONSUMER_MEDIA_DATA_TIMEOUT_MS = "CONSUMER_MEDIA_DATA_TIMEOUT_MS";
     private static String CONSUMER_META_DATA_TIMEOUT_MS = "CONSUMER_META_DATA_TIMEOUT_MS";
     private static String ACCESS_POINT_IP_ADDRESS = "ACCESS_POINT_IP_ADDRESS";
+    private static String DEBUG_LOGGING_ENABLED_SETTING = "DEBUG_LOGGING_ENABLED_SETTING";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
-
-        Logger.initialize(this, System.currentTimeMillis(), getMainLooper());
 
         spinnerIndexToSamplingRate_ = new HashMap<>();
         for (int i = 0; i < SAMPLING_RATE_OPTIONS.length; i++) {
@@ -91,6 +93,7 @@ public class LoginActivity extends AppCompatActivity {
         consumerMediaDataTimeoutMsInput_ = (EditText) findViewById(R.id.consumer_media_data_timeout_ms_input);
         consumerMetaDataTimeoutMsInput_ = (EditText) findViewById(R.id.consumer_meta_data_timeout_ms_input);
         accessPointIpAddressInput_ = (EditText) findViewById(R.id.access_point_ip_address_input);
+        debugLoggingEnabledInput_ = (CheckBox) findViewById(R.id.debug_logging_enabled_input);
 
         okButton_ = (Button) findViewById(R.id.ok_button);
 
@@ -117,6 +120,7 @@ public class LoginActivity extends AppCompatActivity {
                 Integer.toString(mPreferences.getInt(CONSUMER_META_DATA_TIMEOUT_MS,
                         DEFAULT_CONSUMER_META_DATA_TIMEOUT_MS)));
         accessPointIpAddressInput_.setText(mPreferences.getString(ACCESS_POINT_IP_ADDRESS, DEFAULT_ACCESS_POINT_IP_ADDRESS));
+        debugLoggingEnabledInput_.setChecked(mPreferences.getBoolean(DEBUG_LOGGING_ENABLED_SETTING, DEFAULT_DEBUG_LOGGING_ENABLED_SETTING));
 
         okButton_.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -167,8 +171,8 @@ public class LoginActivity extends AppCompatActivity {
                     showErrorToast("Please enter a valid consumer meta data timeout.");
                     return;
                 }
-
                 String accessPointIpAddress = accessPointIpAddressInput_.getText().toString().trim();
+                boolean debugLoggingEnabled = debugLoggingEnabledInput_.isChecked();
 
                 if (channel.equals("")) {
                     showErrorToast("Please enter a valid channel name.");
@@ -213,10 +217,11 @@ public class LoginActivity extends AppCompatActivity {
                 mPreferencesEditor.putInt(CONSUMER_MEDIA_DATA_TIMEOUT_MS, consumerMediaDataTimeoutMs).commit();
                 mPreferencesEditor.putInt(CONSUMER_META_DATA_TIMEOUT_MS, consumerMetaDataTimeoutMs).commit();
                 mPreferencesEditor.putString(ACCESS_POINT_IP_ADDRESS, accessPointIpAddress).commit();
+                mPreferencesEditor.putBoolean(DEBUG_LOGGING_ENABLED_SETTING, debugLoggingEnabled).commit();
 
                 Intent intent = new Intent(LoginActivity.this, MainActivity.class);
 
-                String[] configInfo = new String[9];
+                String[] configInfo = new String[10];
                 configInfo[IntentInfo.CHANNEL_NAME] = channel;
                 configInfo[IntentInfo.USER_NAME] = name;
                 configInfo[IntentInfo.PRODUCER_SAMPLING_RATE] = Integer.toString(SAMPLING_RATE_OPTIONS[producerSamplingRateIndex]);
@@ -226,6 +231,7 @@ public class LoginActivity extends AppCompatActivity {
                 configInfo[IntentInfo.CONSUMER_MEDIA_DATA_TIMEOUT_MS] = Integer.toString(consumerMediaDataTimeoutMs);
                 configInfo[IntentInfo.CONSUMER_META_DATA_TIMEOUT_MS] = Integer.toString(consumerMetaDataTimeoutMs);
                 configInfo[IntentInfo.ACCESS_POINT_IP_ADDRESS] = accessPointIpAddress;
+                configInfo[IntentInfo.DEBUG_LOGGING_ENABLED_SETTING] = Boolean.toString(debugLoggingEnabled);
                 intent.putExtra(IntentInfo.LOGIN_CONFIG, configInfo);
 
                 setResult(RESULT_OK, intent);

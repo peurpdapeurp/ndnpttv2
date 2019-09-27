@@ -6,11 +6,16 @@ import com.example.ndnpttv2.back_end.structs.SyncStreamInfo;
 import net.named_data.jndn.Name;
 import net.named_data.jndn.encoding.EncodingException;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.nio.ByteBuffer;
 
 import static com.example.ndnpttv2.back_end.Constants.META_DATA_MARKER;
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_ERROR;
 
 public class Helpers {
+
+    private static final String TAG = "Helpers";
 
     public static SyncStreamInfo getSyncStreamInfo(Name streamName) {
         ChannelUserSession channelUserSession = getChannelUserSession(streamName);
@@ -22,6 +27,7 @@ public class Helpers {
                     streamName.get(-1).toSequenceNumber()
             );
         } catch (EncodingException e) {
+            Logger.logDebugEvent(TAG,LOG_ERROR,getExceptionStackTrace(e),System.currentTimeMillis());
             e.printStackTrace();
             throw new IllegalStateException("failed to get sequence number from stream name " + streamName.toString());
         }
@@ -82,6 +88,12 @@ public class Helpers {
             hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
         }
         return new String(hexChars);
+    }
+
+    public static String getExceptionStackTrace(Exception e) {
+        StringWriter sw = new StringWriter();
+        e.printStackTrace(new PrintWriter(sw));
+        return sw.toString();
     }
 
 }

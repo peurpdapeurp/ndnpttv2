@@ -11,7 +11,6 @@ import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
 import com.example.ndnpttv2.back_end.structs.StreamInfo;
 import com.example.ndnpttv2.back_end.threads.NetworkThread;
 import com.example.ndnpttv2.back_end.rec_module.stream_producer.StreamProducer;
-import com.example.ndnpttv2.util.Helpers;
 import com.example.ndnpttv2.util.Logger;
 import com.pploder.events.Event;
 import com.pploder.events.SimpleEvent;
@@ -19,6 +18,9 @@ import com.pploder.events.SimpleEvent;
 import net.named_data.jndn.Name;
 
 import java.util.HashMap;
+
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_DEBUG;
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_ERROR;
 
 public class RecorderModule {
 
@@ -98,11 +100,12 @@ public class RecorderModule {
 
                 switch (msg.what) {
                     case MSG_RECORDING_COMPLETE: {
-                        Log.d(TAG, "recording of stream " + streamName.toString() + " finished");
+                        Logger.logDebugEvent(TAG, LOG_DEBUG, "recording of stream " + streamName.toString() + " finished",System.currentTimeMillis());
                         appState_.stopRecording();
                         break;
                     }
                     default: {
+                        Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected msg.what " + msg.what,System.currentTimeMillis());
                         throw new IllegalStateException("unexpected msg.what " + msg.what);
                     }
                 }
@@ -113,26 +116,26 @@ public class RecorderModule {
             @Override
             public void handleMessage(@NonNull Message msg) {
 
-                Log.d(TAG, "got message " + msg.what);
+                Logger.logDebugEvent(TAG, LOG_DEBUG, "got message " + msg.what,System.currentTimeMillis());
 
                 switch (msg.what) {
                     case MSG_RECORD_REQUEST_START: {
                         if (appState_.isRecording()) {
-                            Log.e(TAG, "Got request to record while already recording, ignoring request.");
+                            Logger.logDebugEvent(TAG,LOG_ERROR, "Got request to record while already recording, ignoring request.",System.currentTimeMillis());
                             eventRecordingStartRequestIgnored.trigger();
                             Logger.logEvent(new Logger.LogEventInfo(Logger.RECMODULE_RECORD_REQUEST_START, System.currentTimeMillis(),
                                     REQUEST_INVALID, null, null));
                             return;
                         }
                         if (appState_.isPlaying()) {
-                            Log.e(TAG, "Got request to record while PlaybackQueueModule was playing, ignoring request.");
+                            Logger.logDebugEvent(TAG,LOG_ERROR, "Got request to record while PlaybackQueueModule was playing, ignoring request.",System.currentTimeMillis());
                             eventRecordingStartRequestIgnored.trigger();
                             Logger.logEvent(new Logger.LogEventInfo(Logger.RECMODULE_RECORD_REQUEST_START, System.currentTimeMillis(),
                                     REQUEST_INVALID, null, null));
                             return;
                         }
 
-                        Log.d(TAG, "Got valid request to start recording, last stream id " + lastStreamId_);
+                        Logger.logDebugEvent(TAG, LOG_DEBUG, "Got valid request to start recording, last stream id " + lastStreamId_,System.currentTimeMillis());
 
                         lastStreamId_++;
 
@@ -176,13 +179,14 @@ public class RecorderModule {
                         break;
                     }
                     default: {
+                        Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected msg.what " + msg.what,System.currentTimeMillis());
                         throw new IllegalStateException("unexpected msg.what " + msg.what);
                     }
                 }
             }
         };
 
-        Log.d(TAG, "RecorderModule constructed.");
+        Logger.logDebugEvent(TAG, LOG_DEBUG, "RecorderModule constructed.",System.currentTimeMillis());
 
     }
 

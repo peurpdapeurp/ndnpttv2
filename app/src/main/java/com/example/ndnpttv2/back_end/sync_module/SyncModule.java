@@ -33,6 +33,8 @@ import java.util.List;
 import java.util.concurrent.LinkedTransferQueue;
 
 import static com.example.ndnpttv2.back_end.shared_state.PeerStateTable.NO_SEQ_NUMS;
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_DEBUG;
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_ERROR;
 
 public class SyncModule {
 
@@ -89,12 +91,14 @@ public class SyncModule {
                     }
                     case MSG_NEW_STREAM_PRODUCING: {
                         Long seqNum = (Long) msg.obj;
-                        Log.d(TAG, "new stream being produced, seq num " + seqNum);
+                        Logger.logDebugEvent(TAG, LOG_DEBUG, "new stream being produced, seq num " + seqNum,System.currentTimeMillis());
                         network_.newStreamProductionNotifications_.add(seqNum);
                         break;
                     }
-                    default:
+                    default: {
+                        Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected msg.what: " + msg.what,System.currentTimeMillis());
                         throw new IllegalStateException("unexpected msg.what: " + msg.what);
+                    }
                 }
             }
         };
@@ -183,6 +187,8 @@ public class SyncModule {
                 if (seqNum == null) continue;
                 try {
                     if (seqNum != sync_.getSequenceNo() + 1) {
+                        Logger.logDebugEvent(TAG,LOG_ERROR,"got unexpected stream seq num (expected " +
+                                (sync_.getSequenceNo() + 1) + ", got " + seqNum + ")",System.currentTimeMillis());
                         throw new IllegalStateException("got unexpected stream seq num (expected " +
                                 (sync_.getSequenceNo() + 1) + ", got " + seqNum + ")");
                     }
@@ -223,7 +229,7 @@ public class SyncModule {
                             "our appDataPrefix; " + applicationDataPrefix_.toString());
 
                     if (dataPrefixName.equals(applicationDataPrefix_)) {
-                        Log.d(TAG, "got sync state for own user");
+                        Logger.logDebugEvent(TAG, LOG_DEBUG, "got sync state for own user",System.currentTimeMillis());
                         continue;
                     }
 
@@ -258,7 +264,7 @@ public class SyncModule {
                     }
 
                     peerState.highestSeqNum = seqNum;
-                    Log.d(TAG, "highest seq num for " + channelUserSessionKey.toString() + " updated: " + peerState.highestSeqNum);
+                    Logger.logDebugEvent(TAG, LOG_DEBUG, "highest seq num for " + channelUserSessionKey.toString() + " updated: " + peerState.highestSeqNum,System.currentTimeMillis());
 
                 }
 
@@ -275,7 +281,7 @@ public class SyncModule {
 
             HashSet<Long> seqNums = recvdSeqNums_.get(channelUserSessionKey);
             if (seqNums.contains(seqNum)) {
-                Log.d(TAG, "duplicate seq num " + seqNum + " from " + channelUserSessionKey);
+                Logger.logDebugEvent(TAG, LOG_DEBUG, "duplicate seq num " + seqNum + " from " + channelUserSessionKey,System.currentTimeMillis());
                 return true;
             }
             seqNums.add(seqNum);
@@ -285,7 +291,7 @@ public class SyncModule {
         ChronoSync2013.OnInitialized onInitialized = new ChronoSync2013.OnInitialized() {
             @Override
             public void onInitialized() {
-                Log.d(TAG, "sync initialized, initial seq num " + sync_.getSequenceNo());
+                Logger.logDebugEvent(TAG, LOG_DEBUG, "sync initialized, initial seq num " + sync_.getSequenceNo(),System.currentTimeMillis());
                 eventInitialized.trigger();
             }
         };
@@ -293,7 +299,7 @@ public class SyncModule {
         OnRegisterFailed onRegisterFailed = new OnRegisterFailed() {
             @Override
             public void onRegisterFailed(Name prefix) {
-                Log.e(TAG, "registration failed for " + prefix.toString());
+                Logger.logDebugEvent(TAG,LOG_ERROR, "registration failed for " + prefix.toString(),System.currentTimeMillis());
             }
         };
 

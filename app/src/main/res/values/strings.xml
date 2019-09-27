@@ -12,6 +12,7 @@
     <string name="consumer_max_historical_stream_fetch_time_ms_label">[C] Max historical stream fetch time ms:</string>
     <string name="consumer_media_data_timeout_ms_label">[C] Media data timeout ms:</string>
     <string name="consumer_meta_data_timeout_ms_label">[C] Meta data timeout ms:</string>
+    <string name="debug_logging_enabled_label">Debug logging enabled:</string>
     <string name="streams_display_label">Streams:</string>
     <string name="stream_info_display_label">Stream Info:</string>
 </resources>

@@ -1,6 +1,12 @@
 package com.example.ndnpttv2.back_end.shared_state;
 
+import com.example.ndnpttv2.util.Logger;
+
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_ERROR;
+
 public class AppState {
+
+    private static final String TAG = "AppState";
 
     boolean currentlyRecording_ = false;
     boolean currentlyPlaying_ = false;
@@ -14,8 +20,10 @@ public class AppState {
     }
 
     public void startRecording() {
-        if (currentlyPlaying_)
+        if (currentlyPlaying_) {
+            Logger.logDebugEvent(TAG,LOG_ERROR,"Tried to start recording while playing.",System.currentTimeMillis());
             throw new IllegalStateException("Tried to start recording while playing.");
+        }
         currentlyRecording_ = true;
     }
 
@@ -24,8 +32,10 @@ public class AppState {
     }
 
     public void startPlaying() {
-        if (currentlyRecording_)
+        if (currentlyRecording_) {
+            Logger.logDebugEvent(TAG,LOG_ERROR,"Tried to start playing while recording.",System.currentTimeMillis());
             throw new IllegalStateException("Tried to start playing while recording.");
+        }
         currentlyPlaying_ = true;
     }
 

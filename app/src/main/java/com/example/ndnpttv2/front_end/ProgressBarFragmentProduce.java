@@ -16,10 +16,13 @@ import com.example.ndnpttv2.back_end.structs.ProgressEventInfo;
 import com.example.ndnpttv2.back_end.structs.StreamInfo;
 import com.example.ndnpttv2.back_end.rec_module.RecorderModule;
 import com.example.ndnpttv2.back_end.rec_module.stream_producer.StreamProducer;
+import com.example.ndnpttv2.util.Logger;
 
 import net.named_data.jndn.Name;
 
 import java.text.SimpleDateFormat;
+
+import static com.example.ndnpttv2.util.Logger.DebugInfo.LOG_ERROR;
 
 public class ProgressBarFragmentProduce extends ProgressBarFragment {
 
@@ -110,6 +113,7 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
                 break;
             }
             default: {
+                Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected msg.what " + msg.what,System.currentTimeMillis());
                 throw new IllegalStateException("unexpected msg.what " + msg.what);
             }
         }
@@ -179,6 +183,7 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
                 break;
             }
             default: {
+                Logger.logDebugEvent(TAG,LOG_ERROR,"unexpected msg_what " + msg_what,System.currentTimeMillis());
                 throw new IllegalStateException("unexpected msg_what " + msg_what);
             }
         }
@@ -196,10 +201,10 @@ public class ProgressBarFragmentProduce extends ProgressBarFragment {
             progressBar_.render();
         }
         catch (NullPointerException e) {
-            Log.e(TAG, "failed to render for " + (streamName_ == null ? "?" : streamName_.toString()) + ", error: " + e.getMessage());
+            Logger.logDebugEvent(TAG,LOG_ERROR, "failed to render for " + (streamName_ == null ? "?" : streamName_.toString()) + ", error: " + e.getMessage(),System.currentTimeMillis());
         }
         catch (IllegalStateException e) {
-            Log.e(TAG, "failed to render for " + (streamName_ == null ? "?" : streamName_.toString()) + ", error: " + e.getMessage());
+            Logger.logDebugEvent(TAG,LOG_ERROR, "failed to render for " + (streamName_ == null ? "?" : streamName_.toString()) + ", error: " + e.getMessage(),System.currentTimeMillis());
         }
     }
 }

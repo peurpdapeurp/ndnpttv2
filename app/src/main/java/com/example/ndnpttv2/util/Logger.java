@@ -30,10 +30,13 @@ public class Logger {
 
     private static File logFile_;
     private static File debugLogFile_;
+    private static File errorLogFile_;
     private static OutputStream logFileOutputStream_;
     private static OutputStream debugLogFileOutputStream_;
+    private static OutputStream errorLogFileOutputStream_;
     private static Handler handler_;
     private static boolean debugLoggingEnabled_;
+    private static boolean errorLoggingEnabled_;
 
     // Logged event types
     public static final String APP_INIT = "APP_INIT";
@@ -86,8 +89,9 @@ public class Logger {
     }
 
     public static void initialize(Context ctx, long start_time, Looper mainThreadLooper,
-                                  boolean debugLoggingEnabled) {
+                                  boolean debugLoggingEnabled, boolean errorLoggingEnabled) {
         debugLoggingEnabled_ = debugLoggingEnabled;
+        errorLoggingEnabled_ = errorLoggingEnabled;
         java.util.Date d = new java.util.Date(start_time);
         String timeStr = new SimpleDateFormat("dd-MMM HH:mm:ss.SSS").format(d);
         logFile_ = new File(ctx.getExternalCacheDir().getAbsolutePath() + "/" + timeStr + ".log");
@@ -98,12 +102,21 @@ public class Logger {
             throw new IllegalStateException("unable to create log file " + logFile_.getAbsolutePath());
         }
         if (debugLoggingEnabled_) {
-            debugLogFile_ = new File(ctx.getExternalCacheDir().getAbsolutePath() + "/" + "debug-" + timeStr + ".log");
+            debugLogFile_ = new File(ctx.getExternalCacheDir().getAbsolutePath() + "/" + timeStr + ".debug");
             try {
                 debugLogFileOutputStream_ = new FileOutputStream(debugLogFile_);
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
                 throw new IllegalStateException("unable to create debug log file " + debugLogFile_.getAbsolutePath());
+            }
+        }
+        if (errorLoggingEnabled_) {
+            errorLogFile_ = new File(ctx.getExternalCacheDir().getAbsolutePath() + "/" + timeStr + ".error");
+            try {
+                errorLogFileOutputStream_ = new FileOutputStream(errorLogFile_);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+                throw new IllegalStateException("unable to create error log file " + errorLogFile_.getAbsolutePath());
             }
         }
         handler_ = new Handler(mainThreadLooper) {
@@ -133,14 +146,26 @@ public class Logger {
     }
 
     public static void logDebugEvent(String TAG, String type, String msg, long timestamp) {
-        if (debugLoggingEnabled_) {
-            if (type.equals(DebugInfo.LOG_DEBUG)) {
+        switch (type) {
+            case DebugInfo.LOG_DEBUG: {
                 Log.d(TAG, msg);
-            } else if (type.equals(DebugInfo.LOG_ERROR)) {
-                Log.e(TAG, msg);
+                if (debugLoggingEnabled_) {
+                    handler_.obtainMessage(MSG_DEBUG_LOG_EVENT, new DebugInfo(TAG, type, msg, timestamp)).sendToTarget();
+                }
+                break;
             }
-            handler_.obtainMessage(MSG_DEBUG_LOG_EVENT, new DebugInfo(TAG, type, msg, timestamp)).sendToTarget();
+            case DebugInfo.LOG_ERROR: {
+                Log.e(TAG, msg);
+                if (errorLoggingEnabled_) {
+                    handler_.obtainMessage(MSG_DEBUG_LOG_EVENT, new DebugInfo(TAG, type, msg, timestamp)).sendToTarget();
+                }
+                break;
+            }
+            default: {
+                throw new IllegalStateException("unexpected debug log type " + type);
+            }
         }
+
     }
 
     private static void logEventInternal(LogEventInfo logEventInfo) {
@@ -276,12 +301,30 @@ public class Logger {
 
     private static void logDebugEventInternal(DebugInfo debugInfo) {
         String debugString = debugInfo.timestamp + "," + debugInfo.TAG + "," + debugInfo.type + ": " + debugInfo.msg;
-        try {
-            debugLogFileOutputStream_.write(debugString.getBytes());
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new IllegalStateException("failed to write to debug log file " + debugLogFile_.getAbsolutePath());
+        switch (debugInfo.type) {
+            case DebugInfo.LOG_DEBUG: {
+                try {
+                    debugLogFileOutputStream_.write(debugString.getBytes());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    throw new IllegalStateException("failed to write to debug log file " + debugLogFile_.getAbsolutePath());
+                }
+                break;
+            }
+            case DebugInfo.LOG_ERROR: {
+                try {
+                    errorLogFileOutputStream_.write(debugString.getBytes());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    throw new IllegalStateException("failed to write to error log file " + debugLogFile_.getAbsolutePath());
+                }
+                break;
+            }
+            default: {
+                throw new IllegalStateException("unexpected debug log type " + debugInfo.type);
+            }
         }
+
     }
 
     private static String generateLogMessage(String eventString, long timestamp, ArrayList<String> parameters) {

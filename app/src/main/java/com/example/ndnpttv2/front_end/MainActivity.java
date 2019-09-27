@@ -106,6 +106,7 @@ public class MainActivity extends AppCompatActivity {
         public int consumerMetaDataTimeoutMs;
         public String accessPointIpAddress;
         public boolean debugLoggingEnabled;
+        public boolean errorLoggingEnabled;
     }
 
     @SuppressLint("HandlerLeak")
@@ -346,8 +347,9 @@ public class MainActivity extends AppCompatActivity {
         settings_.consumerMetaDataTimeoutMs = Integer.parseInt(configInfo[IntentInfo.CONSUMER_META_DATA_TIMEOUT_MS]);
         settings_.accessPointIpAddress = configInfo[IntentInfo.ACCESS_POINT_IP_ADDRESS];
         settings_.debugLoggingEnabled = Boolean.parseBoolean(configInfo[IntentInfo.DEBUG_LOGGING_ENABLED_SETTING]);
+        settings_.errorLoggingEnabled = Boolean.parseBoolean(configInfo[IntentInfo.ERROR_LOGGING_ENABLED_SETTING]);
 
-        Logger.initialize(this, System.currentTimeMillis(), getMainLooper(), settings_.debugLoggingEnabled);
+        Logger.initialize(this, System.currentTimeMillis(), getMainLooper(), settings_.debugLoggingEnabled, settings_.errorLoggingEnabled);
 
         Logger.logEvent(new Logger.LogEventInfo(Logger.APP_INIT, System.currentTimeMillis(), 0, settings_, null));
 
@@ -361,7 +363,8 @@ public class MainActivity extends AppCompatActivity {
                 getString(R.string.consumer_max_historical_stream_fetch_time_ms_label) + " " + configInfo[IntentInfo.CONSUMER_MAX_HISTORICAL_STREAM_FETCH_TIME_MS] + "\n" +
                 getString(R.string.consumer_media_data_timeout_ms_label) + " " + configInfo[IntentInfo.CONSUMER_MEDIA_DATA_TIMEOUT_MS] + "\n" +
                 getString(R.string.consumer_meta_data_timeout_ms_label) + " " + configInfo[IntentInfo.CONSUMER_META_DATA_TIMEOUT_MS] + "\n" +
-                        getString(R.string.debug_logging_enabled_label) + " " + configInfo[IntentInfo.DEBUG_LOGGING_ENABLED_SETTING];
+                        getString(R.string.debug_logging_enabled_label) + " " + configInfo[IntentInfo.DEBUG_LOGGING_ENABLED_SETTING] + "\n" +
+                getString(R.string.error_logging_enabled_label) + " " + configInfo[IntentInfo.ERROR_LOGGING_ENABLED_SETTING];
         settingsDisplay_.setText(settingsString);
 
         applicationBroadcastPrefix_ = new Name(getString(R.string.broadcast_prefix))

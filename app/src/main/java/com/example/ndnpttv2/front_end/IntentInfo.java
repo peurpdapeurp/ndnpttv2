@@ -13,7 +13,8 @@ public class IntentInfo {
         CONSUMER_MEDIA_DATA_TIMEOUT_MS = 6,
         CONSUMER_META_DATA_TIMEOUT_MS = 7,
         ACCESS_POINT_IP_ADDRESS = 8,
-        DEBUG_LOGGING_ENABLED_SETTING = 9;
+        DEBUG_LOGGING_ENABLED_SETTING = 9,
+        ERROR_LOGGING_ENABLED_SETTING = 10;
     public static String
             LOGIN_CONFIG = "LOGIN_CONFIG";
 
